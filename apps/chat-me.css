@@ -8,20 +8,22 @@
   --ctme-text: #111111;
   --ctme-muted: #8e8e93;
   --ctme-divider: rgba(0, 0, 0, 0.06);
+  background: #ffffff !important;
 }
 
 #app-chat .ct-app.is-me-tab .ct-topbar {
   display: none;
 }
 
-#app-chat .ct-app.is-me-tab #ctMainScroll {
-  background: var(--ctme-bg);
+#app-chat .ct-app.is-me-tab #ctMainScroll,
+#app-chat .ct-app.is-me-tab #ctMainScroll.is-gray {
+  background: #ffffff !important;
   padding: 0;
 }
 
 .ctme-wrap {
   min-height: 100%;
-  background: var(--ctme-bg);
+  background: #ffffff;
   padding-bottom: 96px;
 }
 
