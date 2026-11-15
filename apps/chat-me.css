@@ -1,12 +1,13 @@
 /* =========================================================
-   Chat 我的页（仿微信「我」独立模块，无小卡片、去顶部「我的」栏）
+   Chat 我的页（仿微信「我」独立模块，纯白主背景 + 上缘对齐 + p2 彩色图标）
    ========================================================= */
 #app-chat .ct-app.is-me-tab {
-  --ctme-bg: #f2f2f7;
+  --ctme-bg: #ffffff;
   --ctme-row-bg: #ffffff;
+  --ctme-gap-bg: #f7f7f7;
   --ctme-text: #111111;
   --ctme-muted: #8e8e93;
-  --ctme-divider: rgba(0, 0, 0, 0.07);
+  --ctme-divider: rgba(0, 0, 0, 0.06);
 }
 
 #app-chat .ct-app.is-me-tab .ct-topbar {
@@ -26,7 +27,7 @@
 
 .ctme-profile {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 14px;
   padding: calc(env(safe-area-inset-top) + 26px) 18px 24px;
   background: var(--ctme-row-bg);
@@ -54,15 +55,25 @@
   display: block;
 }
 
+.ctme-profile-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding-top: 1px;
+}
+
 .ctme-name {
   font-size: calc(var(--app-font-size, 15px) + 4px);
   font-weight: 600;
+  line-height: 1.15;
   color: var(--ctme-text);
 }
 
 .ctme-gap {
   height: 8px;
-  background: var(--ctme-bg);
+  background: var(--ctme-gap-bg);
 }
 
 .ctme-list {
@@ -79,7 +90,7 @@
 }
 
 .ctme-row:active {
-  background: #f2f2f7;
+  background: #f7f7f7;
 }
 
 .ctme-row::after {
@@ -105,12 +116,11 @@
 }
 
 .ctme-row-icon {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--ctme-text);
   flex-shrink: 0;
 }
 
