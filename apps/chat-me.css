@@ -1,0 +1,121 @@
+/* =========================================================
+   Chat 我的页（仿微信「我」独立模块，无小卡片、去顶部「我的」栏）
+   ========================================================= */
+#app-chat .ct-app.is-me-tab {
+  --ctme-bg: #f2f2f7;
+  --ctme-row-bg: #ffffff;
+  --ctme-text: #111111;
+  --ctme-muted: #8e8e93;
+  --ctme-divider: rgba(0, 0, 0, 0.07);
+}
+
+#app-chat .ct-app.is-me-tab .ct-topbar {
+  display: none;
+}
+
+#app-chat .ct-app.is-me-tab #ctMainScroll {
+  background: var(--ctme-bg);
+  padding: 0;
+}
+
+.ctme-wrap {
+  min-height: 100%;
+  background: var(--ctme-bg);
+  padding-bottom: 96px;
+}
+
+.ctme-profile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: calc(env(safe-area-inset-top) + 26px) 18px 24px;
+  background: var(--ctme-row-bg);
+}
+
+.ctme-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  background: #f2f2f7;
+  color: var(--ctme-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.ctme-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ctme-name {
+  font-size: calc(var(--app-font-size, 15px) + 4px);
+  font-weight: 600;
+  color: var(--ctme-text);
+}
+
+.ctme-gap {
+  height: 8px;
+  background: var(--ctme-bg);
+}
+
+.ctme-list {
+  background: var(--ctme-row-bg);
+}
+
+.ctme-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 16px;
+  background: var(--ctme-row-bg);
+}
+
+.ctme-row:active {
+  background: #f2f2f7;
+}
+
+.ctme-row::after {
+  content: "";
+  position: absolute;
+  left: 50px;
+  right: 0;
+  bottom: 0;
+  height: 0.5px;
+  background: var(--ctme-divider);
+}
+
+.ctme-row:last-child::after {
+  display: none;
+}
+
+.ctme-row-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--ctme-text);
+  font-size: calc(var(--app-font-size, 15px) + 1px);
+}
+
+.ctme-row-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ctme-text);
+  flex-shrink: 0;
+}
+
+.ctme-row-arrow {
+  color: #c7c7cc;
+  display: flex;
+  align-items: center;
+}
