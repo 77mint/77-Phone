@@ -80,7 +80,10 @@
 
 .ctme-list {
   background: var(--ctme-row-bg);
-  border-bottom: 0.5px solid var(--ctme-divider);
+}
+
+.ctme-list:last-child {
+  border-bottom: 8px solid var(--ctme-gap-bg);
 }
 
 .ctme-row {
