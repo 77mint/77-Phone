@@ -1,6 +1,6 @@
 /* =========================================================
    Chat 聊天室长按消息菜单（独立模块，不改动 apps/chat.js / apps/chat.css）
-   - 包含：引用 / 转发 / 收藏 / 编辑 / 重roll / 隐藏（计入上下文）/ 删除（不计入上下文）
+   - 包含：复制 / 转发 / 收藏 / 删除 / 多选 / 引用 / 编辑 / 重roll / 隐藏
    ========================================================= */
 (function () {
   var STORAGE_THREADS_KEY = 'chat_threads_v1';
@@ -10,12 +10,17 @@
   var activeThreadId = '';
   var targetMsgId = '';
   var targetGroupEl = null;
+  var multiSelectMode = false;
+  var selectedIds = [];
+  var pendingForwardMsgs = [];
+
+  var SVG_CHECK = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 
   var ITEMS = [
     {
-      id: 'quote',
-      label: '引用',
-      icon: '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#ffffff"/><path d="M8.4 13.8c0-2 .9-3.4 2.4-4l.6 1.1c-.9.5-1.3 1.2-1.3 2h1.2v2.4H8.4v-1.5Zm4.8 0c0-2 .9-3.4 2.4-4l.6 1.1c-.9.5-1.3 1.2-1.3 2h1.2v2.4h-2.9v-1.5Z" fill="#4c4c4c"/></svg>'
+      id: 'copy',
+      label: '复制',
+      icon: '<svg viewBox="0 0 24 24" fill="none"><rect x="8" y="8" width="11" height="13" rx="2" fill="#ffffff"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/></svg>'
     },
     {
       id: 'forward',
@@ -26,6 +31,21 @@
       id: 'favorite',
       label: '收藏',
       icon: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 2.4 20.5 7.2v9.6L12 21.6l-8.5-4.8V7.2L12 2.4Z" fill="#ffffff"/><path d="M3.5 7.2 12 12l8.5-4.8M12 12v9.6" stroke="#4c4c4c" stroke-width="1.6" stroke-linejoin="round"/></svg>'
+    },
+    {
+      id: 'delete',
+      label: '删除',
+      icon: '<svg viewBox="0 0 24 24" fill="none"><path d="M9 3.5h6l.8 1.5H20v2H4V5h4.2L9 3.5ZM6 8.5h12l-1 11.2a1.8 1.8 0 0 1-1.8 1.8H8.8A1.8 1.8 0 0 1 7 19.7L6 8.5Z" fill="#ffffff"/><path d="M10 11.5v6M14 11.5v6" stroke="#4c4c4c" stroke-width="1.6" stroke-linecap="round"/></svg>'
+    },
+    {
+      id: 'multiselect',
+      label: '多选',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="8" y1="18" x2="14" y2="18"/><circle cx="4" cy="6" r="1" fill="#ffffff"/><circle cx="4" cy="12" r="1" fill="#ffffff"/><polyline points="16 17 18 19 21 15"/></svg>'
+    },
+    {
+      id: 'quote',
+      label: '引用',
+      icon: '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#ffffff"/><path d="M8.4 13.8c0-2 .9-3.4 2.4-4l.6 1.1c-.9.5-1.3 1.2-1.3 2h1.2v2.4H8.4v-1.5Zm4.8 0c0-2 .9-3.4 2.4-4l.6 1.1c-.9.5-1.3 1.2-1.3 2h1.2v2.4h-2.9v-1.5Z" fill="#4c4c4c"/></svg>'
     },
     {
       id: 'edit',
@@ -41,11 +61,6 @@
       id: 'hide',
       label: '隐藏',
       icon: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 5.5c5.2 0 9.4 3.4 10.7 6.5-.5 1.3-1.5 2.7-2.9 3.9l-2.3-2.3a4.2 4.2 0 0 0-5.1-5.1L10 6.1c.6-.4 1.3-.6 2-.6Zm-8.2-1.8 16.5 16.5-1.4 1.4-2.8-2.8a11.3 11.3 0 0 1-4.1.7C6.8 19.5 2.6 16.1 1.3 13c.7-1.6 2-3.4 3.9-4.7L2.4 5.1l1.4-1.4Zm5 6.4 5.1 5.1a2.6 2.6 0 0 1-5.1-5.1Z" fill="#ffffff"/></svg>'
-    },
-    {
-      id: 'delete',
-      label: '删除',
-      icon: '<svg viewBox="0 0 24 24" fill="none"><path d="M9 3.5h6l.8 1.5H20v2H4V5h4.2L9 3.5ZM6 8.5h12l-1 11.2a1.8 1.8 0 0 1-1.8 1.8H8.8A1.8 1.8 0 0 1 7 19.7L6 8.5Z" fill="#ffffff"/><path d="M10 11.5v6M14 11.5v6" stroke="#4c4c4c" stroke-width="1.6" stroke-linecap="round"/></svg>'
     }
   ];
 
@@ -83,6 +98,30 @@
     }, 1800);
   }
 
+  function copyText(str) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(str).then(function () {
+        showToast('已复制');
+      }).catch(function () {
+        fallbackCopy(str);
+      });
+      return;
+    }
+    fallbackCopy(str);
+  }
+
+  function fallbackCopy(str) {
+    var ta = document.createElement('textarea');
+    ta.value = str;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+    showToast('已复制');
+  }
+
   function resolveCurrentThreadId() {
     if (activeThreadId) return activeThreadId;
     var titleEl = document.getElementById('ctRoomTitle');
@@ -107,7 +146,14 @@
     saveJSON(STORAGE_MSGS_PREFIX + tid, msgs);
   }
 
-  function syncHiddenDom() {
+  function getMsgPlainText(msg) {
+    if (!msg) return '';
+    return msg.type === 'voice'
+      ? (msg.transcript || '[语音 ' + (msg.duration || 1) + '"]')
+      : (msg.text || '');
+  }
+
+  function syncMessagesDom() {
     var tid = resolveCurrentThreadId();
     if (!tid) return;
     var msgs = getThreadMsgs(tid);
@@ -118,7 +164,22 @@
     document.querySelectorAll('#ctRoomMessages .ct-msg-group[data-msg-id]').forEach(function (el) {
       var mid = el.getAttribute('data-msg-id');
       el.classList.toggle('ctmu-is-hidden', !!hiddenMap[mid]);
+      el.classList.toggle('ctmu-selected', selectedIds.indexOf(mid) !== -1);
+      if (!el.querySelector('.ctmu-sel-box')) {
+        var box = document.createElement('div');
+        box.className = 'ctmu-sel-box';
+        box.innerHTML = SVG_CHECK;
+        el.appendChild(box);
+      }
     });
+  }
+
+  function setMultiSelect(enabled, initialId) {
+    multiSelectMode = !!enabled;
+    selectedIds = (multiSelectMode && initialId) ? [initialId] : [];
+    var room = document.getElementById('ctRoomView');
+    if (room) room.classList.toggle('ctmu-multiselect', multiSelectMode);
+    syncMessagesDom();
   }
 
   function ensureUI() {
@@ -139,6 +200,12 @@
           '<div class="ctmu-grid">' + gridHtml + '</div>' +
           '<div class="ctmu-arrow" id="ctmuArrow"></div>' +
         '</div>' +
+      '</div>' +
+      '<div class="ctmu-multi-bar" id="ctmuMultiBar">' +
+        '<button class="ctmu-multi-btn" id="ctmuMultiCancel">取消</button>' +
+        '<button class="ctmu-multi-btn" id="ctmuMultiFwd">转发</button>' +
+        '<button class="ctmu-multi-btn" id="ctmuMultiFav">收藏</button>' +
+        '<button class="ctmu-multi-btn danger" id="ctmuMultiDel">删除</button>' +
       '</div>' +
       '<div class="ctmu-modal-mask" id="ctmuEditMask">' +
         '<div class="ctmu-modal">' +
@@ -173,6 +240,7 @@
   }
 
   function openMenuForBubble(bubbleEl, groupEl) {
+    if (multiSelectMode) return;
     ensureUI();
     var room = document.getElementById('ctRoomView');
     var bd = document.getElementById('ctmuBackdrop');
@@ -189,13 +257,13 @@
     var bRect = bubbleEl.getBoundingClientRect();
     var scale = room.offsetHeight ? (roomRect.height / room.offsetHeight) : 1;
 
-    var popW = pop.offsetWidth || 244;
+    var popW = pop.offsetWidth || 280;
     var popH = pop.offsetHeight || 124;
     var bTop = (bRect.top - roomRect.top) / scale;
     var bBottom = (bRect.bottom - roomRect.top) / scale;
     var bCenterX = ((bRect.left + bRect.right) / 2 - roomRect.left) / scale;
 
-    var left = Math.max(16, Math.min(room.offsetWidth - popW - 16, bCenterX - popW / 2));
+    var left = Math.max(12, Math.min(room.offsetWidth - popW - 12, bCenterX - popW / 2));
     var top = bTop - popH - 10;
     var isAbove = true;
     if (top < 56) {
@@ -229,6 +297,39 @@
     groupEl.dispatchEvent(new Event('touchend', { bubbles: true }));
   }
 
+  function addFavorites(tid, msgList) {
+    var favs = loadJSON(STORAGE_FAVS_KEY, []);
+    var titleEl = document.getElementById('ctRoomTitle');
+    var tName = titleEl ? titleEl.textContent : '';
+    msgList.forEach(function (msg) {
+      if (!favs.some(function (f) { return f.msgId === msg.id && f.threadId === tid; })) {
+        var grp = document.querySelector('#ctRoomMessages .ct-msg-group[data-msg-id="' + msg.id + '"]');
+        favs.unshift({
+          id: 'fav-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+          msgId: msg.id,
+          threadId: tid,
+          threadName: tName,
+          senderName: (grp && grp.getAttribute('data-sender-name')) || '',
+          text: getMsgPlainText(msg),
+          time: msg.time || '',
+          savedAt: Date.now()
+        });
+      }
+    });
+    saveJSON(STORAGE_FAVS_KEY, favs);
+  }
+
+  function updateThreadPreview(tid, msgs) {
+    var threads = loadJSON(STORAGE_THREADS_KEY, []);
+    var tIdx = threads.findIndex(function (t) { return t.id === tid; });
+    if (tIdx !== -1) {
+      var lastVis = msgs.slice().reverse().find(function (m) { return !m.hidden; });
+      threads[tIdx].lastMsg = lastVis ? getMsgPlainText(lastVis) : '';
+      threads[tIdx].lastTime = lastVis ? (lastVis.time || '') : '';
+      saveJSON(STORAGE_THREADS_KEY, threads);
+    }
+  }
+
   function handleAction(act) {
     var tid = resolveCurrentThreadId();
     var msgs = getThreadMsgs(tid);
@@ -241,24 +342,20 @@
       return;
     }
 
+    if (act === 'multiselect') {
+      setMultiSelect(true, targetMsgId);
+      return;
+    }
+
     if (!msg) return;
 
+    if (act === 'copy') {
+      copyText(getMsgPlainText(msg));
+      return;
+    }
+
     if (act === 'favorite') {
-      var favs = loadJSON(STORAGE_FAVS_KEY, []);
-      if (!favs.some(function (f) { return f.msgId === msg.id && f.threadId === tid; })) {
-        var titleEl = document.getElementById('ctRoomTitle');
-        favs.unshift({
-          id: 'fav-' + Date.now(),
-          msgId: msg.id,
-          threadId: tid,
-          threadName: titleEl ? titleEl.textContent : '',
-          senderName: (targetGroupEl && targetGroupEl.getAttribute('data-sender-name')) || '',
-          text: msg.type === 'voice' ? (msg.transcript || '[语音 ' + (msg.duration || 1) + '"]') : (msg.text || ''),
-          time: msg.time || '',
-          savedAt: Date.now()
-        });
-        saveJSON(STORAGE_FAVS_KEY, favs);
-      }
+      addFavorites(tid, [msg]);
       showToast('已收藏');
       return;
     }
@@ -274,7 +371,8 @@
     }
 
     if (act === 'forward') {
-      renderForwardList(msg);
+      pendingForwardMsgs = [msg];
+      renderForwardList();
       document.getElementById('ctmuFwdMask').classList.add('open');
       return;
     }
@@ -304,20 +402,12 @@
       msgs.splice(idx, 1);
       saveThreadMsgs(tid, msgs);
       if (targetGroupEl) targetGroupEl.remove();
-
-      var threads = loadJSON(STORAGE_THREADS_KEY, []);
-      var tIdx = threads.findIndex(function (t) { return t.id === tid; });
-      if (tIdx !== -1) {
-        var lastVis = msgs.slice().reverse().find(function (m) { return !m.hidden; });
-        threads[tIdx].lastMsg = lastVis ? (lastVis.type === 'voice' ? '[语音 ' + (lastVis.duration || 1) + '"]' : (lastVis.text || '')) : '';
-        threads[tIdx].lastTime = lastVis ? (lastVis.time || '') : '';
-        saveJSON(STORAGE_THREADS_KEY, threads);
-      }
+      updateThreadPreview(tid, msgs);
       showToast('已删除（不计入上下文）');
     }
   }
 
-  function renderForwardList(msg) {
+  function renderForwardList() {
     var listEl = document.getElementById('ctmuFwdList');
     if (!listEl) return;
     var threads = loadJSON(STORAGE_THREADS_KEY, []);
@@ -344,24 +434,20 @@
         var destTid = row.getAttribute('data-fwd-tid');
         var destMsgs = getThreadMsgs(destTid);
         var nowTime = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-        var fwdText = msg.type === 'voice' ? (msg.transcript || '[语音 ' + (msg.duration || 1) + '"]') : (msg.text || '');
-        destMsgs.push({
-          id: 'm-' + Date.now(),
-          sender: 'me',
-          text: fwdText,
-          time: nowTime
+        var lastText = '';
+        pendingForwardMsgs.forEach(function (m, i) {
+          lastText = getMsgPlainText(m);
+          destMsgs.push({
+            id: 'm-' + Date.now() + '-' + i,
+            sender: 'me',
+            text: lastText,
+            time: nowTime
+          });
         });
         saveThreadMsgs(destTid, destMsgs);
-
-        var allThreads = loadJSON(STORAGE_THREADS_KEY, []);
-        var tIdx = allThreads.findIndex(function (t) { return t.id === destTid; });
-        if (tIdx !== -1) {
-          allThreads[tIdx].lastMsg = fwdText;
-          allThreads[tIdx].lastTime = nowTime;
-          saveJSON(STORAGE_THREADS_KEY, allThreads);
-        }
-
+        updateThreadPreview(destTid, destMsgs);
         document.getElementById('ctmuFwdMask').classList.remove('open');
+        if (multiSelectMode) setMultiSelect(false);
         showToast('已转发');
       });
     });
@@ -406,17 +492,45 @@
         if (bubble) bubble.textContent = newText;
       }
 
-      if (idx === msgs.length - 1) {
-        var threads = loadJSON(STORAGE_THREADS_KEY, []);
-        var tIdx = threads.findIndex(function (t) { return t.id === tid; });
-        if (tIdx !== -1) {
-          threads[tIdx].lastMsg = newText;
-          saveJSON(STORAGE_THREADS_KEY, threads);
-        }
-      }
-
+      updateThreadPreview(tid, msgs);
       document.getElementById('ctmuEditMask').classList.remove('open');
       showToast('已保存');
+    });
+
+    document.getElementById('ctmuMultiCancel').addEventListener('click', function () {
+      setMultiSelect(false);
+    });
+
+    document.getElementById('ctmuMultiFwd').addEventListener('click', function () {
+      if (!selectedIds.length) { showToast('请先选择消息'); return; }
+      var tid = resolveCurrentThreadId();
+      var msgs = getThreadMsgs(tid);
+      pendingForwardMsgs = msgs.filter(function (m) { return selectedIds.indexOf(m.id) !== -1; });
+      renderForwardList();
+      document.getElementById('ctmuFwdMask').classList.add('open');
+    });
+
+    document.getElementById('ctmuMultiFav').addEventListener('click', function () {
+      if (!selectedIds.length) { showToast('请先选择消息'); return; }
+      var tid = resolveCurrentThreadId();
+      var msgs = getThreadMsgs(tid).filter(function (m) { return selectedIds.indexOf(m.id) !== -1; });
+      addFavorites(tid, msgs);
+      setMultiSelect(false);
+      showToast('已收藏');
+    });
+
+    document.getElementById('ctmuMultiDel').addEventListener('click', function () {
+      if (!selectedIds.length) { showToast('请先选择消息'); return; }
+      var tid = resolveCurrentThreadId();
+      var msgs = getThreadMsgs(tid).filter(function (m) { return selectedIds.indexOf(m.id) === -1; });
+      saveThreadMsgs(tid, msgs);
+      selectedIds.forEach(function (mid) {
+        var el = document.querySelector('#ctRoomMessages .ct-msg-group[data-msg-id="' + mid + '"]');
+        if (el) el.remove();
+      });
+      updateThreadPreview(tid, msgs);
+      setMultiSelect(false);
+      showToast('已删除');
     });
   }
 
@@ -433,7 +547,20 @@
       timer = null;
     }
 
+    msgBox.addEventListener('click', function (e) {
+      if (!multiSelectMode) return;
+      var group = e.target.closest('.ct-msg-group[data-msg-id]');
+      if (!group) return;
+      e.stopPropagation();
+      var mid = group.getAttribute('data-msg-id');
+      var i = selectedIds.indexOf(mid);
+      if (i === -1) selectedIds.push(mid);
+      else selectedIds.splice(i, 1);
+      syncMessagesDom();
+    }, true);
+
     msgBox.addEventListener('touchstart', function (e) {
+      if (multiSelectMode) return;
       var bubble = e.target.closest('.ct-msg-bubble');
       var group = e.target.closest('.ct-msg-group');
       if (!bubble || !group || !e.touches[0]) return;
@@ -469,6 +596,14 @@
     ensureUI();
     bindLongPress();
 
+    var roomBack = document.getElementById('ctRoomBackBtn');
+    if (roomBack) {
+      roomBack.addEventListener('click', function () {
+        if (multiSelectMode) setMultiSelect(false);
+        closeMenu();
+      });
+    }
+
     document.addEventListener('click', function (e) {
       var threadRow = e.target.closest('#ctMainScroll .ct-row[data-thread-id]');
       if (threadRow) {
@@ -484,7 +619,7 @@
 
     var msgBox = document.getElementById('ctRoomMessages');
     if (msgBox) {
-      var observer = new MutationObserver(syncHiddenDom);
+      var observer = new MutationObserver(syncMessagesDom);
       observer.observe(msgBox, { childList: true });
     }
   }
