@@ -1,15 +1,11 @@
 /* =========================================================
-   Chat 一起听（全局常驻：全屏遮罩 + 键盘自适应 + 稳定曲库 + 轴心黑胶球）
+   Chat 一起听（全局常驻：黑胶唱臂 + 纯图标模式 + 单次邀请 + 小球轻点切悬浮条）
    ========================================================= */
 (function () {
   var DEFAULT_API = 'https://api-enhanced-ashen-one-33.vercel.app';
   var SONG_CACHE_KEY = 'ctl_song_cache_v1';
 
-  var PLAY_MODES = [
-    { key: 'list', label: '循环播放' },
-    { key: 'single', label: '单曲循环' },
-    { key: 'shuffle', label: '随机播放' }
-  ];
+  var PLAY_MODES = ['list', 'single', 'shuffle'];
 
   var RED_LOVE_PATH =
     'M 2,26 C 14,25 22,19 25,11 C 27,5 22,2 19,6 C 15,12 14,23 19,27 C 24,30 33,24 38,18 C 41,15 47,15 48,19 C 49,24 43,28 39,26 C 36,24 38,17 44,17 C 49,17 53,22 57,24 C 60,25 63,21 65,16 C 67,22 70,25 74,23 C 77,21 79,16 83,16 C 87,16 88,21 84,23 C 80,25 79,20 84,18 C 91,15 103,20 116,22';
@@ -20,9 +16,19 @@
       '<path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>' +
     '</svg>';
 
+  var TONEARM_SVG =
+    '<svg viewBox="0 0 68 98" width="68" height="98" fill="none">' +
+      '<circle cx="18" cy="18" r="11" fill="#2c2c30" stroke="#ffffff" stroke-width="1.5"/>' +
+      '<circle cx="18" cy="18" r="4.5" fill="#111113"/>' +
+      '<path d="M 18 18 L 28 62 L 15 84" stroke="#18181b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<path d="M 18 18 L 28 62 L 15 84" stroke="rgba(255,255,255,0.22)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<rect x="9" y="79" width="11" height="14" rx="2.5" transform="rotate(28 14 86)" fill="#18181b" stroke="rgba(255,255,255,0.35)" stroke-width="0.8"/>' +
+    '</svg>';
+
   var state = {
     inited: false,
     active: false,
+    invitedInSession: false,
     roomOpen: false,
     modalOpen: false,
     orbMode: false,
@@ -91,6 +97,13 @@
     return (m < 10 ? '0' : '') + m + ':' + (r < 10 ? '0' : '') + r;
   }
 
+  function fmtClockNow() {
+    var d = new Date();
+    var h = d.getHours();
+    var m = d.getMinutes();
+    return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+  }
+
   function saveSongCache(song) {
     if (!song || !song.name) return;
     try {
@@ -121,7 +134,7 @@
     clearTimeout(els.toast._t);
     els.toast._t = setTimeout(function () {
       els.toast.classList.remove('show');
-    }, 1800);
+    }, 1600);
   }
 
   function bindPressFeedback(el) {
@@ -210,7 +223,7 @@
         sender: 'me',
         role: 'user',
         text: '[一起听] ' + song.name,
-        time: Date.now()
+        time: fmtClockNow()
       });
       localStorage.setItem(key, JSON.stringify(list));
     } catch (e) {}
@@ -373,6 +386,7 @@
       state.contactId = info.contactId;
       state.contactName = info.contactName;
       state.contactAvatar = info.contactAvatar;
+      state.invitedInSession = true;
       if (curSong && curSong.id) {
         loadSongAndPlay(curSong, false);
       } else if (curSong && curSong.name) {
@@ -448,7 +462,7 @@
       '</button>';
     container.appendChild(pill);
 
-    /* 2. 全局可拖动贴边黑胶小球（含中心轴心圆孔） */
+    /* 2. 全局可拖动贴边黑胶小球 */
     var orb = document.createElement('div');
     orb.id = 'ctlMiniOrb';
     orb.className = 'ctl-mini-orb';
@@ -461,7 +475,7 @@
       '<div class="ctl-mini-orb-close"><svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></div>';
     container.appendChild(orb);
 
-    /* 3. 全局全屏一起听房间 */
+    /* 3. 全局全屏一起听房间（含黑色唱片机唱臂 + 纯图标播放模式） */
     var room = document.createElement('div');
     room.id = 'ctlRoom';
     room.className = 'ctl-room';
@@ -482,6 +496,7 @@
         '<div class="ctl-pair-av" id="ctlPeerAv"></div>' +
       '</div>' +
       '<div class="ctl-stage" id="ctlStage">' +
+        '<div class="ctl-tonearm" id="ctlTonearm">' + TONEARM_SVG + '</div>' +
         '<div class="ctl-disc-wrap">' +
           '<div class="ctl-disc" id="ctlDisc"></div>' +
         '</div>' +
@@ -503,10 +518,7 @@
           '<span id="ctlDurTime">00:00</span>' +
         '</div>' +
         '<div class="ctl-ctrl-row">' +
-          '<div class="ctl-mode-btn" id="ctlModeBtn">' +
-            '<span id="ctlModeIcon"></span>' +
-            '<span id="ctlModeLabel">循环播放</span>' +
-          '</div>' +
+          '<div class="ctl-mode-btn" id="ctlModeBtn" aria-label="切换播放模式"></div>' +
           '<div class="ctl-ctrl-center">' +
             '<div class="ctl-step-btn" id="ctlPrevBtn"><svg viewBox="0 0 24 24"><path d="M19 20L9 12l10-8v16zM5 4h2v16H5V4z"/></svg></div>' +
             '<div class="ctl-play-btn" id="ctlPlayBtn"></div>' +
@@ -560,6 +572,7 @@
       myAv: document.getElementById('ctlMyAv'),
       peerAv: document.getElementById('ctlPeerAv'),
       stage: document.getElementById('ctlStage'),
+      tonearm: document.getElementById('ctlTonearm'),
       disc: document.getElementById('ctlDisc'),
       lyrics: document.getElementById('ctlLyrics'),
       songTitle: document.getElementById('ctlSongTitle'),
@@ -570,8 +583,6 @@
       curTime: document.getElementById('ctlCurTime'),
       durTime: document.getElementById('ctlDurTime'),
       modeBtn: document.getElementById('ctlModeBtn'),
-      modeIcon: document.getElementById('ctlModeIcon'),
-      modeLabel: document.getElementById('ctlModeLabel'),
       prevBtn: document.getElementById('ctlPrevBtn'),
       playBtn: document.getElementById('ctlPlayBtn'),
       nextBtn: document.getElementById('ctlNextBtn'),
@@ -621,23 +632,40 @@
     if (els.playBtn) els.playBtn.innerHTML = svg;
     if (els.floatPlayBtn) els.floatPlayBtn.innerHTML = svg;
     if (els.disc) els.disc.classList.toggle('playing', state.isPlaying);
+    if (els.tonearm) els.tonearm.classList.toggle('playing', state.isPlaying);
     if (els.floatCover) els.floatCover.classList.toggle('playing', state.isPlaying);
     if (els.orbDisc) els.orbDisc.classList.toggle('playing', state.isPlaying);
   }
 
   function renderModeUI() {
-    var mode = PLAY_MODES[state.playModeIdx] || PLAY_MODES[0];
-    if (els.modeLabel) els.modeLabel.textContent = mode.label;
-    if (!els.modeIcon) return;
-    if (mode.key === 'single') {
-      els.modeIcon.innerHTML =
-        '<svg viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/><path d="M11 10h1v4"/></svg>';
-    } else if (mode.key === 'shuffle') {
-      els.modeIcon.innerHTML =
-        '<svg viewBox="0 0 24 24"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>';
+    if (!els.modeBtn) return;
+    var mode = PLAY_MODES[state.playModeIdx] || 'list';
+    if (mode === 'single') {
+      els.modeBtn.innerHTML =
+        '<svg viewBox="0 0 24 24">' +
+          '<polyline points="17 2 21 6 17 10"/>' +
+          '<path d="M3 11V9a4 4 0 0 1 4-4h14"/>' +
+          '<polyline points="7 22 3 18 7 14"/>' +
+          '<path d="M21 13v2a4 4 0 0 1-4 4H3"/>' +
+          '<path d="M11 10l1.5-1.5V15"/>' +
+        '</svg>';
+    } else if (mode === 'shuffle') {
+      els.modeBtn.innerHTML =
+        '<svg viewBox="0 0 24 24">' +
+          '<path d="M16 3h5v5"/>' +
+          '<path d="M4 20L21 3"/>' +
+          '<path d="M21 16v5h-5"/>' +
+          '<path d="M15 15l6 6"/>' +
+          '<path d="M4 4l5 5"/>' +
+        '</svg>';
     } else {
-      els.modeIcon.innerHTML =
-        '<svg viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>';
+      els.modeBtn.innerHTML =
+        '<svg viewBox="0 0 24 24">' +
+          '<polyline points="17 2 21 6 17 10"/>' +
+          '<path d="M3 11V9a4 4 0 0 1 4-4h14"/>' +
+          '<polyline points="7 22 3 18 7 14"/>' +
+          '<path d="M21 13v2a4 4 0 0 1-4 4H3"/>' +
+        '</svg>';
     }
   }
 
@@ -709,6 +737,7 @@
 
   function quitListenSession() {
     state.active = false;
+    state.invitedInSession = false;
     state.roomOpen = false;
     state.orbMode = false;
     state.orbHidden = false;
@@ -865,7 +894,8 @@
       startSessionTimer();
     }
 
-    if (sendCard) {
+    if (sendCard && !state.invitedInSession) {
+      state.invitedInSession = true;
       appendListenCardToChat(song);
     }
 
@@ -901,8 +931,8 @@
 
   function playNext(fromEnded) {
     if (!state.playlist.length) return;
-    var mode = PLAY_MODES[state.playModeIdx] || PLAY_MODES[0];
-    if (fromEnded && mode.key === 'single') {
+    var mode = PLAY_MODES[state.playModeIdx] || 'list';
+    if (fromEnded && mode === 'single') {
       if (state.audio) {
         state.audio.currentTime = 0;
         state.audio.play().catch(function () {});
@@ -910,7 +940,7 @@
       return;
     }
     var nextIdx = state.currentIndex;
-    if (mode.key === 'shuffle' && state.playlist.length > 1) {
+    if (mode === 'shuffle' && state.playlist.length > 1) {
       while (nextIdx === state.currentIndex) {
         nextIdx = Math.floor(Math.random() * state.playlist.length);
       }
@@ -923,9 +953,9 @@
 
   function playPrev() {
     if (!state.playlist.length) return;
-    var mode = PLAY_MODES[state.playModeIdx] || PLAY_MODES[0];
+    var mode = PLAY_MODES[state.playModeIdx] || 'list';
     var prevIdx = state.currentIndex;
-    if (mode.key === 'shuffle' && state.playlist.length > 1) {
+    if (mode === 'shuffle' && state.playlist.length > 1) {
       while (prevIdx === state.currentIndex) {
         prevIdx = Math.floor(Math.random() * state.playlist.length);
       }
@@ -994,7 +1024,7 @@
         if (els.searchInput) els.searchInput.blur();
         state.playlist = songs.slice();
         state.currentIndex = idx;
-        var shouldSendCard = !state.active;
+        var shouldSendCard = !state.invitedInSession;
         closeSongModal();
         loadSongAndPlay(chosen, shouldSendCard);
       });
@@ -1132,7 +1162,7 @@
       var scale = getScale();
       var dx = (pt.clientX - startX) / scale;
       var dy = (pt.clientY - startY) / scale;
-      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+      if (Math.abs(dx) > 12 || Math.abs(dy) > 12) {
         moved = true;
         clearTimeout(lpTimer);
         orb.classList.remove('confirm-hide');
@@ -1161,7 +1191,6 @@
         state.orbHidden = true;
         orb.classList.remove('confirm-hide');
         updateFloatingVisibility();
-        showToast('已隐藏悬浮，点聊天卡片可再打开');
       } else {
         state.orbMode = false;
         updateFloatingVisibility();
