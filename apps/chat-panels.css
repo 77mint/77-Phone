@@ -56,12 +56,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.14s ease, opacity 0.14s ease;
+  transition: transform 0.12s cubic-bezier(0.32, 0.72, 0, 1), background 0.12s ease;
 }
 
+.ctp-item.is-pressed .ctp-item-icon,
 .ctp-item:active .ctp-item-icon {
-  transform: scale(0.94);
-  opacity: 0.75;
+  transform: scale(0.92);
+  background: #e5e5ea;
 }
 
 .ctp-item-label {
@@ -112,9 +113,12 @@
   padding: 5px 12px;
   white-space: nowrap;
   flex-shrink: 0;
+  transition: transform 0.12s ease, opacity 0.12s ease;
 }
 
+.ctp-expand-pill.is-pressed,
 .ctp-expand-pill:active {
+  transform: scale(0.94);
   opacity: 0.65;
 }
 
@@ -198,6 +202,12 @@
   padding: 13px 14px 8px;
   position: relative;
   cursor: pointer;
+  transition: transform 0.12s cubic-bezier(0.32, 0.72, 0, 1), filter 0.12s ease;
+}
+
+#app-chat .ct-msg-bubble.ctp-transfer-bubble.is-pressed {
+  transform: scale(0.975);
+  filter: brightness(0.95);
 }
 
 #app-chat .ct-msg-bubble.ctp-transfer-bubble.is-faded {
@@ -283,6 +293,15 @@
   font-size: 11px;
   color: rgba(255, 255, 255, 0.88);
   line-height: 1.2;
+}
+
+/* 转账系统提示条 */
+.ctp-sys-tip {
+  text-align: center;
+  font-size: 12px;
+  color: #8e8e93;
+  padding: 6px 16px 10px;
+  line-height: 1.4;
 }
 
 /* 转账输入页（严格复刻 IMG_1792） */
@@ -458,7 +477,7 @@
   margin-left: 8px;
 }
 
-/* 微信 4x4 数字键盘 */
+/* 微信 4x4 数字键盘（高响应触摸手感） */
 .ctp-keypad {
   background: #f7f7f7;
   padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
@@ -467,6 +486,9 @@
   grid-template-rows: repeat(4, 52px);
   gap: 6px;
   flex-shrink: 0;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .ctp-key {
@@ -481,12 +503,13 @@
   justify-content: center;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.1s ease, transform 0.1s ease;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+  transition: background 0.06s ease, transform 0.06s ease;
 }
 
-.ctp-key:active {
-  background: #e5e5ea;
-  transform: scale(0.97);
+.ctp-key.is-pressed {
+  background: #d8d9de;
+  transform: scale(0.95);
 }
 
 .ctp-key-zero {
@@ -504,10 +527,12 @@
 
 .ctp-key-submit.disabled {
   background: #a3e4bf;
+  box-shadow: none;
 }
 
-.ctp-key-submit:active {
+.ctp-key-submit.is-pressed:not(.disabled) {
   background: #06ad56;
+  transform: scale(0.96);
 }
 
 /* P1 居中微信支付加载 HUD（仿 IMG_1797） */
@@ -576,7 +601,7 @@
   40% { background: #ffffff; }
 }
 
-/* 微信支付主底部抽屉（严格复刻 IMG_1801 面容版 & IMG_1802 密码版） */
+/* 微信支付主底部抽屉（默认密码版 IMG_1802，可切面容版 IMG_1801） */
 .ctp-wxpay-mask {
   position: absolute;
   inset: 0;
@@ -687,6 +712,12 @@
   background: #fdf6e3;
   border-radius: 8px;
   padding: 13px 14px;
+  transition: transform 0.1s ease, filter 0.1s ease;
+}
+
+.ctp-wxpay-card.is-pressed {
+  transform: scale(0.98);
+  filter: brightness(0.97);
 }
 
 .ctp-wxpay-card-left {
@@ -712,10 +743,12 @@
   color: #ffffff;
   font-size: 16px;
   font-weight: 600;
+  transition: transform 0.1s ease, background 0.1s ease;
 }
 
-.ctp-wxpay-face-btn:active {
+.ctp-wxpay-face-btn.is-pressed {
   background: #06ad56;
+  transform: scale(0.96);
 }
 
 /* 密码模式：6 个独立圆角灰框 + 白底细线分隔键盘（仿 IMG_1802） */
@@ -753,6 +786,12 @@
   height: 10px;
   border-radius: 50%;
   background: #111111;
+  animation: ctpDotPop 0.13s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes ctpDotPop {
+  from { transform: scale(0.3); opacity: 0.4; }
+  to { transform: scale(1); opacity: 1; }
 }
 
 .ctp-pwd-pad {
@@ -762,6 +801,9 @@
   gap: 0.5px;
   border-top: 0.5px solid #e5e5ea;
   padding-bottom: env(safe-area-inset-bottom);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .ctp-pwd-key {
@@ -775,14 +817,19 @@
   align-items: center;
   justify-content: center;
   -webkit-tap-highlight-color: transparent;
+  transition: background 0.06s ease;
 }
 
-.ctp-pwd-key:active {
-  background: #f2f2f7;
+.ctp-pwd-key.is-pressed {
+  background: #dfe1e6;
 }
 
 .ctp-pwd-key.is-muted {
   background: #e5e5ea;
+}
+
+.ctp-pwd-key.is-muted.is-pressed {
+  background: #d1d3d9;
 }
 
 /* 选择付款方式抽屉（仿 IMG_1798） */
@@ -1119,11 +1166,6 @@
 
 .ctp-tr-detail-btn:active {
   opacity: 0.82;
-}
-
-.ctp-tr-detail-sub-btns {
-  display: flex;
-  gap: 22px;
 }
 
 .ctp-tr-detail-link {
