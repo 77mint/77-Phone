@@ -1,6 +1,6 @@
 /* =========================================================
-   Chat「一起听」独立模块（液态玻璃风格 + 对接音乐 App 接口）
-   - 自动挂载到 + 号面板，支持选歌/搜歌、液态玻璃共听卡片、全屏共听与歌词
+   Chat「一起听」独立模块（高清透 0 模糊液态玻璃 + 对接音乐 App 接口）
+   - 支持可隐藏悬浮条、循环/单曲/随机播放模式、点击任意歌词跳进度
    ========================================================= */
 (function () {
   var STORAGE_THREADS_KEY = 'chat_threads_v1';
@@ -13,6 +13,9 @@
   var SVG_PAUSE = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
   var SVG_NEXT = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20 5 4"/><rect x="17" y="4" width="2.5" height="16" rx="1"/></svg>';
   var SVG_PREV = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="19 4 9 12 19 20 19 4"/><rect x="4.5" y="4" width="2.5" height="16" rx="1"/></svg>';
+  var SVG_MODE_LOOP = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 4l3 3-3 3"/><path d="M4 12V10a3 3 0 0 1 3-3h13"/><path d="M7 20l-3-3 3-3"/><path d="M20 12v2a3 3 0 0 1-3 3H4"/></svg>';
+  var SVG_MODE_ONE = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 4l3 3-3 3"/><path d="M4 12V10a3 3 0 0 1 3-3h13"/><path d="M7 20l-3-3 3-3"/><path d="M20 12v2a3 3 0 0 1-3 3H4"/><path d="M11 10.4l1.3-0.9v5"/></svg>';
+  var SVG_MODE_SHUFFLE = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h3.5c2.4 0 4.2 10 7 10H20"/><path d="M3 17h3.5c2.4 0 4.2-10 7-10H20"/><path d="M17 4l3 3-3 3"/><path d="M17 14l3 3-3 3"/></svg>';
 
   var DEFAULT_SONGS = [
     { title: '红尘客栈', sub: '周杰伦', id: '', pic: '' },
@@ -24,10 +27,10 @@
   var currentSong = null;
   var songQueue = [];
   var isPlaying = false;
+  var playMode = 0; // 0: 列表循环, 1: 单曲循环, 2: 随机播放
   var parsedLyrics = [];
   var lastLyricIdx = -1;
-  var togetherSec = 0;
-  var togetherTimer = null;
+  var manualScrollUntil = 0;
   var searchTimer = null;
 
   function getApiBase() {
@@ -59,12 +62,6 @@
 
   function fmtTime(sec) {
     if (!sec || isNaN(sec)) return '--:--';
-    var m = Math.floor(sec / 60);
-    var s = Math.floor(sec % 60);
-    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
-  }
-
-  function fmtClock(sec) {
     var m = Math.floor(sec / 60);
     var s = Math.floor(sec % 60);
     return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
@@ -270,6 +267,22 @@
     if (floatPlay) floatPlay.innerHTML = isPlaying ? SVG_PAUSE : SVG_PLAY;
   }
 
+  function renderModeUI() {
+    var btn = document.getElementById('ctlModeBtn');
+    var lbl = document.getElementById('ctlModeLbl');
+    if (!btn || !lbl) return;
+    if (playMode === 0) {
+      btn.innerHTML = SVG_MODE_LOOP;
+      lbl.textContent = '循环播放';
+    } else if (playMode === 1) {
+      btn.innerHTML = SVG_MODE_ONE;
+      lbl.textContent = '单曲循环';
+    } else {
+      btn.innerHTML = SVG_MODE_SHUFFLE;
+      lbl.textContent = '随机播放';
+    }
+  }
+
   function loadLyrics(songId) {
     parsedLyrics = [];
     lastLyricIdx = -1;
@@ -302,7 +315,7 @@
           return;
         }
         box.innerHTML = lines.map(function (l, i) {
-          return '<div class="ctl-lrc-line" data-ctl-lrc="' + i + '">' + escapeHtml(l.text) + '</div>';
+          return '<div class="ctl-lrc-line" data-ctl-lrc="' + i + '" data-ctl-time="' + l.time + '">' + escapeHtml(l.text) + '</div>';
         }).join('');
       }).catch(function () {
         box.innerHTML = '<div class="ctl-lrc-line">歌词加载失败</div>';
@@ -347,18 +360,10 @@
     document.getElementById('ctlCurTime').textContent = '--:--';
     document.getElementById('ctlDurTime').textContent = '--:--';
 
-    if (!togetherTimer) {
-      togetherSec = 0;
-      togetherTimer = setInterval(function () {
-        togetherSec++;
-        var el = document.getElementById('ctlTogetherTime');
-        if (el) el.textContent = '一起听 · ' + fmtClock(togetherSec);
-      }, 1000);
-    }
-
     var audio = document.getElementById('ctlAudio');
     isPlaying = true;
     syncPlayerUI();
+    renderModeUI();
     loadLyrics(song.id);
 
     var fetchPlay = function (songId) {
@@ -412,9 +417,6 @@
     }
     isPlaying = false;
     currentSong = null;
-    clearInterval(togetherTimer);
-    togetherTimer = null;
-    togetherSec = 0;
     document.getElementById('ctlRoom').classList.remove('open');
     document.getElementById('ctlFloatPill').classList.remove('open');
     syncPlayerUI();
@@ -441,6 +443,7 @@
         '<div class="ctl-float-art" id="ctlFloatArt"></div>' +
         '<div class="ctl-float-txt" id="ctlFloatTxt">一起听</div>' +
         '<button class="ctl-float-btn" id="ctlFloatPlay" aria-label="播放暂停">' + SVG_PLAY + '</button>' +
+        '<button class="ctl-float-btn" id="ctlFloatHide" aria-label="隐藏浮条">×</button>' +
       '</div>' +
       '<div class="ctl-pick-mask" id="ctlPickMask">' +
         '<div class="ctl-pick-sheet">' +
@@ -461,7 +464,6 @@
           '<button class="ctl-nav-circle ctl-glass" id="ctlMinBtn" aria-label="收起">' +
             '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>' +
           '</button>' +
-          '<div class="ctl-nav-badge ctl-glass"><span class="ctl-live-dot"></span><span id="ctlTogetherTime">一起听 · 00:00</span></div>' +
           '<button class="ctl-nav-exit ctl-glass" id="ctlExitBtn">退出</button>' +
         '</div>' +
         '<div class="ctl-pair">' +
@@ -486,9 +488,11 @@
           '<div class="ctl-prog-bar" id="ctlProgBar"><div class="ctl-prog-fill" id="ctlProgFill"></div></div>' +
           '<div class="ctl-prog-times"><span id="ctlCurTime">--:--</span><span id="ctlDurTime">--:--</span></div>' +
           '<div class="ctl-ctrls">' +
+            '<button class="ctl-ctrl-btn" id="ctlModeBtn" aria-label="播放模式">' + SVG_MODE_LOOP + '</button>' +
             '<button class="ctl-ctrl-btn" id="ctlPrevBtn" aria-label="上一首">' + SVG_PREV + '</button>' +
             '<button class="ctl-ctrl-btn main" id="ctlPlayBtn" aria-label="播放暂停">' + SVG_PLAY + '</button>' +
             '<button class="ctl-ctrl-btn" id="ctlNextBtn" aria-label="下一首">' + SVG_NEXT + '</button>' +
+            '<span class="ctl-mode-lbl" id="ctlModeLbl">循环播放</span>' +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -502,6 +506,7 @@
     var msgBox = document.getElementById('ctRoomMessages');
     var mainScroll = document.getElementById('ctMainScroll');
     var audio = document.getElementById('ctlAudio');
+    var lyricsEl = document.getElementById('ctlLyrics');
 
     if (mainScroll) {
       mainScroll.addEventListener('click', function (e) {
@@ -568,7 +573,12 @@
         var msgs = tid ? loadJSON(STORAGE_MSGS_PREFIX + tid, []) : [];
         var m = msgs.find(function (item) { return item.id === mid; });
         if (m && m.song) {
-          startListenSession(m.song, true);
+          if (currentSong && currentSong.title === m.song.title) {
+            document.getElementById('ctlRoom').classList.add('open');
+            document.getElementById('ctlFloatPill').classList.remove('open');
+          } else {
+            startListenSession(m.song, true);
+          }
         }
       });
 
@@ -582,7 +592,7 @@
     });
 
     document.getElementById('ctlFloatPill').addEventListener('click', function (e) {
-      if (e.target.closest('#ctlFloatPlay')) return;
+      if (e.target.closest('.ctl-float-btn')) return;
       document.getElementById('ctlFloatPill').classList.remove('open');
       document.getElementById('ctlRoom').classList.add('open');
     });
@@ -600,16 +610,34 @@
       e.stopPropagation();
       togglePlay();
     });
+
+    document.getElementById('ctlFloatHide').addEventListener('click', function (e) {
+      e.stopPropagation();
+      document.getElementById('ctlFloatPill').classList.remove('open');
+    });
+
     document.getElementById('ctlPlayBtn').addEventListener('click', togglePlay);
     document.getElementById('ctlExitBtn').addEventListener('click', exitListenSession);
     document.getElementById('ctlSwitchBtn').addEventListener('click', openSongPicker);
 
+    document.getElementById('ctlModeBtn').addEventListener('click', function () {
+      playMode = (playMode + 1) % 3;
+      renderModeUI();
+    });
+
     function stepSong(delta) {
       if (!songQueue.length) songQueue = getMusicAppSongs();
       if (!songQueue.length) return;
-      var curIdx = currentSong ? songQueue.findIndex(function (x) { return x.title === currentSong.title; }) : -1;
-      var nextIdx = (curIdx + delta + songQueue.length) % songQueue.length;
-      startListenSession(songQueue[nextIdx], true);
+      if (playMode === 2 && songQueue.length > 1) {
+        var r = Math.floor(Math.random() * songQueue.length);
+        var curIdx = currentSong ? songQueue.findIndex(function (x) { return x.title === currentSong.title; }) : -1;
+        if (r === curIdx) r = (r + 1) % songQueue.length;
+        startListenSession(songQueue[r], document.getElementById('ctlRoom').classList.contains('open'));
+        return;
+      }
+      var idx = currentSong ? songQueue.findIndex(function (x) { return x.title === currentSong.title; }) : -1;
+      var nextIdx = (idx + delta + songQueue.length) % songQueue.length;
+      startListenSession(songQueue[nextIdx], document.getElementById('ctlRoom').classList.contains('open'));
     }
 
     document.getElementById('ctlPrevBtn').addEventListener('click', function () { stepSong(-1); });
@@ -618,7 +646,31 @@
     document.getElementById('ctlDiscWrap').addEventListener('click', function () {
       document.getElementById('ctlStage').classList.add('lyrics-on');
     });
-    document.getElementById('ctlLyrics').addEventListener('click', function () {
+
+    lyricsEl.addEventListener('touchstart', function () {
+      manualScrollUntil = Date.now() + 4500;
+    }, { passive: true });
+    lyricsEl.addEventListener('scroll', function () {
+      manualScrollUntil = Date.now() + 4500;
+    }, { passive: true });
+
+    // 点歌词跳对应进度；点空白处切回唱片
+    lyricsEl.addEventListener('click', function (e) {
+      var line = e.target.closest('.ctl-lrc-line[data-ctl-time]');
+      if (line) {
+        e.stopPropagation();
+        var t = parseFloat(line.getAttribute('data-ctl-time'));
+        if (!isNaN(t)) {
+          audio.currentTime = t;
+          manualScrollUntil = 0;
+          if (audio.paused && audio.src) {
+            isPlaying = true;
+            audio.play().catch(function () {});
+            syncPlayerUI();
+          }
+        }
+        return;
+      }
       document.getElementById('ctlStage').classList.remove('lyrics-on');
     });
 
@@ -629,7 +681,15 @@
       audio.currentTime = ratio * audio.duration;
     });
 
-    audio.addEventListener('ended', function () { stepSong(1); });
+    audio.addEventListener('ended', function () {
+      if (playMode === 1) {
+        audio.currentTime = 0;
+        audio.play().catch(function () {});
+      } else {
+        stepSong(1);
+      }
+    });
+
     audio.addEventListener('timeupdate', function () {
       if (!audio.duration) return;
       document.getElementById('ctlProgFill').style.width = (audio.currentTime / audio.duration * 100) + '%';
@@ -647,7 +707,7 @@
           els.forEach(function (el, idx) {
             var on = idx === activeIdx;
             el.classList.toggle('active', on);
-            if (on && document.getElementById('ctlStage').classList.contains('lyrics-on')) {
+            if (on && document.getElementById('ctlStage').classList.contains('lyrics-on') && Date.now() > manualScrollUntil) {
               el.scrollIntoView({ block: 'center', behavior: 'smooth' });
             }
           });
