@@ -1,5 +1,5 @@
 /* =========================================================
-   Chat 一起听（全局常驻：黑胶唱臂 + 纯图标模式 + 单次邀请 + 小球轻点切悬浮条）
+   Chat 一起听（全局常驻：黑胶唱臂 + 原生消息发送防删失败 + 纯黑胶球）
    ========================================================= */
 (function () {
   var DEFAULT_API = 'https://api-enhanced-ashen-one-33.vercel.app';
@@ -95,13 +95,6 @@
     var m = Math.floor(s / 60);
     var r = s % 60;
     return (m < 10 ? '0' : '') + m + ':' + (r < 10 ? '0' : '') + r;
-  }
-
-  function fmtClockNow() {
-    var d = new Date();
-    var h = d.getHours();
-    var m = d.getMinutes();
-    return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
   }
 
   function saveSongCache(song) {
@@ -208,26 +201,6 @@
       contactName: name,
       contactAvatar: avatar
     };
-  }
-
-  function persistListenMsgToStorage(song) {
-    var info = getContactInfoFromRoom();
-    var tid = info.threadId;
-    var msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-    if (!tid) return msgId;
-    var key = 'chat_msgs_v1_' + tid;
-    try {
-      var list = JSON.parse(localStorage.getItem(key) || '[]');
-      list.push({
-        id: msgId,
-        sender: 'me',
-        role: 'user',
-        text: '[一起听] ' + song.name,
-        time: fmtClockNow()
-      });
-      localStorage.setItem(key, JSON.stringify(list));
-    } catch (e) {}
-    return msgId;
   }
 
   function ensureListenTile() {
@@ -440,6 +413,40 @@
     });
   }
 
+  /* 走聊天原生输入框 + 发送按钮发送 [一起听] 消息，确保内存/时间戳/长按删除 100% 同步 */
+  function sendListenCardViaNativeChat(song) {
+    saveSongCache(song);
+    var input = document.getElementById('ctRoomInput');
+    var sendBtn = document.getElementById('ctRoomSendBtn');
+    if (input && sendBtn) {
+      var prevVal = input.value;
+      input.value = '[一起听] ' + song.name;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      sendBtn.click();
+      setTimeout(function () {
+        upgradePlainListenBubbles();
+        if (input.value === '[一起听] ' + song.name) {
+          input.value = prevVal;
+        }
+      }, 20);
+      return;
+    }
+
+    var box = document.getElementById('ctRoomMessages');
+    if (!box) return;
+    var info = getContactInfoFromRoom();
+    var row = document.createElement('div');
+    row.className = 'ct-msg-row me';
+    row.innerHTML =
+      '<div class="ct-msg-avatar">我</div>' +
+      '<div class="ct-msg-bubble ctl-listen-bubble">' +
+        buildListenCardHtml(song, info) +
+      '</div>';
+    bindListenCardClick(row.querySelector('.ctl-msg-card'), song);
+    box.appendChild(row);
+    box.scrollTop = box.scrollHeight;
+  }
+
   function buildGlobalDOM() {
     if (state.inited) return;
     state.inited = true;
@@ -462,20 +469,18 @@
       '</button>';
     container.appendChild(pill);
 
-    /* 2. 全局可拖动贴边黑胶小球 */
+    /* 2. 全局可拖动贴边纯黑胶小球（无中间小白圈） */
     var orb = document.createElement('div');
     orb.id = 'ctlMiniOrb';
     orb.className = 'ctl-mini-orb';
     orb.innerHTML =
       '<div class="ctl-mini-orb-disc" id="ctlOrbDisc">' +
-        '<div class="ctl-mini-orb-art" id="ctlOrbArt">' +
-          '<div class="ctl-mini-orb-hole"></div>' +
-        '</div>' +
+        '<div class="ctl-mini-orb-art" id="ctlOrbArt"></div>' +
       '</div>' +
       '<div class="ctl-mini-orb-close"><svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></div>';
     container.appendChild(orb);
 
-    /* 3. 全局全屏一起听房间（含黑色唱片机唱臂 + 纯图标播放模式） */
+    /* 3. 全局全屏一起听房间 */
     var room = document.createElement('div');
     room.id = 'ctlRoom';
     room.className = 'ctl-room';
@@ -896,7 +901,7 @@
 
     if (sendCard && !state.invitedInSession) {
       state.invitedInSession = true;
-      appendListenCardToChat(song);
+      sendListenCardViaNativeChat(song);
     }
 
     openRoom();
@@ -964,33 +969,6 @@
     }
     state.currentIndex = prevIdx;
     loadSongAndPlay(state.playlist[prevIdx], false);
-  }
-
-  function appendListenCardToChat(song) {
-    var box = document.getElementById('ctRoomMessages');
-    if (!box) return;
-    var msgId = persistListenMsgToStorage(song);
-
-    var info = {
-      contactName: state.contactName,
-      contactAvatar: state.contactAvatar
-    };
-
-    var row = document.createElement('div');
-    row.className = 'ct-msg-row me';
-    row.setAttribute('data-msg-id', msgId);
-    row.setAttribute('data-id', msgId);
-    row.innerHTML =
-      '<div class="ct-msg-avatar">我</div>' +
-      '<div class="ct-msg-bubble ctl-listen-bubble">' +
-        buildListenCardHtml(song, info) +
-      '</div>';
-
-    var card = row.querySelector('.ctl-msg-card');
-    bindListenCardClick(card, song);
-
-    box.appendChild(row);
-    box.scrollTop = box.scrollHeight;
   }
 
   function renderSongPickerList(songs) {
