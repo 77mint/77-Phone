@@ -304,9 +304,9 @@
                                     <line x1="9" y1="14" x2="19" y2="14"/>
                                 </svg>
                             </button>
-                            <button class="ct-room-icon-btn" id="ctRoomVoiceBtn" aria-label="切换语音">${SVG_VOICE_CIRCLE}</button>
                             <input class="ct-room-input" id="ctRoomInput" placeholder="可按住 转文字" />
                             <button class="ct-hold-talk-btn" id="ctHoldTalkBtn">按住 说话</button>
+                            <button class="ct-room-icon-btn" id="ctRoomVoiceBtn" aria-label="切换语音">${SVG_VOICE_CIRCLE}</button>
                             <button class="ct-room-icon-btn" id="ctRoomEmojiBtn" aria-label="表情">${SVG_EMOJI_CIRCLE}</button>
                             <button class="ct-room-icon-btn" id="ctRoomSendBtn" aria-label="发送">
                                 <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
