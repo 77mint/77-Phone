@@ -1,6 +1,7 @@
 /* =========================================================
    Chat「一起听」独立模块（高清透 0 模糊液态玻璃 + 对接音乐 App 接口）
-   - 支持可隐藏悬浮条、循环/单曲/随机播放模式、点击任意歌词跳进度
+   - 悬浮条支持播放/暂停、下一首（跟随当前播放模式）、收起成右上角小圆球
+   - 顶栏纯文字计时（无外框无绿点）、循环/单曲/随机三态切换、点歌词跳进度
    ========================================================= */
 (function () {
   var STORAGE_THREADS_KEY = 'chat_threads_v1';
@@ -9,10 +10,14 @@
 
   var SVG_HEADPHONES = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>';
   var SVG_NOTE = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M9 18V5l12-2v13M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm12-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>';
-  var SVG_PLAY = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>';
-  var SVG_PAUSE = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
+  var SVG_PLAY = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>';
+  var SVG_PAUSE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
+  var SVG_PLAY_LG = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>';
+  var SVG_PAUSE_LG = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
   var SVG_NEXT = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20 5 4"/><rect x="17" y="4" width="2.5" height="16" rx="1"/></svg>';
+  var SVG_NEXT_SM = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20 5 4"/><rect x="17" y="4" width="2.5" height="16" rx="1"/></svg>';
   var SVG_PREV = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="19 4 9 12 19 20 19 4"/><rect x="4.5" y="4" width="2.5" height="16" rx="1"/></svg>';
+  var SVG_CHEVRON_UP = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>';
   var SVG_MODE_LOOP = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 4l3 3-3 3"/><path d="M4 12V10a3 3 0 0 1 3-3h13"/><path d="M7 20l-3-3 3-3"/><path d="M20 12v2a3 3 0 0 1-3 3H4"/></svg>';
   var SVG_MODE_ONE = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 4l3 3-3 3"/><path d="M4 12V10a3 3 0 0 1 3-3h13"/><path d="M7 20l-3-3 3-3"/><path d="M20 12v2a3 3 0 0 1-3 3H4"/><path d="M11 10.4l1.3-0.9v5"/></svg>';
   var SVG_MODE_SHUFFLE = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h3.5c2.4 0 4.2 10 7 10H20"/><path d="M3 17h3.5c2.4 0 4.2-10 7-10H20"/><path d="M17 4l3 3-3 3"/><path d="M17 14l3 3-3 3"/></svg>';
@@ -27,10 +32,12 @@
   var currentSong = null;
   var songQueue = [];
   var isPlaying = false;
-  var playMode = 0; // 0: 列表循环, 1: 单曲循环, 2: 随机播放
+  var playMode = 0; // 0: 循环播放, 1: 单曲循环, 2: 随机播放
   var parsedLyrics = [];
   var lastLyricIdx = -1;
   var manualScrollUntil = 0;
+  var togetherSec = 0;
+  var togetherTimer = null;
   var searchTimer = null;
 
   function getApiBase() {
@@ -62,6 +69,12 @@
 
   function fmtTime(sec) {
     if (!sec || isNaN(sec)) return '--:--';
+    var m = Math.floor(sec / 60);
+    var s = Math.floor(sec % 60);
+    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function fmtClock(sec) {
     var m = Math.floor(sec / 60);
     var s = Math.floor(sec % 60);
     return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
@@ -259,11 +272,13 @@
   function syncPlayerUI() {
     var room = document.getElementById('ctlRoom');
     var pill = document.getElementById('ctlFloatPill');
+    var orb = document.getElementById('ctlMiniOrb');
     var playBtn = document.getElementById('ctlPlayBtn');
     var floatPlay = document.getElementById('ctlFloatPlay');
     if (room) room.classList.toggle('playing', isPlaying);
     if (pill) pill.classList.toggle('playing', isPlaying);
-    if (playBtn) playBtn.innerHTML = isPlaying ? SVG_PAUSE : SVG_PLAY;
+    if (orb) orb.classList.toggle('playing', isPlaying);
+    if (playBtn) playBtn.innerHTML = isPlaying ? SVG_PAUSE_LG : SVG_PLAY_LG;
     if (floatPlay) floatPlay.innerHTML = isPlaying ? SVG_PAUSE : SVG_PLAY;
   }
 
@@ -338,27 +353,40 @@
 
     document.getElementById('ctlMetaTitle').textContent = song.title;
     document.getElementById('ctlMetaSub').textContent = song.sub || '';
-    document.getElementById('ctlFloatTxt').textContent = '正在与 ' + peer.name + ' 一起听：' + song.title;
+    document.getElementById('ctlFloatTxt').textContent = song.title + (song.sub ? ' - ' + song.sub : '');
 
     var disc = document.getElementById('ctlDisc');
     var bg = document.getElementById('ctlRoomBg');
     var floatArt = document.getElementById('ctlFloatArt');
+    var orbArt = document.getElementById('ctlMiniOrbArt');
     if (song.pic) {
       disc.style.backgroundImage = 'url("' + song.pic + '")';
       disc.classList.add('has-art');
       bg.style.backgroundImage = 'url("' + song.pic + '")';
       floatArt.style.backgroundImage = 'url("' + song.pic + '")';
+      orbArt.style.backgroundImage = 'url("' + song.pic + '")';
     } else {
       disc.style.backgroundImage = '';
       disc.classList.remove('has-art');
       bg.style.backgroundImage = '';
       floatArt.style.backgroundImage = '';
+      orbArt.style.backgroundImage = '';
     }
 
     document.getElementById('ctlStage').classList.remove('lyrics-on');
     document.getElementById('ctlProgFill').style.width = '0%';
     document.getElementById('ctlCurTime').textContent = '--:--';
     document.getElementById('ctlDurTime').textContent = '--:--';
+
+    if (!togetherTimer) {
+      togetherSec = 0;
+      document.getElementById('ctlTogetherTime').textContent = '一起听 · 00:00';
+      togetherTimer = setInterval(function () {
+        togetherSec++;
+        var el = document.getElementById('ctlTogetherTime');
+        if (el) el.textContent = '一起听 · ' + fmtClock(togetherSec);
+      }, 1000);
+    }
 
     var audio = document.getElementById('ctlAudio');
     isPlaying = true;
@@ -394,6 +422,7 @@
               disc.classList.add('has-art');
               bg.style.backgroundImage = 'url("' + song.pic + '")';
               floatArt.style.backgroundImage = 'url("' + song.pic + '")';
+              orbArt.style.backgroundImage = 'url("' + song.pic + '")';
             }
             loadLyrics(hit.id);
             fetchPlay(hit.id);
@@ -404,7 +433,8 @@
     if (openFull) {
       document.getElementById('ctlRoom').classList.add('open');
       document.getElementById('ctlFloatPill').classList.remove('open');
-    } else {
+      document.getElementById('ctlMiniOrb').classList.remove('open');
+    } else if (!document.getElementById('ctlMiniOrb').classList.contains('open')) {
       document.getElementById('ctlFloatPill').classList.add('open');
     }
   }
@@ -417,8 +447,12 @@
     }
     isPlaying = false;
     currentSong = null;
+    clearInterval(togetherTimer);
+    togetherTimer = null;
+    togetherSec = 0;
     document.getElementById('ctlRoom').classList.remove('open');
     document.getElementById('ctlFloatPill').classList.remove('open');
+    document.getElementById('ctlMiniOrb').classList.remove('open');
     syncPlayerUI();
   }
 
@@ -443,7 +477,11 @@
         '<div class="ctl-float-art" id="ctlFloatArt"></div>' +
         '<div class="ctl-float-txt" id="ctlFloatTxt">一起听</div>' +
         '<button class="ctl-float-btn" id="ctlFloatPlay" aria-label="播放暂停">' + SVG_PLAY + '</button>' +
-        '<button class="ctl-float-btn" id="ctlFloatHide" aria-label="隐藏浮条">×</button>' +
+        '<button class="ctl-float-btn" id="ctlFloatNext" aria-label="下一首">' + SVG_NEXT_SM + '</button>' +
+        '<button class="ctl-float-btn" id="ctlFloatHide" aria-label="收起悬浮条">' + SVG_CHEVRON_UP + '</button>' +
+      '</div>' +
+      '<div class="ctl-mini-orb ctl-glass" id="ctlMiniOrb" aria-label="展开一起听">' +
+        '<div class="ctl-mini-orb-art" id="ctlMiniOrbArt"></div>' +
       '</div>' +
       '<div class="ctl-pick-mask" id="ctlPickMask">' +
         '<div class="ctl-pick-sheet">' +
@@ -464,6 +502,7 @@
           '<button class="ctl-nav-circle ctl-glass" id="ctlMinBtn" aria-label="收起">' +
             '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>' +
           '</button>' +
+          '<div class="ctl-nav-time" id="ctlTogetherTime">一起听 · 00:00</div>' +
           '<button class="ctl-nav-exit ctl-glass" id="ctlExitBtn">退出</button>' +
         '</div>' +
         '<div class="ctl-pair">' +
@@ -490,7 +529,7 @@
           '<div class="ctl-ctrls">' +
             '<button class="ctl-ctrl-btn" id="ctlModeBtn" aria-label="播放模式">' + SVG_MODE_LOOP + '</button>' +
             '<button class="ctl-ctrl-btn" id="ctlPrevBtn" aria-label="上一首">' + SVG_PREV + '</button>' +
-            '<button class="ctl-ctrl-btn main" id="ctlPlayBtn" aria-label="播放暂停">' + SVG_PLAY + '</button>' +
+            '<button class="ctl-ctrl-btn main" id="ctlPlayBtn" aria-label="播放暂停">' + SVG_PLAY_LG + '</button>' +
             '<button class="ctl-ctrl-btn" id="ctlNextBtn" aria-label="下一首">' + SVG_NEXT + '</button>' +
             '<span class="ctl-mode-lbl" id="ctlModeLbl">循环播放</span>' +
           '</div>' +
@@ -576,6 +615,7 @@
           if (currentSong && currentSong.title === m.song.title) {
             document.getElementById('ctlRoom').classList.add('open');
             document.getElementById('ctlFloatPill').classList.remove('open');
+            document.getElementById('ctlMiniOrb').classList.remove('open');
           } else {
             startListenSession(m.song, true);
           }
@@ -588,13 +628,45 @@
 
     document.getElementById('ctlMinBtn').addEventListener('click', function () {
       document.getElementById('ctlRoom').classList.remove('open');
-      if (currentSong) document.getElementById('ctlFloatPill').classList.add('open');
+      if (currentSong) {
+        document.getElementById('ctlFloatPill').classList.add('open');
+        document.getElementById('ctlMiniOrb').classList.remove('open');
+      }
     });
 
     document.getElementById('ctlFloatPill').addEventListener('click', function (e) {
       if (e.target.closest('.ctl-float-btn')) return;
       document.getElementById('ctlFloatPill').classList.remove('open');
+      document.getElementById('ctlMiniOrb').classList.remove('open');
       document.getElementById('ctlRoom').classList.add('open');
+    });
+
+    function hidePillToOrb() {
+      document.getElementById('ctlFloatPill').classList.remove('open');
+      if (currentSong) document.getElementById('ctlMiniOrb').classList.add('open');
+    }
+
+    document.getElementById('ctlFloatHide').addEventListener('click', function (e) {
+      e.stopPropagation();
+      hidePillToOrb();
+    });
+
+    // 上滑悬浮条也能顺滑收成小圆球
+    var pillEl = document.getElementById('ctlFloatPill');
+    var pillStartY = 0;
+    pillEl.addEventListener('touchstart', function (e) {
+      pillStartY = e.touches[0].clientY;
+    }, { passive: true });
+    pillEl.addEventListener('touchend', function (e) {
+      if (!pillStartY) return;
+      var dy = e.changedTouches[0].clientY - pillStartY;
+      pillStartY = 0;
+      if (dy < -24) hidePillToOrb();
+    }, { passive: true });
+
+    document.getElementById('ctlMiniOrb').addEventListener('click', function () {
+      this.classList.remove('open');
+      if (currentSong) document.getElementById('ctlFloatPill').classList.add('open');
     });
 
     function togglePlay() {
@@ -611,9 +683,25 @@
       togglePlay();
     });
 
-    document.getElementById('ctlFloatHide').addEventListener('click', function (e) {
+    function stepSong(delta) {
+      if (!songQueue.length) songQueue = getMusicAppSongs();
+      if (!songQueue.length) return;
+      var inRoom = document.getElementById('ctlRoom').classList.contains('open');
+      if (playMode === 2 && songQueue.length > 1) {
+        var r = Math.floor(Math.random() * songQueue.length);
+        var curIdx = currentSong ? songQueue.findIndex(function (x) { return x.title === currentSong.title; }) : -1;
+        if (r === curIdx) r = (r + 1) % songQueue.length;
+        startListenSession(songQueue[r], inRoom);
+        return;
+      }
+      var idx = currentSong ? songQueue.findIndex(function (x) { return x.title === currentSong.title; }) : -1;
+      var nextIdx = (idx + delta + songQueue.length) % songQueue.length;
+      startListenSession(songQueue[nextIdx], inRoom);
+    }
+
+    document.getElementById('ctlFloatNext').addEventListener('click', function (e) {
       e.stopPropagation();
-      document.getElementById('ctlFloatPill').classList.remove('open');
+      stepSong(1);
     });
 
     document.getElementById('ctlPlayBtn').addEventListener('click', togglePlay);
@@ -624,21 +712,6 @@
       playMode = (playMode + 1) % 3;
       renderModeUI();
     });
-
-    function stepSong(delta) {
-      if (!songQueue.length) songQueue = getMusicAppSongs();
-      if (!songQueue.length) return;
-      if (playMode === 2 && songQueue.length > 1) {
-        var r = Math.floor(Math.random() * songQueue.length);
-        var curIdx = currentSong ? songQueue.findIndex(function (x) { return x.title === currentSong.title; }) : -1;
-        if (r === curIdx) r = (r + 1) % songQueue.length;
-        startListenSession(songQueue[r], document.getElementById('ctlRoom').classList.contains('open'));
-        return;
-      }
-      var idx = currentSong ? songQueue.findIndex(function (x) { return x.title === currentSong.title; }) : -1;
-      var nextIdx = (idx + delta + songQueue.length) % songQueue.length;
-      startListenSession(songQueue[nextIdx], document.getElementById('ctlRoom').classList.contains('open'));
-    }
 
     document.getElementById('ctlPrevBtn').addEventListener('click', function () { stepSong(-1); });
     document.getElementById('ctlNextBtn').addEventListener('click', function () { stepSong(1); });
