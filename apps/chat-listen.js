@@ -1,7 +1,5 @@
 /* =========================================================
-   Chat「一起听」独立模块（高清透 0 模糊液态玻璃 + 对接音乐 App 接口）
-   - 悬浮条支持播放/暂停、下一首（跟随当前播放模式）、收起成右上角小圆球
-   - 顶栏纯文字计时（无外框无绿点）、循环/单曲/随机三态切换、点歌词跳进度
+   Chat「一起听」独立模块（高清透 0 模糊液态玻璃 + 红线描边 Love + 可拖动/长按变叉浮球）
    ========================================================= */
 (function () {
   var STORAGE_THREADS_KEY = 'chat_threads_v1';
@@ -18,9 +16,11 @@
   var SVG_NEXT_SM = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20 5 4"/><rect x="17" y="4" width="2.5" height="16" rx="1"/></svg>';
   var SVG_PREV = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="19 4 9 12 19 20 19 4"/><rect x="4.5" y="4" width="2.5" height="16" rx="1"/></svg>';
   var SVG_CHEVRON_UP = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>';
+  var SVG_CLOSE_X = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
   var SVG_MODE_LOOP = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 4l3 3-3 3"/><path d="M4 12V10a3 3 0 0 1 3-3h13"/><path d="M7 20l-3-3 3-3"/><path d="M20 12v2a3 3 0 0 1-3 3H4"/></svg>';
   var SVG_MODE_ONE = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 4l3 3-3 3"/><path d="M4 12V10a3 3 0 0 1 3-3h13"/><path d="M7 20l-3-3 3-3"/><path d="M20 12v2a3 3 0 0 1-3 3H4"/><path d="M11 10.4l1.3-0.9v5"/></svg>';
   var SVG_MODE_SHUFFLE = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h3.5c2.4 0 4.2 10 7 10H20"/><path d="M3 17h3.5c2.4 0 4.2-10 7-10H20"/><path d="M17 4l3 3-3 3"/><path d="M17 14l3 3-3 3"/></svg>';
+  var RED_LOVE_PATH = 'M 0,25 C 15,23 27,6 33,8 C 37,10 25,29 20,33 C 16,36 25,36 35,31 C 41,28 49,21 53,24 C 56,27 50,35 45,33 C 41,31 45,22 52,24 C 58,25 62,34 66,33 C 70,32 73,23 78,24 C 82,25 91,29 96,23 C 99,20 93,17 88,21 C 84,25 88,34 98,31 C 110,28 118,26 126,25';
 
   var DEFAULT_SONGS = [
     { title: '红尘客栈', sub: '周杰伦', id: '', pic: '' },
@@ -433,7 +433,7 @@
     if (openFull) {
       document.getElementById('ctlRoom').classList.add('open');
       document.getElementById('ctlFloatPill').classList.remove('open');
-      document.getElementById('ctlMiniOrb').classList.remove('open');
+      document.getElementById('ctlMiniOrb').classList.remove('open', 'is-edit');
     } else if (!document.getElementById('ctlMiniOrb').classList.contains('open')) {
       document.getElementById('ctlFloatPill').classList.add('open');
     }
@@ -452,7 +452,7 @@
     togetherSec = 0;
     document.getElementById('ctlRoom').classList.remove('open');
     document.getElementById('ctlFloatPill').classList.remove('open');
-    document.getElementById('ctlMiniOrb').classList.remove('open');
+    document.getElementById('ctlMiniOrb').classList.remove('open', 'is-edit');
     syncPlayerUI();
   }
 
@@ -480,8 +480,9 @@
         '<button class="ctl-float-btn" id="ctlFloatNext" aria-label="下一首">' + SVG_NEXT_SM + '</button>' +
         '<button class="ctl-float-btn" id="ctlFloatHide" aria-label="收起悬浮条">' + SVG_CHEVRON_UP + '</button>' +
       '</div>' +
-      '<div class="ctl-mini-orb ctl-glass" id="ctlMiniOrb" aria-label="展开一起听">' +
+      '<div class="ctl-mini-orb ctl-glass" id="ctlMiniOrb" aria-label="拖动或长按隐藏">' +
         '<div class="ctl-mini-orb-art" id="ctlMiniOrbArt"></div>' +
+        '<div class="ctl-mini-orb-x">' + SVG_CLOSE_X + '</div>' +
       '</div>' +
       '<div class="ctl-pick-mask" id="ctlPickMask">' +
         '<div class="ctl-pick-sheet">' +
@@ -507,7 +508,12 @@
         '</div>' +
         '<div class="ctl-pair">' +
           '<div class="ctl-pair-av">我</div>' +
-          '<div class="ctl-pair-wave"><span></span><span></span><span></span></div>' +
+          '<div class="ctl-redline-wrap">' +
+            '<svg class="ctl-redline-svg" viewBox="0 0 126 48">' +
+              '<path class="ctl-red-ghost" d="' + RED_LOVE_PATH + '"/>' +
+              '<path class="ctl-red-draw" pathLength="100" d="' + RED_LOVE_PATH + '"/>' +
+            '</svg>' +
+          '</div>' +
           '<div class="ctl-pair-av" id="ctlPeerAv"></div>' +
         '</div>' +
         '<div class="ctl-stage" id="ctlStage">' +
@@ -615,7 +621,7 @@
           if (currentSong && currentSong.title === m.song.title) {
             document.getElementById('ctlRoom').classList.add('open');
             document.getElementById('ctlFloatPill').classList.remove('open');
-            document.getElementById('ctlMiniOrb').classList.remove('open');
+            document.getElementById('ctlMiniOrb').classList.remove('open', 'is-edit');
           } else {
             startListenSession(m.song, true);
           }
@@ -630,20 +636,24 @@
       document.getElementById('ctlRoom').classList.remove('open');
       if (currentSong) {
         document.getElementById('ctlFloatPill').classList.add('open');
-        document.getElementById('ctlMiniOrb').classList.remove('open');
+        document.getElementById('ctlMiniOrb').classList.remove('open', 'is-edit');
       }
     });
 
     document.getElementById('ctlFloatPill').addEventListener('click', function (e) {
       if (e.target.closest('.ctl-float-btn')) return;
       document.getElementById('ctlFloatPill').classList.remove('open');
-      document.getElementById('ctlMiniOrb').classList.remove('open');
+      document.getElementById('ctlMiniOrb').classList.remove('open', 'is-edit');
       document.getElementById('ctlRoom').classList.add('open');
     });
 
     function hidePillToOrb() {
       document.getElementById('ctlFloatPill').classList.remove('open');
-      if (currentSong) document.getElementById('ctlMiniOrb').classList.add('open');
+      if (currentSong) {
+        var orb = document.getElementById('ctlMiniOrb');
+        orb.classList.remove('is-edit');
+        orb.classList.add('open');
+      }
     }
 
     document.getElementById('ctlFloatHide').addEventListener('click', function (e) {
@@ -664,10 +674,85 @@
       if (dy < -24) hidePillToOrb();
     }, { passive: true });
 
-    document.getElementById('ctlMiniOrb').addEventListener('click', function () {
-      this.classList.remove('open');
-      if (currentSong) document.getElementById('ctlFloatPill').classList.add('open');
-    });
+    // 小圆球：拖动自动贴边；长按变小叉叉，再点一次隐藏
+    var orbEl = document.getElementById('ctlMiniOrb');
+    var orbRoom = document.getElementById('ctRoomView');
+    var orbStartX = 0, orbStartY = 0, orbOrigLeft = 0, orbOrigTop = 0;
+    var orbDragged = false, orbJustBecameEdit = false, orbPressTimer = null;
+
+    orbEl.addEventListener('touchstart', function (e) {
+      if (!e.touches[0] || !orbRoom) return;
+      var t = e.touches[0];
+      var rRect = orbRoom.getBoundingClientRect();
+      var oRect = orbEl.getBoundingClientRect();
+      orbStartX = t.clientX;
+      orbStartY = t.clientY;
+      orbOrigLeft = oRect.left - rRect.left;
+      orbOrigTop = oRect.top - rRect.top;
+      orbDragged = false;
+      orbJustBecameEdit = false;
+      orbEl.style.right = 'auto';
+      orbEl.style.left = orbOrigLeft + 'px';
+      orbEl.style.top = orbOrigTop + 'px';
+
+      clearTimeout(orbPressTimer);
+      if (!orbEl.classList.contains('is-edit')) {
+        orbPressTimer = setTimeout(function () {
+          if (!orbDragged) {
+            orbJustBecameEdit = true;
+            orbEl.classList.add('is-edit');
+          }
+        }, 460);
+      }
+    }, { passive: true });
+
+    orbEl.addEventListener('touchmove', function (e) {
+      if (!e.touches[0] || !orbRoom) return;
+      var t = e.touches[0];
+      var dx = t.clientX - orbStartX;
+      var dy = t.clientY - orbStartY;
+      if (!orbDragged && Math.hypot(dx, dy) > 6) {
+        orbDragged = true;
+        clearTimeout(orbPressTimer);
+        orbEl.classList.add('dragging');
+      }
+      if (!orbDragged) return;
+      e.preventDefault();
+      var maxW = orbRoom.clientWidth - orbEl.offsetWidth - 8;
+      var maxH = orbRoom.clientHeight - orbEl.offsetHeight - 86;
+      var nx = Math.max(8, Math.min(maxW, orbOrigLeft + dx));
+      var ny = Math.max(56, Math.min(maxH, orbOrigTop + dy));
+      orbEl.style.left = nx + 'px';
+      orbEl.style.top = ny + 'px';
+    }, { passive: false });
+
+    function finishOrbTouch() {
+      clearTimeout(orbPressTimer);
+      orbEl.classList.remove('dragging');
+      if (orbJustBecameEdit) return;
+      if (orbDragged && orbRoom) {
+        var curLeft = parseFloat(orbEl.style.left || '0');
+        var mid = (orbRoom.clientWidth - orbEl.offsetWidth) / 2;
+        var snapLeft = curLeft < mid ? 12 : (orbRoom.clientWidth - orbEl.offsetWidth - 12);
+        orbEl.style.left = snapLeft + 'px';
+      } else if (orbEl.classList.contains('is-edit')) {
+        orbEl.classList.remove('open', 'is-edit');
+      } else {
+        orbEl.classList.remove('open');
+        if (currentSong) document.getElementById('ctlFloatPill').classList.add('open');
+      }
+    }
+
+    orbEl.addEventListener('touchend', finishOrbTouch);
+    orbEl.addEventListener('touchcancel', finishOrbTouch);
+
+    if (orbRoom) {
+      orbRoom.addEventListener('touchstart', function (e) {
+        if (orbEl.classList.contains('is-edit') && !e.target.closest('#ctlMiniOrb')) {
+          orbEl.classList.remove('is-edit');
+        }
+      }, { passive: true });
+    }
 
     function togglePlay() {
       isPlaying = !isPlaying;
