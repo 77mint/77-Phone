@@ -3,6 +3,7 @@
    ========================================================= */
 (function () {
   var DEFAULT_API = 'https://api-enhanced-ashen-one-33.vercel.app';
+  var SONG_CACHE_KEY = 'ctl_song_cache_v1';
 
   var PLAY_MODES = [
     { key: 'list', label: '循环播放' },
@@ -14,7 +15,7 @@
     'M 2,26 C 14,25 22,19 25,11 C 27,5 22,2 19,6 C 15,12 14,23 19,27 C 24,30 33,24 38,18 C 41,15 47,15 48,19 C 49,24 43,28 39,26 C 36,24 38,17 44,17 C 49,17 53,22 57,24 C 60,25 63,21 65,16 C 67,22 70,25 74,23 C 77,21 79,16 83,16 C 87,16 88,21 84,23 C 80,25 79,20 84,18 C 91,15 103,20 116,22';
 
   var HEADPHONE_SVG =
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+    '<svg viewBox="0 0 24 24" width="26" height="26" style="width:26px;height:26px;display:block;flex-shrink:0;" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
       '<path d="M3 18v-6a9 9 0 0 1 18 0v6"/>' +
       '<path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>' +
     '</svg>';
@@ -68,6 +69,29 @@
     var m = Math.floor(s / 60);
     var r = s % 60;
     return (m < 10 ? '0' : '') + m + ':' + (r < 10 ? '0' : '') + r;
+  }
+
+  function saveSongCache(song) {
+    if (!song || !song.name) return;
+    try {
+      var map = JSON.parse(localStorage.getItem(SONG_CACHE_KEY) || '{}');
+      map[song.name] = {
+        id: song.id,
+        name: song.name,
+        artist: song.artist || '',
+        cover: song.cover || ''
+      };
+      localStorage.setItem(SONG_CACHE_KEY, JSON.stringify(map));
+    } catch (e) {}
+  }
+
+  function getSongCache(name) {
+    try {
+      var map = JSON.parse(localStorage.getItem(SONG_CACHE_KEY) || '{}');
+      return map[name] || null;
+    } catch (e) {
+      return null;
+    }
   }
 
   function showToast(text) {
@@ -163,7 +187,10 @@
       tile.setAttribute('data-ctl-listen', '1');
       var oldSvg = tile.querySelector('svg');
       if (oldSvg && oldSvg.parentNode) {
+        var oldClass = oldSvg.getAttribute('class') || '';
         oldSvg.parentNode.innerHTML = HEADPHONE_SVG;
+        var newSvg = tile.querySelector('svg');
+        if (newSvg && oldClass) newSvg.setAttribute('class', oldClass);
       }
       var labelNodes = tile.querySelectorAll('span, div, p');
       var replacedLabel = false;
@@ -190,6 +217,76 @@
 
     bindPressFeedback(tile);
     grid.appendChild(tile);
+  }
+
+  function buildListenCardHtml(song, info) {
+    var peerStyle = info && info.contactAvatar
+      ? 'style="background-image:url(\'' + escHtml(info.contactAvatar) + '\')"'
+      : '';
+    var peerTxt = info && info.contactAvatar ? '' : escHtml(((info && info.contactName) || 'Ta').slice(0, 1));
+    var covStyle = song.cover ? 'style="background-image:url(\'' + escHtml(song.cover) + '\')"' : '';
+    return (
+      '<div class="ctl-msg-card" data-song-id="' + escHtml(song.id || '') + '" data-song-name="' + escHtml(song.name || '') + '">' +
+        '<div class="ctl-msg-top">' +
+          '<div class="ctl-msg-cover" ' + covStyle + '></div>' +
+          '<div class="ctl-msg-meta">' +
+            '<div class="ctl-msg-title">' + escHtml(song.name) + '</div>' +
+            '<div class="ctl-msg-artist">' + escHtml(song.artist || '一起听') + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="ctl-msg-foot">' +
+          '<span class="ctl-msg-tag">一起听</span>' +
+          '<div class="ctl-msg-avatars">' +
+            '<div class="ctl-msg-av">我</div>' +
+            '<div class="ctl-msg-av" ' + peerStyle + '>' + peerTxt + '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function bindListenCardClick(card, song) {
+    if (!card || card._ctlBound) return;
+    card._ctlBound = true;
+    bindPressFeedback(card);
+    card.addEventListener('click', function () {
+      if (state.active && state.currentSong && String(state.currentSong.name) === String(song.name)) {
+        openRoom();
+        return;
+      }
+      var info = getContactInfoFromRoom();
+      state.threadId = info.threadId;
+      state.contactId = info.contactId;
+      state.contactName = info.contactName;
+      state.contactAvatar = info.contactAvatar;
+      if (song.id) {
+        loadSongAndPlay(song, false);
+      } else {
+        openSongModal();
+      }
+    });
+  }
+
+  function upgradePlainListenBubbles() {
+    var box = document.getElementById('ctRoomMessages');
+    if (!box) return;
+    var bubbles = box.querySelectorAll('.ct-msg-bubble');
+    if (!bubbles.length) return;
+    var info = getContactInfoFromRoom();
+    bubbles.forEach(function (bubble) {
+      if (bubble.querySelector('.ctl-msg-card')) return;
+      var txt = (bubble.textContent || '').trim();
+      if (txt.indexOf('[一起听]') !== 0) return;
+      var songName = txt.replace(/^\[一起听\]\s*/, '').trim();
+      if (!songName) return;
+      var cached = getSongCache(songName) || { id: '', name: songName, artist: '点击继续一起听', cover: '' };
+      bubble.style.background = 'transparent';
+      bubble.style.padding = '0';
+      bubble.style.boxShadow = 'none';
+      bubble.innerHTML = buildListenCardHtml(cached, info);
+      var card = bubble.querySelector('.ctl-msg-card');
+      bindListenCardClick(card, cached);
+    });
   }
 
   function buildGlobalDOM() {
@@ -562,6 +659,7 @@
 
   function loadSongAndPlay(song, sendCard) {
     if (!song) return;
+    saveSongCache(song);
     state.active = true;
     state.orbHidden = false;
     state.currentSong = song;
@@ -671,47 +769,20 @@
   function appendListenCardToChat(song) {
     var box = document.getElementById('ctRoomMessages');
     if (!box) return;
+    var info = {
+      contactName: state.contactName,
+      contactAvatar: state.contactAvatar
+    };
     var row = document.createElement('div');
     row.className = 'ct-msg-row me';
-    var peerStyle = state.contactAvatar
-      ? 'style="background-image:url(\'' + escHtml(state.contactAvatar) + '\')"'
-      : '';
-    var peerTxt = state.contactAvatar ? '' : escHtml((state.contactName || 'Ta').slice(0, 1));
     row.innerHTML =
       '<div class="ct-msg-bubble" style="background:transparent;padding:0;box-shadow:none;">' +
-        '<div class="ctl-msg-card" data-song-id="' + escHtml(song.id) + '">' +
-          '<div class="ctl-msg-top">' +
-            '<div class="ctl-msg-cover" style="background-image:url(\'' + escHtml(song.cover || '') + '\')"></div>' +
-            '<div class="ctl-msg-meta">' +
-              '<div class="ctl-msg-title">' + escHtml(song.name) + '</div>' +
-              '<div class="ctl-msg-artist">' + escHtml(song.artist) + '</div>' +
-            '</div>' +
-          '</div>' +
-          '<div class="ctl-msg-foot">' +
-            '<span class="ctl-msg-tag">一起听</span>' +
-            '<div class="ctl-msg-avatars">' +
-              '<div class="ctl-msg-av">我</div>' +
-              '<div class="ctl-msg-av" ' + peerStyle + '>' + peerTxt + '</div>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
+        buildListenCardHtml(song, info) +
       '</div>' +
       '<div class="ct-msg-avatar">我</div>';
 
     var card = row.querySelector('.ctl-msg-card');
-    bindPressFeedback(card);
-    card.addEventListener('click', function () {
-      if (state.active && state.currentSong && String(state.currentSong.id) === String(song.id)) {
-        openRoom();
-      } else {
-        var info = getContactInfoFromRoom();
-        state.threadId = info.threadId;
-        state.contactId = info.contactId;
-        state.contactName = info.contactName;
-        state.contactAvatar = info.contactAvatar;
-        loadSongAndPlay(song, false);
-      }
-    });
+    bindListenCardClick(card, song);
 
     box.appendChild(row);
     box.scrollTop = box.scrollHeight;
@@ -1060,11 +1131,13 @@
 
   function hookDrawerListenTile() {
     ensureListenTile();
+    upgradePlainListenBubbles();
 
     var appChat = document.getElementById('app-chat') || document.body;
     if (window.MutationObserver) {
       var mo = new MutationObserver(function () {
         ensureListenTile();
+        upgradePlainListenBubbles();
       });
       mo.observe(appChat, { childList: true, subtree: true });
     }
