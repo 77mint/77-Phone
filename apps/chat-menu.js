@@ -216,7 +216,9 @@
     selectedIds = (multiSelectMode && initialId) ? [initialId] : [];
     multiSearchKw = '';
     var sInp = document.getElementById('ctmuMultiSearchInput');
+    var sBox = document.getElementById('ctmuMultiSearchBox');
     if (sInp) sInp.value = '';
+    if (sBox) sBox.classList.remove('has-val', 'is-focus');
     var room = document.getElementById('ctRoomView');
     if (room) room.classList.toggle('ctmu-multiselect', multiSelectMode);
     syncMessagesDom();
@@ -248,9 +250,12 @@
           '<div class="ctmu-multi-count" id="ctmuMultiCount">已选择 0 条消息</div>' +
         '</div>' +
         '<div class="ctmu-multi-search">' +
-          '<div class="ctmu-multi-search-box">' +
-            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
-            '<input id="ctmuMultiSearchInput" placeholder="搜索">' +
+          '<div class="ctmu-multi-search-box" id="ctmuMultiSearchBox">' +
+            '<div class="ctmu-multi-search-ph">' +
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
+              '<span>搜索</span>' +
+            '</div>' +
+            '<input id="ctmuMultiSearchInput">' +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -306,25 +311,26 @@
 
       '<div class="ctmu-modal-mask" id="ctmuEditMask">' +
         '<div class="ctmu-modal">' +
-          '<div class="ctmu-modal-head">' +
+          '<div class="ctmu-modal-body">' +
             '<div class="ctmu-modal-title">编辑消息</div>' +
-            '<button class="ctmu-modal-close" data-ctmu-close="ctmuEditMask">×</button>' +
+            '<textarea class="ctmu-edit-area" id="ctmuEditArea"></textarea>' +
           '</div>' +
-          '<textarea class="ctmu-edit-area" id="ctmuEditArea"></textarea>' +
-          '<button class="ctmu-modal-save" id="ctmuEditSave">保存</button>' +
+          '<div class="ctmu-modal-actions">' +
+            '<button class="ctmu-modal-act-btn" data-ctmu-close="ctmuEditMask">取消</button>' +
+            '<button class="ctmu-modal-act-btn primary" id="ctmuEditSave">保存</button>' +
+          '</div>' +
         '</div>' +
       '</div>' +
 
       '<div class="ctmu-modal-mask" id="ctmuRerollMask">' +
         '<div class="ctmu-modal">' +
-          '<div class="ctmu-modal-head">' +
+          '<div class="ctmu-modal-body">' +
             '<div class="ctmu-modal-title">重新生成</div>' +
-            '<button class="ctmu-modal-close" data-ctmu-close="ctmuRerollMask">×</button>' +
+            '<textarea class="ctmu-edit-area" id="ctmuRerollArea" placeholder="希望怎么重新生成？（可不填）"></textarea>' +
           '</div>' +
-          '<textarea class="ctmu-edit-area" id="ctmuRerollArea" placeholder="希望怎么重新生成？（可不填，直接点重新生成）"></textarea>' +
-          '<div class="ctmu-modal-btns">' +
-            '<button class="ctmu-modal-cancel" data-ctmu-close="ctmuRerollMask">取消</button>' +
-            '<button class="ctmu-modal-save" id="ctmuRerollConfirm">重新生成</button>' +
+          '<div class="ctmu-modal-actions">' +
+            '<button class="ctmu-modal-act-btn" data-ctmu-close="ctmuRerollMask">取消</button>' +
+            '<button class="ctmu-modal-act-btn primary" id="ctmuRerollConfirm">重新生成</button>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -750,8 +756,17 @@
       setMultiSelect(false);
     });
 
-    document.getElementById('ctmuMultiSearchInput').addEventListener('input', function (e) {
+    var multiSearchInput = document.getElementById('ctmuMultiSearchInput');
+    var multiSearchBox = document.getElementById('ctmuMultiSearchBox');
+    multiSearchInput.addEventListener('focus', function () {
+      multiSearchBox.classList.add('is-focus');
+    });
+    multiSearchInput.addEventListener('blur', function () {
+      multiSearchBox.classList.remove('is-focus');
+    });
+    multiSearchInput.addEventListener('input', function (e) {
       multiSearchKw = (e.target.value || '').trim().toLowerCase();
+      multiSearchBox.classList.toggle('has-val', multiSearchKw.length > 0);
       syncMessagesDom();
     });
 
