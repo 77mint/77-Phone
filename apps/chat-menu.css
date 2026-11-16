@@ -1,5 +1,5 @@
 /* =========================================================
-   Chat 聊天室长按消息菜单（仿微信深灰网格浮层，独立模块）
+   Chat 聊天室长按消息菜单（严格仿微信 iOS 深灰实心网格浮层）
    ========================================================= */
 #app-chat .ct-msg-bubble {
   -webkit-user-select: none;
@@ -20,11 +20,11 @@
 
 .ctmu-popover {
   position: absolute;
-  width: 248px;
-  background: rgba(66, 66, 66, 0.96);
-  border-radius: 10px;
-  padding: 10px 6px 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+  width: 244px;
+  background: #4c4c4c;
+  border-radius: 8px;
+  padding: 12px 8px 11px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
   z-index: 56;
   color: #ffffff;
 }
@@ -32,7 +32,7 @@
 .ctmu-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  row-gap: 10px;
+  row-gap: 13px;
 }
 
 .ctmu-item {
@@ -41,47 +41,47 @@
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 6px 2px;
+  padding: 2px;
   background: transparent;
   border: none;
   color: #ffffff;
   font-family: inherit;
-  border-radius: 6px;
 }
 
 .ctmu-item:active {
-  background: rgba(255, 255, 255, 0.14);
+  opacity: 0.65;
 }
 
 .ctmu-item svg {
-  width: 20px;
-  height: 20px;
+  width: 19px;
+  height: 19px;
   display: block;
 }
 
 .ctmu-item span {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.2;
   color: #ffffff;
   white-space: nowrap;
+  font-weight: 400;
 }
 
 .ctmu-arrow {
   position: absolute;
   width: 0;
   height: 0;
-  border-left: 7px solid transparent;
-  border-right: 7px solid transparent;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
 }
 
 .ctmu-popover.is-above .ctmu-arrow {
   bottom: -6px;
-  border-top: 7px solid rgba(66, 66, 66, 0.96);
+  border-top: 6px solid #4c4c4c;
 }
 
 .ctmu-popover.is-below .ctmu-arrow {
   top: -6px;
-  border-bottom: 7px solid rgba(66, 66, 66, 0.96);
+  border-bottom: 6px solid #4c4c4c;
 }
 
 /* 隐藏消息占位：界面不显示，数据保留在记录中计入上下文 */
