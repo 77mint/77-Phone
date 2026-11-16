@@ -1,0 +1,311 @@
+/* =========================================================
+   Chat 输入扩展面板 & 图片气泡样式（仿微信默认皮肤，供后续美化扩展）
+   ========================================================= */
+#app-chat {
+  --ctp-drawer-bg: #f7f7f7;
+  --ctp-tile-bg: #ffffff;
+  --ctp-tile-color: #333333;
+  --ctp-tile-label: #666666;
+  --ctp-img-radius: 8px;
+  --ctp-pill-bg: #e5e5ea;
+  --ctp-pill-color: #333333;
+  --ctp-accent: #07c160;
+}
+
+/* 底部加号抽屉（平滑推起输入栏） */
+.ctp-drawer {
+  height: 0;
+  overflow: hidden;
+  background: var(--ctp-drawer-bg);
+  border-top: 0 solid rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+  transition: height 0.26s cubic-bezier(0.32, 0.72, 0, 1), border-top-width 0.2s ease;
+}
+
+.ctp-drawer.open {
+  height: calc(228px + env(safe-area-inset-bottom));
+  border-top-width: 0.5px;
+}
+
+.ctp-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px 12px;
+  padding: 22px 20px calc(16px + env(safe-area-inset-bottom));
+}
+
+.ctp-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ctp-item-icon {
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  background: var(--ctp-tile-bg);
+  color: var(--ctp-tile-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.14s ease, opacity 0.14s ease;
+}
+
+.ctp-item:active .ctp-item-icon {
+  transform: scale(0.94);
+  opacity: 0.75;
+}
+
+.ctp-item-label {
+  font-size: 12px;
+  color: var(--ctp-tile-label);
+  line-height: 1.2;
+}
+
+/* 单张图片气泡（无绿底框，仿 IMG_1788） */
+#app-chat .ct-msg-bubble.ctp-img-bubble {
+  background: transparent !important;
+  padding: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  max-width: 176px;
+}
+
+#app-chat .ct-msg-bubble.ctp-img-bubble::before,
+#app-chat .ct-msg-bubble.ctp-img-bubble::after {
+  display: none !important;
+}
+
+.ctp-single-img {
+  display: block;
+  max-width: 176px;
+  max-height: 230px;
+  width: auto;
+  height: auto;
+  border-radius: var(--ctp-img-radius);
+  object-fit: cover;
+  background: #e5e5ea;
+}
+
+/* 多图合并叠卡（仿 IMG_1790） */
+.ctp-bundle-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ct-msg-row.me .ctp-bundle-row {
+  flex-direction: row;
+}
+
+.ctp-expand-pill {
+  border: none;
+  border-radius: 999px;
+  background: var(--ctp-pill-bg);
+  color: var(--ctp-pill-color);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 12px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ctp-expand-pill:active {
+  opacity: 0.65;
+}
+
+.ctp-stack {
+  position: relative;
+  width: 142px;
+  height: 186px;
+  margin-right: 12px;
+}
+
+.ctp-stack-card {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--ctp-img-radius);
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  border: 0.5px solid rgba(0, 0, 0, 0.08);
+}
+
+.ctp-stack-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ctp-stack-card.layer-2 {
+  transform: translate(12px, 3px) rotate(4deg);
+  z-index: 1;
+  opacity: 0.92;
+}
+
+.ctp-stack-card.layer-1 {
+  transform: translate(6px, 1.5px) rotate(2deg);
+  z-index: 2;
+  opacity: 0.96;
+}
+
+.ctp-stack-card.layer-0 {
+  transform: translate(0, 0) rotate(0deg);
+  z-index: 3;
+}
+
+/* 展开后的多图网格 */
+.ctp-bundle-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 72px);
+  gap: 5px;
+}
+
+.ctp-bundle-grid.cols-2 {
+  grid-template-columns: repeat(2, 92px);
+}
+
+.ctp-bundle-grid-img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 6px;
+  display: block;
+  background: #e5e5ea;
+}
+
+/* 多图发送确认底部栏（仿 IMG_1789） */
+.ctp-multi-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 65;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.22s ease, visibility 0.22s ease;
+}
+
+.ctp-multi-mask.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.ctp-multi-sheet {
+  background: #1c1c1e;
+  color: #ffffff;
+  border-radius: 16px 16px 0 0;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  transform: translateY(100%);
+  transition: transform 0.26s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ctp-multi-mask.open .ctp-multi-sheet {
+  transform: translateY(0);
+}
+
+.ctp-multi-thumbs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 14px;
+}
+
+.ctp-multi-thumb {
+  width: 68px;
+  height: 68px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #2c2c2e;
+}
+
+.ctp-multi-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 2px 16px;
+  font-size: 15px;
+  color: #ffffff;
+}
+
+.ctp-multi-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid #8e8e93;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.ctp-multi-check.on {
+  background: var(--ctp-accent);
+  border-color: var(--ctp-accent);
+}
+
+.ctp-multi-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ctp-multi-cancel {
+  background: transparent;
+  border: none;
+  color: #e5e5ea;
+  font-size: 15px;
+  padding: 8px 4px;
+}
+
+.ctp-multi-send {
+  border: none;
+  border-radius: 6px;
+  background: var(--ctp-accent);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 500;
+  padding: 8px 18px;
+}
+
+/* 全屏大图预览 */
+.ctp-lightbox {
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  background: rgba(0, 0, 0, 0.96);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.22s ease, visibility 0.22s ease;
+}
+
+.ctp-lightbox.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.ctp-lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
