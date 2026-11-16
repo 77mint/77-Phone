@@ -6,6 +6,7 @@
   var STORAGE_MOMENTS_KEY = 'chat_moments_v1';
   var DB_COVER_KEY = 'moments_cover';
 
+  var SVG_CAMERA = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3L7.17 5H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.17L15 3H9zm3 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-2.2a2.8 2.8 0 1 0 0-5.6 2.8 2.8 0 0 0 0 5.6z"/></svg>';
   var SVG_HEART = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
   var SVG_HEART_FILL = '<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
   var SVG_COMMENT = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
@@ -14,6 +15,7 @@
   var rendering = false;
   var coverUrl = '';
   var coverLoaded = false;
+  var coverBusy = false;
   var openPopId = '';
   var commentTargetId = '';
 
@@ -101,8 +103,9 @@
     return '<div class="ctm-pick-av">' + escapeHtml(fb) + '</div>';
   }
 
-  function compressPhoto(file, maxSide) {
-    var limit = maxSide || 900;
+  function compressPhoto(file, maxSide, quality) {
+    var limit = maxSide || 800;
+    var q = quality || 0.78;
     return new Promise(function (resolve) {
       var objUrl = URL.createObjectURL(file);
       var img = new Image();
@@ -118,7 +121,7 @@
         c.width = w;
         c.height = h;
         c.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(c.toDataURL('image/jpeg', 0.8));
+        resolve(c.toDataURL('image/jpeg', q));
       };
       img.onerror = function () {
         URL.revokeObjectURL(objUrl);
@@ -126,6 +129,19 @@
       };
       img.src = objUrl;
     });
+  }
+
+  function applyCoverToDom(url) {
+    var area = document.getElementById('ctmCoverArea');
+    var imgEl = document.getElementById('ctmCoverImg');
+    if (!area || !imgEl) return;
+    if (url) {
+      imgEl.src = url;
+      area.classList.add('has-cover');
+    } else {
+      imgEl.removeAttribute('src');
+      area.classList.remove('has-cover');
+    }
   }
 
   function isMomentsTabActive() {
@@ -471,15 +487,21 @@
     });
 
     document.getElementById('ctmPostImgInput').addEventListener('change', function () {
-      var files = Array.prototype.slice.call(this.files || []).slice(0, 9 - draftImages.length);
-      this.value = '';
-      if (!files.length) return;
-      Promise.all(files.map(function (f) { return compressPhoto(f, 900); })).then(function (urls) {
-        urls.forEach(function (u) {
-          if (u && draftImages.length < 9) draftImages.push(u);
+      var inputEl = this;
+      var files = Array.prototype.slice.call(inputEl.files || []).slice(0, 9 - draftImages.length);
+      if (!files.length) {
+        inputEl.value = '';
+        return;
+      }
+      setTimeout(function () {
+        Promise.all(files.map(function (f) { return compressPhoto(f, 800, 0.76); })).then(function (urls) {
+          inputEl.value = '';
+          urls.forEach(function (u) {
+            if (u && draftImages.length < 9) draftImages.push(u);
+          });
+          renderDraftImages();
         });
-        renderDraftImages();
-      });
+      }, 320);
     });
 
     document.getElementById('ctmOptLocation').addEventListener('click', function () {
@@ -578,22 +600,26 @@
     });
 
     document.getElementById('ctmCoverInput').addEventListener('change', function () {
-      var file = this.files && this.files[0];
-      this.value = '';
-      if (!file) return;
-      // 原地压缩并更新封面，不重绘整页，避免 iPhone 收起相册时卡顿
+      var inputEl = this;
+      var file = inputEl.files && inputEl.files[0];
+      if (!file) {
+        inputEl.value = '';
+        coverBusy = false;
+        return;
+      }
+      // 等 iOS 原生选图菜单完全收起后再异步压缩和绘制，避免卡死
       setTimeout(function () {
-        compressPhoto(file, 1080).then(function (url) {
+        compressPhoto(file, 800, 0.76).then(function (url) {
+          inputEl.value = '';
+          coverBusy = false;
           if (!url) return;
           coverUrl = url;
-          var area = document.getElementById('ctmCoverArea');
-          if (area) {
-            area.style.backgroundImage = 'url("' + url + '")';
-            area.classList.add('has-cover');
-          }
-          if (window.PhoneDB) PhoneDB.set(DB_COVER_KEY, url);
+          applyCoverToDom(url);
+          setTimeout(function () {
+            if (window.PhoneDB) PhoneDB.set(DB_COVER_KEY, url);
+          }, 80);
         });
-      }, 60);
+      }, 320);
     });
 
     var commentInput = document.getElementById('ctmCommentInput');
@@ -653,11 +679,7 @@
       PhoneDB.get(DB_COVER_KEY).then(function (val) {
         if (val) {
           coverUrl = val;
-          var area = document.getElementById('ctmCoverArea');
-          if (area) {
-            area.style.backgroundImage = 'url("' + val + '")';
-            area.classList.add('has-cover');
-          }
+          applyCoverToDom(val);
         }
       });
     }
@@ -674,7 +696,7 @@
         if (imgs.length) {
           imgsHtml = '<div class="ctm-post-imgs ' + (imgs.length === 1 ? 'is-single' : '') + '">' +
             imgs.map(function (src) {
-              return '<img class="ctm-post-img" src="' + escapeHtml(src) + '" alt="">';
+              return '<img class="ctm-post-img" decoding="async" src="' + escapeHtml(src) + '" alt="">';
             }).join('') +
           '</div>';
         }
@@ -733,19 +755,15 @@
       }).join('');
     }
 
-    var coverStyle = coverUrl ? ' style="background-image:url(\'' + escapeHtml(coverUrl) + '\');"' : '';
     var coverCls = 'ctm-cover-area' + (coverUrl ? ' has-cover' : '');
+    var coverImgAttr = coverUrl ? ' src="' + escapeHtml(coverUrl) + '"' : '';
 
     scroll.innerHTML =
       '<div class="ctm-wrap">' +
-        '<div class="' + coverCls + '" id="ctmCoverArea"' + coverStyle + '>' +
+        '<div class="' + coverCls + '" id="ctmCoverArea">' +
+          '<img class="ctm-cover-img" id="ctmCoverImg" decoding="async" alt=""' + coverImgAttr + '>' +
           '<div class="ctm-cover-hint">点击更换封面</div>' +
-          '<button class="ctm-camera-btn" id="ctmCameraBtn" aria-label="发朋友圈">' +
-            '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
-              '<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>' +
-              '<circle cx="12" cy="13" r="4"/>' +
-            '</svg>' +
-          '</button>' +
+          '<button class="ctm-camera-btn" id="ctmCameraBtn" aria-label="发朋友圈">' + SVG_CAMERA + '</button>' +
         '</div>' +
         '<div class="ctm-me-corner">' +
           '<div class="ctm-me-name">我</div>' +
@@ -772,6 +790,9 @@
 
     if (coverArea) {
       coverArea.addEventListener('click', function () {
+        if (coverBusy) return;
+        coverBusy = true;
+        setTimeout(function () { coverBusy = false; }, 1200);
         document.getElementById('ctmCoverInput').click();
       });
     }
