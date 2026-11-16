@@ -1,5 +1,5 @@
 /* =========================================================
-   Chat 聊天室长按消息菜单 & 微信同款多选 / 逐条合并转发 / 删除确认 / 选择聊天页
+   Chat 聊天室长按消息菜单 & 微信同款多选 / 逐条合并转发 / 删除确认 / 重roll弹窗
    ========================================================= */
 (function () {
   var STORAGE_THREADS_KEY = 'chat_threads_v1';
@@ -15,12 +15,13 @@
   var multiSearchKw = '';
 
   var pendingForwardMsgs = [];
-  var forwardMode = 'single'; // 'single' | 'merged'
+  var forwardMode = 'single';
   var fwdMultiDest = false;
   var fwdDestIds = [];
   var fwdSearchKw = '';
 
   var pendingDeleteIds = [];
+  var rerollMsg = null;
 
   var SVG_CHECK = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 
@@ -186,7 +187,6 @@
         el.appendChild(box);
       }
 
-      // 合并转发卡片渲染
       if (m && m.type === 'forward_bundle' && Array.isArray(m.items)) {
         var bubble = el.querySelector('.ct-msg-bubble');
         if (bubble && !bubble.querySelector('.ctmu-bundle-card')) {
@@ -242,7 +242,6 @@
         '</div>' +
       '</div>' +
 
-      '<!-- P1 多选顶栏与底栏 -->' +
       '<div class="ctmu-multi-head" id="ctmuMultiHead">' +
         '<div class="ctmu-multi-top">' +
           '<button class="ctmu-multi-cancel" id="ctmuMultiCancel">取消</button>' +
@@ -270,7 +269,6 @@
         '</button>' +
       '</div>' +
 
-      '<!-- P2 逐条转发 / 合并转发底部动作表 -->' +
       '<div class="ctmu-sheet-mask" id="ctmuFwdModeMask">' +
         '<div class="ctmu-sheet">' +
           '<button class="ctmu-sheet-btn" id="ctmuSheetSingleFwd">逐条转发</button>' +
@@ -280,7 +278,6 @@
         '</div>' +
       '</div>' +
 
-      '<!-- P3 删除二次确认底部动作表 -->' +
       '<div class="ctmu-sheet-mask" id="ctmuDelConfirmMask">' +
         '<div class="ctmu-sheet">' +
           '<button class="ctmu-sheet-btn danger" id="ctmuSheetDelConfirm">删除</button>' +
@@ -289,7 +286,6 @@
         '</div>' +
       '</div>' +
 
-      '<!-- P4 选择聊天全屏转发页 -->' +
       '<div class="ctmu-fwd-page" id="ctmuFwdPage">' +
         '<div class="ctmu-fwd-head">' +
           '<button class="ctmu-fwd-head-btn left" id="ctmuFwdClose">关闭</button>' +
@@ -308,7 +304,6 @@
         '<div class="ctmu-fwd-scroll" id="ctmuFwdScroll"></div>' +
       '</div>' +
 
-      '<!-- 编辑消息弹窗 -->' +
       '<div class="ctmu-modal-mask" id="ctmuEditMask">' +
         '<div class="ctmu-modal">' +
           '<div class="ctmu-modal-head">' +
@@ -317,6 +312,20 @@
           '</div>' +
           '<textarea class="ctmu-edit-area" id="ctmuEditArea"></textarea>' +
           '<button class="ctmu-modal-save" id="ctmuEditSave">保存</button>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="ctmu-modal-mask" id="ctmuRerollMask">' +
+        '<div class="ctmu-modal">' +
+          '<div class="ctmu-modal-head">' +
+            '<div class="ctmu-modal-title">重新生成</div>' +
+            '<button class="ctmu-modal-close" data-ctmu-close="ctmuRerollMask">×</button>' +
+          '</div>' +
+          '<textarea class="ctmu-edit-area" id="ctmuRerollArea" placeholder="希望怎么重新生成？（可不填，直接点重新生成）"></textarea>' +
+          '<div class="ctmu-modal-btns">' +
+            '<button class="ctmu-modal-cancel" data-ctmu-close="ctmuRerollMask">取消</button>' +
+            '<button class="ctmu-modal-save" id="ctmuRerollConfirm">重新生成</button>' +
+          '</div>' +
         '</div>' +
       '</div>';
 
@@ -344,8 +353,6 @@
     targetGroupEl = groupEl;
     targetMsgId = groupEl.getAttribute('data-msg-id') || '';
 
-    bd.classList.add('open');
-
     var roomRect = room.getBoundingClientRect();
     var bRect = bubbleEl.getBoundingClientRect();
     var scale = room.offsetHeight ? (roomRect.height / room.offsetHeight) : 1;
@@ -371,6 +378,8 @@
 
     var arrowLeft = Math.max(16, Math.min(popW - 28, bCenterX - left - 6));
     arrow.style.left = arrowLeft + 'px';
+
+    bd.classList.add('open');
   }
 
   function triggerNativeQuote(groupEl) {
@@ -653,14 +662,10 @@
     }
 
     if (act === 'reroll') {
-      var ev = new CustomEvent('phone-chat-reroll', {
-        cancelable: true,
-        detail: { threadId: tid, msgId: msg.id, msg: msg }
-      });
-      var notHandled = window.dispatchEvent(ev);
-      if (notHandled) {
-        showToast('已触发重roll（待接入 AI 回复）');
-      }
+      rerollMsg = msg;
+      var rArea = document.getElementById('ctmuRerollArea');
+      if (rArea) rArea.value = '';
+      document.getElementById('ctmuRerollMask').classList.add('open');
       return;
     }
 
@@ -722,7 +727,25 @@
       showToast('已保存');
     });
 
-    /* 多选顶部/底部事件 */
+    document.getElementById('ctmuRerollConfirm').addEventListener('click', function () {
+      var tid = resolveCurrentThreadId();
+      var promptText = (document.getElementById('ctmuRerollArea').value || '').trim();
+      document.getElementById('ctmuRerollMask').classList.remove('open');
+      var ev = new CustomEvent('phone-chat-reroll', {
+        cancelable: true,
+        detail: {
+          threadId: tid,
+          msgId: rerollMsg ? rerollMsg.id : targetMsgId,
+          msg: rerollMsg,
+          prompt: promptText
+        }
+      });
+      var notHandled = window.dispatchEvent(ev);
+      if (notHandled) {
+        showToast('已记录重roll需求（待接入 AI 回复）');
+      }
+    });
+
     document.getElementById('ctmuMultiCancel').addEventListener('click', function () {
       setMultiSelect(false);
     });
@@ -761,7 +784,6 @@
       confirmDeleteIds(selectedIds);
     });
 
-    /* P2 逐条转发 / 合并转发 */
     document.getElementById('ctmuSheetSingleFwd').addEventListener('click', function () {
       document.getElementById('ctmuFwdModeMask').classList.remove('open');
       openForwardPage('single');
@@ -777,7 +799,6 @@
       if (e.target.id === 'ctmuFwdModeMask') e.target.classList.remove('open');
     });
 
-    /* P3 删除确认 */
     document.getElementById('ctmuSheetDelConfirm').addEventListener('click', executePendingDelete);
     document.getElementById('ctmuSheetDelCancel').addEventListener('click', function () {
       pendingDeleteIds = [];
@@ -790,7 +811,6 @@
       }
     });
 
-    /* P4 选择聊天页 */
     document.getElementById('ctmuFwdClose').addEventListener('click', function () {
       document.getElementById('ctmuFwdPage').classList.remove('open');
     });
@@ -825,12 +845,17 @@
     if (!msgBox) return;
 
     var timer = null;
+    var pressingBubble = null;
     var sx = 0;
     var sy = 0;
 
     function clearHold() {
       clearTimeout(timer);
       timer = null;
+      if (pressingBubble) {
+        pressingBubble.classList.remove('ctmu-pressing');
+        pressingBubble = null;
+      }
     }
 
     msgBox.addEventListener('click', function (e) {
@@ -853,10 +878,16 @@
       sx = e.touches[0].clientX;
       sy = e.touches[0].clientY;
       clearHold();
+      pressingBubble = bubble;
+      bubble.classList.add('ctmu-pressing');
       timer = setTimeout(function () {
         timer = null;
+        if (pressingBubble) {
+          pressingBubble.classList.remove('ctmu-pressing');
+          pressingBubble = null;
+        }
         openMenuForBubble(bubble, group);
-      }, 420);
+      }, 400);
     }, { passive: true });
 
     msgBox.addEventListener('touchmove', function (e) {
