@@ -1,0 +1,224 @@
+/* =========================================================
+   Chat 聊天室长按消息菜单（仿微信深灰网格浮层，独立模块）
+   ========================================================= */
+#app-chat .ct-msg-bubble {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.ctmu-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 55;
+  display: none;
+}
+
+.ctmu-backdrop.open {
+  display: block;
+}
+
+.ctmu-popover {
+  position: absolute;
+  width: 248px;
+  background: rgba(66, 66, 66, 0.96);
+  border-radius: 10px;
+  padding: 10px 6px 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+  z-index: 56;
+  color: #ffffff;
+}
+
+.ctmu-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  row-gap: 10px;
+}
+
+.ctmu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 2px;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-family: inherit;
+  border-radius: 6px;
+}
+
+.ctmu-item:active {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.ctmu-item svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.ctmu-item span {
+  font-size: 11px;
+  line-height: 1.2;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+.ctmu-arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+}
+
+.ctmu-popover.is-above .ctmu-arrow {
+  bottom: -6px;
+  border-top: 7px solid rgba(66, 66, 66, 0.96);
+}
+
+.ctmu-popover.is-below .ctmu-arrow {
+  top: -6px;
+  border-bottom: 7px solid rgba(66, 66, 66, 0.96);
+}
+
+/* 隐藏消息占位：界面不显示，数据保留在记录中计入上下文 */
+.ct-msg-group.ctmu-is-hidden {
+  display: none !important;
+}
+
+/* 编辑 / 转发弹窗 */
+.ctmu-modal-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 65;
+  background: rgba(0, 0, 0, 0.42);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.ctmu-modal-mask.open {
+  display: flex;
+}
+
+.ctmu-modal {
+  width: 100%;
+  max-width: 320px;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 70%;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
+}
+
+.ctmu-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ctmu-modal-title {
+  font-size: calc(var(--app-font-size, 15px) + 1px);
+  font-weight: 600;
+  color: #111111;
+}
+
+.ctmu-modal-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: #f2f2f7;
+  color: #111111;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ctmu-edit-area {
+  width: 100%;
+  min-height: 110px;
+  border-radius: 12px;
+  border: none;
+  outline: none;
+  background: #f2f2f7;
+  padding: 12px;
+  font-family: inherit;
+  font-size: var(--app-font-size, 15px);
+  color: #111111;
+  resize: none;
+  line-height: 1.5;
+}
+
+.ctmu-modal-save {
+  width: 100%;
+  padding: 11px 0;
+  border-radius: 999px;
+  border: none;
+  background: #111111;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.ctmu-fwd-list {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+}
+
+.ctmu-fwd-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 4px;
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.06);
+}
+
+.ctmu-fwd-row:last-child {
+  border-bottom: none;
+}
+
+.ctmu-fwd-row:active {
+  background: #f2f2f7;
+}
+
+.ctmu-fwd-av {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: #f2f2f7;
+  color: #111111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.ctmu-fwd-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ctmu-fwd-name {
+  font-size: var(--app-font-size, 15px);
+  color: #111111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
