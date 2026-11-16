@@ -1,5 +1,5 @@
 /* =========================================================
-   Chat「一起听」独立模块（高清透 0 模糊液态玻璃 + 红线描边 Love + 可拖动/长按变叉浮球）
+   Chat「一起听」独立模块（高清透 0 模糊液态玻璃 + 极细红线 Love + 悬浮条实时歌词）
    ========================================================= */
 (function () {
   var STORAGE_THREADS_KEY = 'chat_threads_v1';
@@ -20,7 +20,7 @@
   var SVG_MODE_LOOP = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 4l3 3-3 3"/><path d="M4 12V10a3 3 0 0 1 3-3h13"/><path d="M7 20l-3-3 3-3"/><path d="M20 12v2a3 3 0 0 1-3 3H4"/></svg>';
   var SVG_MODE_ONE = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 4l3 3-3 3"/><path d="M4 12V10a3 3 0 0 1 3-3h13"/><path d="M7 20l-3-3 3-3"/><path d="M20 12v2a3 3 0 0 1-3 3H4"/><path d="M11 10.4l1.3-0.9v5"/></svg>';
   var SVG_MODE_SHUFFLE = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h3.5c2.4 0 4.2 10 7 10H20"/><path d="M3 17h3.5c2.4 0 4.2-10 7-10H20"/><path d="M17 4l3 3-3 3"/><path d="M17 14l3 3-3 3"/></svg>';
-  var RED_LOVE_PATH = 'M 0,25 C 15,23 27,6 33,8 C 37,10 25,29 20,33 C 16,36 25,36 35,31 C 41,28 49,21 53,24 C 56,27 50,35 45,33 C 41,31 45,22 52,24 C 58,25 62,34 66,33 C 70,32 73,23 78,24 C 82,25 91,29 96,23 C 99,20 93,17 88,21 C 84,25 88,34 98,31 C 110,28 118,26 126,25';
+  var RED_LOVE_PATH = 'M 0,30 C 12,30 22,26 28,16 C 32,9 26,4 22,11 C 18,19 20,34 26,34 C 31,34 35,28 38,26 C 42,24 47,23 49,27 C 50,31 44,35 41,32 C 39,29 44,24 50,26 C 54,27 57,34 61,34 C 65,34 68,25 72,26 C 75,27 83,29 87,25 C 89,22 84,20 81,24 C 78,28 82,35 90,33 C 104,30 122,29 140,30';
 
   var DEFAULT_SONGS = [
     { title: '红尘客栈', sub: '周杰伦', id: '', pic: '' },
@@ -78,6 +78,17 @@
     var m = Math.floor(sec / 60);
     var s = Math.floor(sec % 60);
     return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function setFloatLine(text) {
+    var wrap = document.getElementById('ctlFloatTxt');
+    var inner = document.getElementById('ctlFloatTxtInner');
+    if (!wrap || !inner) return;
+    inner.classList.remove('is-scroll');
+    inner.textContent = text || '';
+    if (inner.scrollWidth > wrap.clientWidth + 4) {
+      inner.classList.add('is-scroll');
+    }
   }
 
   function resolveCurrentThreadId() {
@@ -353,7 +364,7 @@
 
     document.getElementById('ctlMetaTitle').textContent = song.title;
     document.getElementById('ctlMetaSub').textContent = song.sub || '';
-    document.getElementById('ctlFloatTxt').textContent = song.title + (song.sub ? ' - ' + song.sub : '');
+    setFloatLine(song.title + (song.sub ? ' - ' + song.sub : ''));
 
     var disc = document.getElementById('ctlDisc');
     var bg = document.getElementById('ctlRoomBg');
@@ -475,7 +486,7 @@
     holder.innerHTML =
       '<div class="ctl-float-pill ctl-glass" id="ctlFloatPill">' +
         '<div class="ctl-float-art" id="ctlFloatArt"></div>' +
-        '<div class="ctl-float-txt" id="ctlFloatTxt">一起听</div>' +
+        '<div class="ctl-float-txt" id="ctlFloatTxt"><span class="ctl-float-txt-inner" id="ctlFloatTxtInner">一起听</span></div>' +
         '<button class="ctl-float-btn" id="ctlFloatPlay" aria-label="播放暂停">' + SVG_PLAY + '</button>' +
         '<button class="ctl-float-btn" id="ctlFloatNext" aria-label="下一首">' + SVG_NEXT_SM + '</button>' +
         '<button class="ctl-float-btn" id="ctlFloatHide" aria-label="收起悬浮条">' + SVG_CHEVRON_UP + '</button>' +
@@ -509,7 +520,7 @@
         '<div class="ctl-pair">' +
           '<div class="ctl-pair-av">我</div>' +
           '<div class="ctl-redline-wrap">' +
-            '<svg class="ctl-redline-svg" viewBox="0 0 126 48">' +
+            '<svg class="ctl-redline-svg" viewBox="0 0 140 50">' +
               '<path class="ctl-red-ghost" d="' + RED_LOVE_PATH + '"/>' +
               '<path class="ctl-red-draw" pathLength="100" d="' + RED_LOVE_PATH + '"/>' +
             '</svg>' +
@@ -637,6 +648,9 @@
       if (currentSong) {
         document.getElementById('ctlFloatPill').classList.add('open');
         document.getElementById('ctlMiniOrb').classList.remove('open', 'is-edit');
+        if (parsedLyrics.length && lastLyricIdx >= 0 && parsedLyrics[lastLyricIdx]) {
+          setFloatLine(parsedLyrics[lastLyricIdx].text);
+        }
       }
     });
 
@@ -861,6 +875,9 @@
         }
         if (activeIdx !== lastLyricIdx) {
           lastLyricIdx = activeIdx;
+          if (parsedLyrics[activeIdx]) {
+            setFloatLine(parsedLyrics[activeIdx].text);
+          }
           var els = document.querySelectorAll('#ctlLyrics .ctl-lrc-line');
           els.forEach(function (el, idx) {
             var on = idx === activeIdx;
