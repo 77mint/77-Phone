@@ -1,5 +1,5 @@
 /* =========================================================
-   Chat 一起听（全局常驻：全屏遮罩 + 键盘自适应 + 稳定曲库）
+   Chat 一起听（全局常驻：全屏遮罩 + 键盘自适应 + 稳定曲库 + 轴心黑胶球）
    ========================================================= */
 (function () {
   var DEFAULT_API = 'https://api-enhanced-ashen-one-33.vercel.app';
@@ -50,7 +50,6 @@
   var els = {};
   var pendingLookups = {};
 
-  /* 挂载到 #app-chat 的父级顶层手机容器，确保 100% 盖住底部栏且跨 App 全局显示 */
   function getRootContainer() {
     var appChat = document.getElementById('app-chat');
     if (appChat && appChat.parentElement) return appChat.parentElement;
@@ -115,24 +114,6 @@
     }
   }
 
-  function persistListenMsgToStorage(song) {
-    var info = getContactInfoFromRoom();
-    var tid = info.threadId;
-    if (!tid) return;
-    var key = 'chat_msgs_v1_' + tid;
-    try {
-      var list = JSON.parse(localStorage.getItem(key) || '[]');
-      list.push({
-        id: 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-        sender: 'me',
-        role: 'user',
-        text: '[一起听] ' + song.name,
-        time: Date.now()
-      });
-      localStorage.setItem(key, JSON.stringify(list));
-    } catch (e) {}
-  }
-
   function showToast(text) {
     if (!els.toast) return;
     els.toast.textContent = text;
@@ -162,22 +143,33 @@
   }
 
   function getContactInfoFromRoom() {
+    var roomView = document.getElementById('ctRoomView');
     var titleEl = document.getElementById('ctRoomTitle');
     var name = titleEl ? titleEl.textContent.trim() : 'Ta';
-    var threadId = '';
+    var threadId = (roomView && (roomView.getAttribute('data-thread-id') || roomView.dataset.threadId)) || '';
     var contactId = '';
     var avatar = '';
 
     if (window.PhoneChat && typeof window.PhoneChat.getThreads === 'function') {
       var threads = window.PhoneChat.getThreads() || [];
       for (var i = 0; i < threads.length; i++) {
-        if (threads[i].name === name || threads[i].title === name) {
-          threadId = threads[i].id || '';
+        if (
+          (threadId && threads[i].id === threadId) ||
+          threads[i].name === name ||
+          threads[i].title === name
+        ) {
+          threadId = threads[i].id || threadId;
           contactId = threads[i].contactId || threads[i].charId || '';
           avatar = threads[i].avatar || '';
           break;
         }
       }
+    }
+
+    if (!threadId && name === '水小九') {
+      threadId = localStorage.getItem('chat_msgs_v1_assistant-shuixiaojiu')
+        ? 'assistant-shuixiaojiu'
+        : 'thread_' + name;
     }
 
     if (!avatar && contactId && window.PhoneArchive && typeof window.PhoneArchive.getCharAvatar === 'function') {
@@ -189,6 +181,7 @@
         if (chars[j].name === name) {
           contactId = chars[j].id || contactId;
           avatar = chars[j].avatar || '';
+          if (!threadId && chars[j].id) threadId = chars[j].id;
           break;
         }
       }
@@ -202,6 +195,26 @@
       contactName: name,
       contactAvatar: avatar
     };
+  }
+
+  function persistListenMsgToStorage(song) {
+    var info = getContactInfoFromRoom();
+    var tid = info.threadId;
+    var msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    if (!tid) return msgId;
+    var key = 'chat_msgs_v1_' + tid;
+    try {
+      var list = JSON.parse(localStorage.getItem(key) || '[]');
+      list.push({
+        id: msgId,
+        sender: 'me',
+        role: 'user',
+        text: '[一起听] ' + song.name,
+        time: Date.now()
+      });
+      localStorage.setItem(key, JSON.stringify(list));
+    } catch (e) {}
+    return msgId;
   }
 
   function ensureListenTile() {
@@ -435,13 +448,15 @@
       '</button>';
     container.appendChild(pill);
 
-    /* 2. 全局可拖动贴边黑胶小球 */
+    /* 2. 全局可拖动贴边黑胶小球（含中心轴心圆孔） */
     var orb = document.createElement('div');
     orb.id = 'ctlMiniOrb';
     orb.className = 'ctl-mini-orb';
     orb.innerHTML =
       '<div class="ctl-mini-orb-disc" id="ctlOrbDisc">' +
-        '<div class="ctl-mini-orb-art" id="ctlOrbArt"></div>' +
+        '<div class="ctl-mini-orb-art" id="ctlOrbArt">' +
+          '<div class="ctl-mini-orb-hole"></div>' +
+        '</div>' +
       '</div>' +
       '<div class="ctl-mini-orb-close"><svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></div>';
     container.appendChild(orb);
@@ -574,7 +589,6 @@
     renderModeUI();
   }
 
-  /* 监听 iOS 键盘高度：锁住底部微信界面不动，只把选歌卡片托到键盘正上方 */
   function setupModalKeyboardFollow() {
     if (!window.visualViewport) return;
     var vv = window.visualViewport;
@@ -925,7 +939,7 @@
   function appendListenCardToChat(song) {
     var box = document.getElementById('ctRoomMessages');
     if (!box) return;
-    persistListenMsgToStorage(song);
+    var msgId = persistListenMsgToStorage(song);
 
     var info = {
       contactName: state.contactName,
@@ -934,6 +948,8 @@
 
     var row = document.createElement('div');
     row.className = 'ct-msg-row me';
+    row.setAttribute('data-msg-id', msgId);
+    row.setAttribute('data-id', msgId);
     row.innerHTML =
       '<div class="ct-msg-avatar">我</div>' +
       '<div class="ct-msg-bubble ctl-listen-bubble">' +
@@ -985,7 +1001,6 @@
     });
   }
 
-  /* 优先使用已缓存曲库，同时用稳定的 /cloudsearch 与歌单接口拉取推荐曲库 */
   function fetchInitialSongs() {
     if (!els.songList) return;
     if (state.defaultSongs && state.defaultSongs.length) {
