@@ -1,0 +1,690 @@
+/* =========================================================
+   Chat「一起听」独立模块（液态玻璃风格 + 顺滑 iOS 动效）
+   ========================================================= */
+.ctl-glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.58) 0%, rgba(255, 255, 255, 0.24) 52%, rgba(255, 255, 255, 0.42) 100%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.10),
+    inset 0 1.5px 1px rgba(255, 255, 255, 1),
+    inset 0 -1.5px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* 聊天室液态玻璃「一起听」气泡卡片 */
+#app-chat .ct-msg-bubble.ctl-msg-card {
+  width: 236px;
+  max-width: 236px;
+  padding: 11px 12px !important;
+  border-radius: 16px !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(255, 255, 255, 0.52) 55%, rgba(255, 255, 255, 0.68) 100%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.95) !important;
+  box-shadow:
+    0 6px 18px rgba(0, 0, 0, 0.08),
+    inset 0 1.5px 1px rgba(255, 255, 255, 1) !important;
+  color: #111111 !important;
+  cursor: pointer;
+  transition: transform 0.12s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+#app-chat .ct-msg-bubble.ctl-msg-card.is-pressed {
+  transform: scale(0.97);
+}
+
+#app-chat .ct-msg-bubble.ctl-msg-card::before,
+#app-chat .ct-msg-bubble.ctl-msg-card::after {
+  display: none !important;
+  content: none !important;
+}
+
+.ctl-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ctl-card-art {
+  width: 46px;
+  height: 46px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2b3a42, #8c5a3c);
+  background-size: cover;
+  background-position: center;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.14);
+}
+
+.ctl-card-art.has-art svg {
+  display: none;
+}
+
+.ctl-card-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.ctl-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ctl-card-sub {
+  font-size: 12px;
+  color: #666666;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ctl-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 9px;
+  padding-top: 7px;
+  border-top: 0.5px solid rgba(0, 0, 0, 0.07);
+  font-size: 11px;
+  color: #666666;
+}
+
+.ctl-card-avs {
+  display: flex;
+  align-items: center;
+}
+
+.ctl-mini-av {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #e5e5ea;
+  color: #111111;
+  font-size: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1.5px solid #ffffff;
+}
+
+.ctl-mini-av + .ctl-mini-av {
+  margin-left: -5px;
+}
+
+.ctl-mini-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* 聊天室顶部悬浮液态玻璃条（最小化共听时显示） */
+.ctl-float-pill {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 52px);
+  left: 14px;
+  right: 14px;
+  z-index: 25;
+  border-radius: 999px;
+  padding: 7px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px) scale(0.96);
+  pointer-events: none;
+  transition: transform 0.26s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.ctl-float-pill.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.ctl-float-art {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #2b3a42;
+  background-size: cover;
+  background-position: center;
+  flex-shrink: 0;
+  animation: ctlSpin 14s linear infinite;
+  animation-play-state: paused;
+}
+
+.ctl-float-pill.playing .ctl-float-art {
+  animation-play-state: running;
+}
+
+.ctl-float-txt {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #111111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ctl-float-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.06);
+  border: none;
+  color: #111111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+/* 选歌底部液态玻璃抽屉 */
+.ctl-pick-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+  background: rgba(0, 0, 0, 0.34);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.24s ease, visibility 0.24s ease;
+}
+
+.ctl-pick-mask.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.ctl-pick-sheet {
+  height: 76%;
+  border-radius: 24px 24px 0 0;
+  background: rgba(246, 246, 249, 0.88);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  border-top: 1px solid rgba(255, 255, 255, 0.95);
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px calc(16px + env(safe-area-inset-bottom));
+  transform: translateY(100%);
+  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ctl-pick-mask.open .ctl-pick-sheet {
+  transform: translateY(0);
+}
+
+.ctl-pick-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.ctl-pick-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111111;
+}
+
+.ctl-pick-close {
+  border: none;
+  background: rgba(0, 0, 0, 0.06);
+  color: #333333;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 13px;
+}
+
+.ctl-pick-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: 14px;
+  padding: 9px 12px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.ctl-pick-search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  color: #111111;
+}
+
+.ctl-pick-list {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ctl-song-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: 14px;
+  padding: 9px 12px;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+
+.ctl-song-row.is-pressed,
+.ctl-song-row:active {
+  transform: scale(0.98);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.ctl-song-cover {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2b3a42, #8c5a3c);
+  background-size: cover;
+  background-position: center;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+}
+
+.ctl-song-cover.has-art svg {
+  display: none;
+}
+
+.ctl-song-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.ctl-song-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ctl-song-artist {
+  font-size: 12px;
+  color: #8e8e93;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ctl-song-send {
+  font-size: 12px;
+  font-weight: 500;
+  color: #111111;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 999px;
+  padding: 5px 11px;
+  flex-shrink: 0;
+}
+
+/* 全屏「一起听」液态玻璃空间 */
+.ctl-room {
+  position: absolute;
+  inset: 0;
+  z-index: 66;
+  background: #f2f3f7;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: calc(env(safe-area-inset-top) + 10px) 20px calc(24px + env(safe-area-inset-bottom));
+  visibility: hidden;
+  transform: translateY(100%);
+  pointer-events: none;
+  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1), visibility 0.32s ease;
+}
+
+.ctl-room.open {
+  visibility: visible;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.ctl-room-bg {
+  position: absolute;
+  inset: -40px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(46px) saturate(1.5);
+  opacity: 0.32;
+  pointer-events: none;
+  transition: background-image 0.4s ease;
+}
+
+.ctl-room-nav {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.ctl-nav-circle {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #111111;
+  padding: 0;
+  transition: transform 0.14s ease;
+}
+
+.ctl-nav-circle:active {
+  transform: scale(0.92);
+}
+
+.ctl-nav-badge {
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #111111;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ctl-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #07c160;
+}
+
+.ctl-nav-exit {
+  border-radius: 999px;
+  padding: 6px 13px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #111111;
+}
+
+.ctl-pair {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.ctl-pair-av {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  border: 2px solid #ffffff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.10);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111111;
+  overflow: hidden;
+}
+
+.ctl-pair-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ctl-pair-wave {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #555555;
+  font-size: 14px;
+}
+
+.ctl-pair-wave span {
+  width: 3px;
+  height: 10px;
+  border-radius: 2px;
+  background: #111111;
+  opacity: 0.45;
+  animation: ctlBar 1s ease-in-out infinite;
+  animation-play-state: paused;
+}
+
+.ctl-room.playing .ctl-pair-wave span {
+  animation-play-state: running;
+}
+
+.ctl-pair-wave span:nth-child(2) { height: 16px; animation-delay: 0.2s; }
+.ctl-pair-wave span:nth-child(3) { height: 12px; animation-delay: 0.4s; }
+
+@keyframes ctlBar {
+  0%, 100% { transform: scaleY(0.5); opacity: 0.35; }
+  50% { transform: scaleY(1); opacity: 0.85; }
+}
+
+.ctl-stage {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+.ctl-disc-wrap {
+  width: 214px;
+  height: 214px;
+  border-radius: 50%;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.ctl-disc {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2b3a42, #8c5a3c);
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  animation: ctlSpin 18s linear infinite;
+  animation-play-state: paused;
+}
+
+.ctl-room.playing .ctl-disc {
+  animation-play-state: running;
+}
+
+.ctl-disc.has-art svg {
+  display: none;
+}
+
+@keyframes ctlSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.ctl-stage.lyrics-on .ctl-disc-wrap {
+  display: none;
+}
+
+.ctl-lyrics {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 40px 10px;
+  display: none;
+  text-align: center;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 18%, #000 82%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 18%, #000 82%, transparent 100%);
+}
+
+.ctl-stage.lyrics-on .ctl-lyrics {
+  display: block;
+}
+
+.ctl-lrc-line {
+  font-size: 15px;
+  line-height: 2.2;
+  color: rgba(17, 17, 17, 0.35);
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.ctl-lrc-line.active {
+  color: #111111;
+  font-weight: 700;
+  transform: scale(1.03);
+}
+
+.ctl-panel {
+  position: relative;
+  z-index: 2;
+  border-radius: 26px;
+  padding: 18px 20px 16px;
+  margin-top: 14px;
+}
+
+.ctl-song-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.ctl-meta-left {
+  min-width: 0;
+  flex: 1;
+}
+
+.ctl-meta-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ctl-meta-sub {
+  font-size: 13px;
+  color: #666666;
+  margin-top: 2px;
+}
+
+.ctl-switch-btn {
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #111111;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  flex-shrink: 0;
+}
+
+.ctl-prog-bar {
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.10);
+  overflow: hidden;
+}
+
+.ctl-prog-fill {
+  width: 0%;
+  height: 100%;
+  background: #111111;
+}
+
+.ctl-prog-times {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #8e8e93;
+  margin-top: 6px;
+}
+
+.ctl-ctrls {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  margin-top: 10px;
+}
+
+.ctl-ctrl-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: #111111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: transform 0.12s ease;
+}
+
+.ctl-ctrl-btn:active {
+  transform: scale(0.9);
+}
+
+.ctl-ctrl-btn.main {
+  width: 56px;
+  height: 56px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid #ffffff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.10);
+}
