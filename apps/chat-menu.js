@@ -15,37 +15,37 @@
     {
       id: 'quote',
       label: '引用',
-      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 10.5c0-1 .8-1.5 1.5-1.5s1 .5 1 1.2c0 1-1 1.8-1.5 2.8"/><path d="M13.5 10.5c0-1 .8-1.5 1.5-1.5s1 .5 1 1.2c0 1-1 1.8-1.5 2.8"/></svg>'
+      icon: '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#ffffff"/><path d="M8.4 13.8c0-2 .9-3.4 2.4-4l.6 1.1c-.9.5-1.3 1.2-1.3 2h1.2v2.4H8.4v-1.5Zm4.8 0c0-2 .9-3.4 2.4-4l.6 1.1c-.9.5-1.3 1.2-1.3 2h1.2v2.4h-2.9v-1.5Z" fill="#4c4c4c"/></svg>'
     },
     {
       id: 'forward',
       label: '转发',
-      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>'
+      icon: '<svg viewBox="0 0 24 24" fill="none"><path d="M14 5v4.2C7.8 9.8 4.4 13.6 3.5 19c2.2-3 5.5-4.4 10.5-4.4V19l7-7-7-7Z" fill="#ffffff"/></svg>'
     },
     {
       id: 'favorite',
       label: '收藏',
-      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 20.5 7.3v9.4L12 21.5 3.5 16.7V7.3Z"/><path d="M3.5 7.3 12 12l8.5-4.7"/><path d="M12 12v9.5"/></svg>'
+      icon: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 2.4 20.5 7.2v9.6L12 21.6l-8.5-4.8V7.2L12 2.4Z" fill="#ffffff"/><path d="M3.5 7.2 12 12l8.5-4.8M12 12v9.6" stroke="#4c4c4c" stroke-width="1.6" stroke-linejoin="round"/></svg>'
     },
     {
       id: 'edit',
       label: '编辑',
-      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4Z"/></svg>'
+      icon: '<svg viewBox="0 0 24 24" fill="none"><path d="M16.9 3.6a2.1 2.1 0 0 1 3 3l-.9.9-3-3 .9-.9Zm-2 2-10 10L4 20l4.4-.9 10-10-3.5-3.5Z" fill="#ffffff"/></svg>'
     },
     {
       id: 'reroll',
       label: '重roll',
-      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>'
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4v5h-5"/><path d="M19.8 14.5A8.2 8.2 0 1 1 17.5 6.8L21 9"/></svg>'
     },
     {
       id: 'hide',
       label: '隐藏',
-      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
+      icon: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 5.5c5.2 0 9.4 3.4 10.7 6.5-.5 1.3-1.5 2.7-2.9 3.9l-2.3-2.3a4.2 4.2 0 0 0-5.1-5.1L10 6.1c.6-.4 1.3-.6 2-.6Zm-8.2-1.8 16.5 16.5-1.4 1.4-2.8-2.8a11.3 11.3 0 0 1-4.1.7C6.8 19.5 2.6 16.1 1.3 13c.7-1.6 2-3.4 3.9-4.7L2.4 5.1l1.4-1.4Zm5 6.4 5.1 5.1a2.6 2.6 0 0 1-5.1-5.1Z" fill="#ffffff"/></svg>'
     },
     {
       id: 'delete',
       label: '删除',
-      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>'
+      icon: '<svg viewBox="0 0 24 24" fill="none"><path d="M9 3.5h6l.8 1.5H20v2H4V5h4.2L9 3.5ZM6 8.5h12l-1 11.2a1.8 1.8 0 0 1-1.8 1.8H8.8A1.8 1.8 0 0 1 7 19.7L6 8.5Z" fill="#ffffff"/><path d="M10 11.5v6M14 11.5v6" stroke="#4c4c4c" stroke-width="1.6" stroke-linecap="round"/></svg>'
     }
   ];
 
@@ -189,17 +189,17 @@
     var bRect = bubbleEl.getBoundingClientRect();
     var scale = room.offsetHeight ? (roomRect.height / room.offsetHeight) : 1;
 
-    var popW = pop.offsetWidth || 248;
-    var popH = pop.offsetHeight || 130;
+    var popW = pop.offsetWidth || 244;
+    var popH = pop.offsetHeight || 124;
     var bTop = (bRect.top - roomRect.top) / scale;
     var bBottom = (bRect.bottom - roomRect.top) / scale;
     var bCenterX = ((bRect.left + bRect.right) / 2 - roomRect.left) / scale;
 
-    var left = Math.max(12, Math.min(room.offsetWidth - popW - 12, bCenterX - popW / 2));
-    var top = bTop - popH - 12;
+    var left = Math.max(16, Math.min(room.offsetWidth - popW - 16, bCenterX - popW / 2));
+    var top = bTop - popH - 10;
     var isAbove = true;
     if (top < 56) {
-      top = bBottom + 12;
+      top = bBottom + 10;
       isAbove = false;
     }
 
@@ -208,7 +208,7 @@
     pop.style.left = left + 'px';
     pop.style.top = top + 'px';
 
-    var arrowLeft = Math.max(18, Math.min(popW - 32, bCenterX - left - 7));
+    var arrowLeft = Math.max(16, Math.min(popW - 28, bCenterX - left - 6));
     arrow.style.left = arrowLeft + 'px';
   }
 
@@ -292,7 +292,6 @@
     }
 
     if (act === 'hide') {
-      // 隐藏：默认计入上下文
       msg.hidden = true;
       msg.includeInContext = true;
       saveThreadMsgs(tid, msgs);
@@ -302,7 +301,6 @@
     }
 
     if (act === 'delete') {
-      // 删除：默认不计入上下文
       msgs.splice(idx, 1);
       saveThreadMsgs(tid, msgs);
       if (targetGroupEl) targetGroupEl.remove();
@@ -471,7 +469,6 @@
     ensureUI();
     bindLongPress();
 
-    // 跟踪当前打开的会话 ID
     document.addEventListener('click', function (e) {
       var threadRow = e.target.closest('#ctMainScroll .ct-row[data-thread-id]');
       if (threadRow) {
