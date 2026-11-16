@@ -1,16 +1,19 @@
 /* =========================================================
    Chat 输入扩展面板、发照片 & 转账模块（独立模块化，不修改 chat.js）
    - 照片：支持单张无框图 + 多张合并叠卡（展开后竖排一张一张显示）
-   - 转账：严格复刻微信转账输入页、4x4数字键盘、橙色转账气泡与收款状态
+   - 转账：严格复刻微信转账页、微信支付加载框、付款方式抽屉、褪色气泡状态（已收款/已退还/已过期）
    ========================================================= */
 (function () {
   var STORAGE_THREADS_KEY = 'chat_threads_v1';
   var STORAGE_MSGS_PREFIX = 'chat_msgs_v1_';
+  var STORAGE_WALLET_KEY = 'chat_wallet_balance_v1';
 
   var SVG_PHOTO = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M21 5v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM6 17h12l-3.8-5-2.9 3.6-2-2.4L6 17zm2.5-7a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/></svg>';
   var SVG_TRANSFER_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h14l-4-4"/><path d="M19 15H5l4 4"/></svg>';
   var SVG_TR_ARROWS = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9h12l-3.5-3.5"/><path d="M18 15H6l3.5 3.5"/></svg>';
   var SVG_TR_CHECK = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 12.5 10 17.5 19 7.5"/></svg>';
+  var SVG_TR_REFUND = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>';
+  var SVG_TR_EXPIRED = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="7" x2="12" y2="13"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>';
   var SVG_BACKSPACE = '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M21 5H9l-7 7 7 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1zm-3.3 10.3-1.4 1.4L13.5 13.9l-2.8 2.8-1.4-1.4 2.8-2.8-2.8-2.8 1.4-1.4 2.8 2.8 2.8-2.8 1.4 1.4-2.8 2.8 2.8 2.8z"/></svg>';
   var SVG_CHECK = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 
@@ -23,6 +26,8 @@
 
   var transferAmount = '';
   var transferNote = '';
+  var pendingPayAmount = 0;
+  var selectedPayMethod = 'wallet';
   var detailMsgId = '';
 
   function loadJSON(key, fb) {
@@ -38,6 +43,20 @@
     try {
       localStorage.setItem(key, JSON.stringify(val));
     } catch (e) {}
+  }
+
+  function getWalletBalance() {
+    var val = localStorage.getItem(STORAGE_WALLET_KEY);
+    if (val === null) {
+      localStorage.setItem(STORAGE_WALLET_KEY, '8888.00');
+      return 8888.00;
+    }
+    var n = parseFloat(val);
+    return isNaN(n) ? 8888.00 : n;
+  }
+
+  function setWalletBalance(num) {
+    localStorage.setItem(STORAGE_WALLET_KEY, Number(Math.max(0, num)).toFixed(2));
   }
 
   function escapeHtml(str) {
@@ -184,21 +203,36 @@
     if (!bubble || !msg) return;
 
     if (msg.type === 'transfer') {
-      var isDone = msg.status === 'received';
+      var st = msg.status || 'pending';
+      var isFaded = (st === 'received' || st === 'refunded' || st === 'expired');
       var isMe = msg.sender === 'me';
       var amtStr = Number(msg.amount || 0).toFixed(2);
-      var statusText = isDone
-        ? (isMe ? '已被接收' : '已收款')
-        : (msg.note ? msg.note : (isMe ? '你发起了一笔转账' : '请收款'));
+      var statusText = '';
+      var iconSvg = SVG_TR_ARROWS;
+
+      if (st === 'received') {
+        statusText = isMe ? '已被接收' : '已收款';
+        iconSvg = SVG_TR_CHECK;
+      } else if (st === 'refunded') {
+        statusText = '已退还';
+        iconSvg = SVG_TR_REFUND;
+      } else if (st === 'expired') {
+        statusText = '已过期';
+        iconSvg = SVG_TR_EXPIRED;
+      } else {
+        statusText = msg.note ? msg.note : (isMe ? '你发起了一笔转账' : '请收款');
+        iconSvg = SVG_TR_ARROWS;
+      }
 
       bubble.classList.remove('ctp-img-bubble');
       bubble.classList.add('ctp-transfer-bubble');
-      bubble.classList.toggle('is-done', isDone);
+      bubble.classList.toggle('is-faded', isFaded);
       bubble.dataset.ctpRendered = '1';
       bubble.setAttribute('data-ctp-transfer', msg.id);
       bubble.innerHTML =
+        '<span class="ctp-tr-tail"></span>' +
         '<div class="ctp-tr-top">' +
-          '<div class="ctp-tr-circle">' + (isDone ? SVG_TR_CHECK : SVG_TR_ARROWS) + '</div>' +
+          '<div class="ctp-tr-circle">' + iconSvg + '</div>' +
           '<div class="ctp-tr-info">' +
             '<div class="ctp-tr-amt">¥' + escapeHtml(amtStr) + '</div>' +
             '<div class="ctp-tr-status">' + escapeHtml(statusText) + '</div>' +
@@ -211,7 +245,7 @@
     var imgs = Array.isArray(msg.images) ? msg.images : [];
     if (!imgs.length) return;
 
-    bubble.classList.remove('ctp-transfer-bubble', 'is-done');
+    bubble.classList.remove('ctp-transfer-bubble', 'is-faded');
     bubble.classList.add('ctp-img-bubble');
     bubble.dataset.ctpRendered = '1';
 
@@ -235,7 +269,6 @@
           '<div class="ctp-stack">' + stackHtml + '</div>' +
         '</div>';
     } else {
-      // 展开后变成一张一张竖排
       var listHtml = imgs.map(function (src, idx) {
         var imgTag = '<img class="ctp-expanded-img" decoding="async" data-ctp-preview="' + escapeHtml(src) + '" src="' + escapeHtml(src) + '" alt="">';
         if (idx === 0) {
@@ -326,6 +359,48 @@
     document.getElementById('ctpTrPage').classList.add('open');
   }
 
+  function openPaySheet(amt) {
+    pendingPayAmount = amt;
+    var bal = getWalletBalance();
+    var enough = bal >= amt;
+    selectedPayMethod = enough ? 'wallet' : 'bank';
+
+    document.getElementById('ctpPaySub').textContent = '微信转账 ¥' + amt.toFixed(2);
+    document.getElementById('ctpPayWalletName').textContent = '零钱 (剩余 ¥' + bal.toFixed(2) + ')';
+    document.getElementById('ctpPayWalletDesc').textContent = enough ? '优先使用零钱支付' : ('零钱不足，剩余 ' + bal.toFixed(2) + '元');
+    document.getElementById('ctpPayWalletRow').style.opacity = enough ? '1' : '0.45';
+    document.getElementById('ctpPayConfirm').textContent = '确认支付 ¥' + amt.toFixed(2);
+    syncPayMethodTicks();
+
+    document.getElementById('ctpPayHud').classList.add('open');
+    setTimeout(function () {
+      document.getElementById('ctpPayHud').classList.remove('open');
+      document.getElementById('ctpPayMask').classList.add('open');
+    }, 420);
+  }
+
+  function syncPayMethodTicks() {
+    document.getElementById('ctpPayWalletTick').style.visibility = selectedPayMethod === 'wallet' ? 'visible' : 'hidden';
+    document.getElementById('ctpPayBankTick').style.visibility = selectedPayMethod === 'bank' ? 'visible' : 'hidden';
+  }
+
+  function updateTransferStatus(msgId, nextStatus) {
+    var tid = resolveCurrentThreadId();
+    if (!tid || !msgId) return;
+    var msgs = loadJSON(STORAGE_MSGS_PREFIX + tid, []);
+    var target = msgs.find(function (m) { return m.id === msgId; });
+    if (!target) return;
+    target.status = nextStatus;
+    saveJSON(STORAGE_MSGS_PREFIX + tid, msgs);
+
+    var bubble = document.querySelector('#ctRoomMessages .ct-msg-group[data-msg-id="' + msgId + '"] .ct-msg-bubble');
+    if (bubble) {
+      bubble.dataset.ctpRendered = '';
+      renderBubbleEl(bubble, target);
+    }
+    document.getElementById('ctpTrDetailPage').classList.remove('open');
+  }
+
   function openTransferDetail(msgId) {
     var tid = resolveCurrentThreadId();
     if (!tid) return;
@@ -334,24 +409,38 @@
     if (!m) return;
 
     detailMsgId = msgId;
-    var isDone = m.status === 'received';
+    var st = m.status || 'pending';
     var isMe = m.sender === 'me';
     var iconEl = document.getElementById('ctpTrDetailIcon');
     var stateEl = document.getElementById('ctpTrDetailState');
     var amtEl = document.getElementById('ctpTrDetailAmt');
     var noteEl = document.getElementById('ctpTrDetailNote');
+    var actionsEl = document.getElementById('ctpTrDetailActions');
     var btnEl = document.getElementById('ctpTrDetailBtn');
     var timeEl = document.getElementById('ctpTrDetailTime');
 
-    iconEl.classList.toggle('done', isDone);
-    iconEl.innerHTML = isDone ? SVG_TR_CHECK : SVG_TR_ARROWS;
-    stateEl.textContent = isDone
-      ? (isMe ? '对方已收款' : '已收款')
-      : (isMe ? '待对方确认收款' : '待你收款');
+    iconEl.classList.remove('done', 'faded');
+    if (st === 'received') {
+      iconEl.classList.add('done');
+      iconEl.innerHTML = SVG_TR_CHECK;
+      stateEl.textContent = isMe ? '对方已收款' : '已收款';
+    } else if (st === 'refunded') {
+      iconEl.classList.add('faded');
+      iconEl.innerHTML = SVG_TR_REFUND;
+      stateEl.textContent = '已退还';
+    } else if (st === 'expired') {
+      iconEl.classList.add('faded');
+      iconEl.innerHTML = SVG_TR_EXPIRED;
+      stateEl.textContent = '转账已过期';
+    } else {
+      iconEl.innerHTML = SVG_TR_ARROWS;
+      stateEl.textContent = isMe ? '待对方确认收款' : '待你收款';
+    }
+
     amtEl.textContent = '¥' + Number(m.amount || 0).toFixed(2);
     noteEl.textContent = m.note || '';
     noteEl.style.display = m.note ? 'block' : 'none';
-    btnEl.style.display = isDone ? 'none' : 'block';
+    actionsEl.style.display = (st === 'pending') ? 'flex' : 'none';
     btnEl.textContent = isMe ? '标记对方已收款' : '确认收款';
     timeEl.textContent = m.time ? ('转账时间：' + m.time) : '';
 
@@ -419,6 +508,50 @@
           '<button class="ctp-key ctp-key-submit disabled" id="ctpTrSubmit">转账</button>' +
         '</div>' +
       '</div>' +
+      '<div class="ctp-pay-hud" id="ctpPayHud">' +
+        '<div class="ctp-pay-hud-box">' +
+          '<svg width="36" height="36" viewBox="0 0 24 24" fill="rgba(255,255,255,0.85)"><path d="M12 3C6.5 3 2 6.8 2 11.5c0 2.5 1.3 4.8 3.5 6.3L4.5 21l3.6-1.8c1.2.4 2.5.6 3.9.6 5.5 0 10-3.8 10-8.5S17.5 3 12 3zm4.6 6.4l-5.3 5.3-3-3 1.2-1.2 1.8 1.8 4.1-4.1 1.2 1.2z"/></svg>' +
+          '<div class="ctp-pay-hud-txt">微信支付</div>' +
+          '<div class="ctp-pay-dots"><span></span><span></span><span></span></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ctp-pay-mask" id="ctpPayMask">' +
+        '<div class="ctp-pay-sheet">' +
+          '<div class="ctp-pay-head">' +
+            '<button class="ctp-pay-close" id="ctpPayClose" aria-label="关闭">' +
+              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>' +
+            '</button>' +
+            '<div class="ctp-pay-title-wrap">' +
+              '<div class="ctp-pay-title">选择付款方式</div>' +
+              '<div class="ctp-pay-sub" id="ctpPaySub"></div>' +
+            '</div>' +
+            '<div class="ctp-pay-combo">组合支付</div>' +
+          '</div>' +
+          '<div class="ctp-pay-row" id="ctpPayWalletRow">' +
+            '<div class="ctp-pay-row-left">' +
+              '<div class="ctp-pay-coin">¥</div>' +
+              '<div>' +
+                '<div class="ctp-pay-name" id="ctpPayWalletName">零钱</div>' +
+                '<div class="ctp-pay-desc" id="ctpPayWalletDesc"></div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="ctp-pay-tick" id="ctpPayWalletTick"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>' +
+          '</div>' +
+          '<div class="ctp-pay-sec-label">银行卡</div>' +
+          '<div class="ctp-pay-row" id="ctpPayBankRow">' +
+            '<div class="ctp-pay-row-left">' +
+              '<div class="ctp-pay-card-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div>' +
+              '<div>' +
+                '<div class="ctp-pay-name">招商银行储蓄卡 (8888)</div>' +
+                '<div class="ctp-pay-desc">单日限额 ¥50000</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="ctp-pay-tick" id="ctpPayBankTick"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>' +
+          '</div>' +
+          '<button class="ctp-pay-confirm" id="ctpPayConfirm">确认支付</button>' +
+          '<div class="ctp-pay-legal">本服务由小手机本地模拟提供</div>' +
+        '</div>' +
+      '</div>' +
       '<div class="ctp-tr-detail" id="ctpTrDetailPage">' +
         '<div class="ctp-tr-nav">' +
           '<button class="ctp-tr-back" id="ctpTrDetailBack" aria-label="返回">' +
@@ -430,7 +563,13 @@
           '<div class="ctp-tr-detail-state" id="ctpTrDetailState"></div>' +
           '<div class="ctp-tr-detail-amt" id="ctpTrDetailAmt"></div>' +
           '<div class="ctp-tr-detail-note" id="ctpTrDetailNote"></div>' +
-          '<button class="ctp-tr-detail-btn" id="ctpTrDetailBtn">确认收款</button>' +
+          '<div class="ctp-tr-detail-actions" id="ctpTrDetailActions">' +
+            '<button class="ctp-tr-detail-btn" id="ctpTrDetailBtn">确认收款</button>' +
+            '<div class="ctp-tr-detail-sub-btns">' +
+              '<button class="ctp-tr-detail-link" id="ctpTrRefundBtn">退还</button>' +
+              '<button class="ctp-tr-detail-link" id="ctpTrExpireBtn">标记已过期</button>' +
+            '</div>' +
+          '</div>' +
           '<div class="ctp-tr-detail-time" id="ctpTrDetailTime"></div>' +
         '</div>' +
       '</div>' +
@@ -608,10 +747,35 @@
       syncTransferUI();
     });
 
+    // 点绿色「转账」→ 先弹「微信支付」加载框，再弹「选择付款方式」
     document.getElementById('ctpTrSubmit').addEventListener('click', function () {
       var num = parseFloat(transferAmount);
       if (!num || num <= 0) return;
-      var amtFixed = Number(num.toFixed(2));
+      openPaySheet(Number(num.toFixed(2)));
+    });
+
+    document.getElementById('ctpPayClose').addEventListener('click', function () {
+      document.getElementById('ctpPayMask').classList.remove('open');
+    });
+
+    document.getElementById('ctpPayWalletRow').addEventListener('click', function () {
+      if (getWalletBalance() < pendingPayAmount) return;
+      selectedPayMethod = 'wallet';
+      syncPayMethodTicks();
+    });
+
+    document.getElementById('ctpPayBankRow').addEventListener('click', function () {
+      selectedPayMethod = 'bank';
+      syncPayMethodTicks();
+    });
+
+    document.getElementById('ctpPayConfirm').addEventListener('click', function () {
+      var amtFixed = pendingPayAmount;
+      if (!amtFixed || amtFixed <= 0) return;
+      if (selectedPayMethod === 'wallet') {
+        setWalletBalance(getWalletBalance() - amtFixed);
+      }
+      document.getElementById('ctpPayMask').classList.remove('open');
       document.getElementById('ctpTrPage').classList.remove('open');
       appendCustomMessage({
         type: 'transfer',
@@ -639,26 +803,19 @@
       syncTransferUI();
     });
 
-    // 转账详情
+    // 转账详情页交互（收款 / 退还 / 过期）
     document.getElementById('ctpTrDetailBack').addEventListener('click', function () {
       document.getElementById('ctpTrDetailPage').classList.remove('open');
     });
 
     document.getElementById('ctpTrDetailBtn').addEventListener('click', function () {
-      var tid = resolveCurrentThreadId();
-      if (!tid || !detailMsgId) return;
-      var msgs = loadJSON(STORAGE_MSGS_PREFIX + tid, []);
-      var target = msgs.find(function (m) { return m.id === detailMsgId; });
-      if (!target) return;
-      target.status = 'received';
-      saveJSON(STORAGE_MSGS_PREFIX + tid, msgs);
-
-      var bubble = document.querySelector('#ctRoomMessages .ct-msg-group[data-msg-id="' + detailMsgId + '"] .ct-msg-bubble');
-      if (bubble) {
-        bubble.dataset.ctpRendered = '';
-        renderBubbleEl(bubble, target);
-      }
-      document.getElementById('ctpTrDetailPage').classList.remove('open');
+      updateTransferStatus(detailMsgId, 'received');
+    });
+    document.getElementById('ctpTrRefundBtn').addEventListener('click', function () {
+      updateTransferStatus(detailMsgId, 'refunded');
+    });
+    document.getElementById('ctpTrExpireBtn').addEventListener('click', function () {
+      updateTransferStatus(detailMsgId, 'expired');
     });
 
     // 多图合并发送确认
