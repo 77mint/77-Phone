@@ -46,6 +46,7 @@
   };
 
   var els = {};
+  var pendingLookups = {};
 
   function getRootContainer() {
     return document.querySelector('.phone-screen') || document.body;
@@ -92,6 +93,24 @@
     } catch (e) {
       return null;
     }
+  }
+
+  function persistListenMsgToStorage(song) {
+    var info = getContactInfoFromRoom();
+    var tid = info.threadId;
+    if (!tid) return;
+    var key = 'chat_msgs_v1_' + tid;
+    try {
+      var list = JSON.parse(localStorage.getItem(key) || '[]');
+      list.push({
+        id: 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        sender: 'me',
+        role: 'user',
+        text: '[一起听] ' + song.name,
+        time: Date.now()
+      });
+      localStorage.setItem(key, JSON.stringify(list));
+    } catch (e) {}
   }
 
   function showToast(text) {
@@ -231,7 +250,7 @@
           '<div class="ctl-msg-cover" ' + covStyle + '></div>' +
           '<div class="ctl-msg-meta">' +
             '<div class="ctl-msg-title">' + escHtml(song.name) + '</div>' +
-            '<div class="ctl-msg-artist">' + escHtml(song.artist || '一起听') + '</div>' +
+            '<div class="ctl-msg-artist">' + escHtml(song.artist || '加载中…') + '</div>' +
           '</div>' +
         '</div>' +
         '<div class="ctl-msg-foot">' +
@@ -245,12 +264,46 @@
     );
   }
 
+  function hydrateMissingSongMeta(songName, cardEl) {
+    if (!songName) return;
+    if (pendingLookups[songName]) return;
+    pendingLookups[songName] = true;
+    var api = getApiBase();
+    fetch(api + '/cloudsearch?keywords=' + encodeURIComponent(songName) + '&limit=1')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var s = d && d.result && d.result.songs && d.result.songs[0];
+        if (!s) return;
+        var ar = (s.ar || s.artists || []).map(function (a) { return a.name; }).join(' / ') || '未知歌手';
+        var cov = (s.al && s.al.picUrl) || (s.album && s.album.picUrl) || '';
+        var fullSong = {
+          id: s.id,
+          name: songName,
+          artist: ar,
+          cover: cov
+        };
+        saveSongCache(fullSong);
+        var cards = document.querySelectorAll('.ctl-msg-card[data-song-name="' + songName.replace(/"/g, '\\"') + '"]');
+        cards.forEach(function (c) {
+          c.setAttribute('data-song-id', String(fullSong.id));
+          c._ctlSongObj = fullSong;
+          var covEl = c.querySelector('.ctl-msg-cover');
+          var artEl = c.querySelector('.ctl-msg-artist');
+          if (covEl && fullSong.cover) covEl.style.backgroundImage = 'url("' + fullSong.cover + '")';
+          if (artEl) artEl.textContent = fullSong.artist;
+        });
+      })
+      .catch(function () {});
+  }
+
   function bindListenCardClick(card, song) {
     if (!card || card._ctlBound) return;
     card._ctlBound = true;
+    card._ctlSongObj = song;
     bindPressFeedback(card);
     card.addEventListener('click', function () {
-      if (state.active && state.currentSong && String(state.currentSong.name) === String(song.name)) {
+      var curSong = card._ctlSongObj || song;
+      if (state.active && state.currentSong && String(state.currentSong.name) === String(curSong.name)) {
         openRoom();
         return;
       }
@@ -259,8 +312,28 @@
       state.contactId = info.contactId;
       state.contactName = info.contactName;
       state.contactAvatar = info.contactAvatar;
-      if (song.id) {
-        loadSongAndPlay(song, false);
+      if (curSong && curSong.id) {
+        loadSongAndPlay(curSong, false);
+      } else if (curSong && curSong.name) {
+        var api = getApiBase();
+        fetch(api + '/cloudsearch?keywords=' + encodeURIComponent(curSong.name) + '&limit=1')
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            var s = d && d.result && d.result.songs && d.result.songs[0];
+            if (!s) {
+              openSongModal();
+              return;
+            }
+            var ar = (s.ar || s.artists || []).map(function (a) { return a.name; }).join(' / ') || '未知歌手';
+            var cov = (s.al && s.al.picUrl) || (s.album && s.album.picUrl) || '';
+            var resolved = { id: s.id, name: curSong.name, artist: ar, cover: cov };
+            saveSongCache(resolved);
+            card._ctlSongObj = resolved;
+            loadSongAndPlay(resolved, false);
+          })
+          .catch(function () {
+            openSongModal();
+          });
       } else {
         openSongModal();
       }
@@ -274,18 +347,22 @@
     if (!bubbles.length) return;
     var info = getContactInfoFromRoom();
     bubbles.forEach(function (bubble) {
-      if (bubble.querySelector('.ctl-msg-card')) return;
+      if (bubble.querySelector('.ctl-msg-card')) {
+        bubble.classList.add('ctl-listen-bubble');
+        return;
+      }
       var txt = (bubble.textContent || '').trim();
       if (txt.indexOf('[一起听]') !== 0) return;
       var songName = txt.replace(/^\[一起听\]\s*/, '').trim();
       if (!songName) return;
-      var cached = getSongCache(songName) || { id: '', name: songName, artist: '点击继续一起听', cover: '' };
-      bubble.style.background = 'transparent';
-      bubble.style.padding = '0';
-      bubble.style.boxShadow = 'none';
+      var cached = getSongCache(songName) || { id: '', name: songName, artist: '加载中…', cover: '' };
+      bubble.classList.add('ctl-listen-bubble');
       bubble.innerHTML = buildListenCardHtml(cached, info);
       var card = bubble.querySelector('.ctl-msg-card');
       bindListenCardClick(card, cached);
+      if (!cached.id || !cached.cover) {
+        hydrateMissingSongMeta(songName, card);
+      }
     });
   }
 
@@ -311,12 +388,14 @@
       '</button>';
     container.appendChild(pill);
 
-    /* 2. 全局可拖动贴边小球 */
+    /* 2. 全局可拖动贴边黑胶小球 */
     var orb = document.createElement('div');
     orb.id = 'ctlMiniOrb';
     orb.className = 'ctl-mini-orb';
     orb.innerHTML =
-      '<div class="ctl-mini-orb-art" id="ctlOrbArt"></div>' +
+      '<div class="ctl-mini-orb-disc" id="ctlOrbDisc">' +
+        '<div class="ctl-mini-orb-art" id="ctlOrbArt"></div>' +
+      '</div>' +
       '<div class="ctl-mini-orb-close"><svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></div>';
     container.appendChild(orb);
 
@@ -409,6 +488,7 @@
       floatNextBtn: document.getElementById('ctlFloatNextBtn'),
       floatToOrbBtn: document.getElementById('ctlFloatToOrbBtn'),
       orb: orb,
+      orbDisc: document.getElementById('ctlOrbDisc'),
       orbArt: document.getElementById('ctlOrbArt'),
       room: room,
       roomBg: document.getElementById('ctlRoomBg'),
@@ -453,7 +533,7 @@
     if (els.floatPlayBtn) els.floatPlayBtn.innerHTML = svg;
     if (els.disc) els.disc.classList.toggle('playing', state.isPlaying);
     if (els.floatCover) els.floatCover.classList.toggle('playing', state.isPlaying);
-    if (els.orbArt) els.orbArt.classList.toggle('playing', state.isPlaying);
+    if (els.orbDisc) els.orbDisc.classList.toggle('playing', state.isPlaying);
   }
 
   function renderModeUI() {
@@ -769,17 +849,21 @@
   function appendListenCardToChat(song) {
     var box = document.getElementById('ctRoomMessages');
     if (!box) return;
+    persistListenMsgToStorage(song);
+
     var info = {
       contactName: state.contactName,
       contactAvatar: state.contactAvatar
     };
+
+    /* 注意：.ct-msg-row.me 在 chat.css 中为 row-reverse，头像必须排第一才能显示在最右侧 */
     var row = document.createElement('div');
     row.className = 'ct-msg-row me';
     row.innerHTML =
-      '<div class="ct-msg-bubble" style="background:transparent;padding:0;box-shadow:none;">' +
+      '<div class="ct-msg-avatar">我</div>' +
+      '<div class="ct-msg-bubble ctl-listen-bubble">' +
         buildListenCardHtml(song, info) +
-      '</div>' +
-      '<div class="ct-msg-avatar">我</div>';
+      '</div>';
 
     var card = row.querySelector('.ctl-msg-card');
     bindListenCardClick(card, song);
