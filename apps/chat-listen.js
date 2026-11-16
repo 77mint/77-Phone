@@ -1,5 +1,5 @@
 /* =========================================================
-   Chat 一起听（全局常驻：跨 App / 主屏幕保持播放与悬浮）
+   Chat 一起听（全局常驻：全屏遮罩 + 键盘自适应 + 稳定曲库）
    ========================================================= */
 (function () {
   var DEFAULT_API = 'https://api-enhanced-ashen-one-33.vercel.app';
@@ -24,6 +24,7 @@
     inited: false,
     active: false,
     roomOpen: false,
+    modalOpen: false,
     orbMode: false,
     orbHidden: false,
     showLyrics: false,
@@ -32,6 +33,7 @@
     contactName: '',
     contactAvatar: '',
     playlist: [],
+    defaultSongs: [],
     currentIndex: -1,
     currentSong: null,
     lyrics: [],
@@ -48,13 +50,31 @@
   var els = {};
   var pendingLookups = {};
 
+  /* 挂载到 #app-chat 的父级顶层手机容器，确保 100% 盖住底部栏且跨 App 全局显示 */
   function getRootContainer() {
-    return document.querySelector('.phone-screen') || document.body;
+    var appChat = document.getElementById('app-chat');
+    if (appChat && appChat.parentElement) return appChat.parentElement;
+    return document.body;
   }
 
   function getApiBase() {
     var base = localStorage.getItem('music_api_base') || DEFAULT_API;
     return base.replace(/\/+$/, '');
+  }
+
+  function buildApiUrl(path) {
+    var base = getApiBase();
+    var cookie = localStorage.getItem('music_netease_cookie') || '';
+    var url = base + path;
+    if (cookie) {
+      url += (path.indexOf('?') === -1 ? '?' : '&') + 'cookie=' + encodeURIComponent(cookie);
+    }
+    return url;
+  }
+
+  function toHttps(url) {
+    if (!url) return '';
+    return String(url).replace(/^http:\/\//i, 'https://');
   }
 
   function escHtml(str) {
@@ -80,7 +100,7 @@
         id: song.id,
         name: song.name,
         artist: song.artist || '',
-        cover: song.cover || ''
+        cover: toHttps(song.cover || '')
       };
       localStorage.setItem(SONG_CACHE_KEY, JSON.stringify(map));
     } catch (e) {}
@@ -243,14 +263,15 @@
       ? 'style="background-image:url(\'' + escHtml(info.contactAvatar) + '\')"'
       : '';
     var peerTxt = info && info.contactAvatar ? '' : escHtml(((info && info.contactName) || 'Ta').slice(0, 1));
-    var covStyle = song.cover ? 'style="background-image:url(\'' + escHtml(song.cover) + '\')"' : '';
+    var covUrl = toHttps(song.cover || '');
+    var covStyle = covUrl ? 'style="background-image:url(\'' + escHtml(covUrl) + '\')"' : '';
     return (
       '<div class="ctl-msg-card" data-song-id="' + escHtml(song.id || '') + '" data-song-name="' + escHtml(song.name || '') + '">' +
         '<div class="ctl-msg-top">' +
           '<div class="ctl-msg-cover" ' + covStyle + '></div>' +
           '<div class="ctl-msg-meta">' +
             '<div class="ctl-msg-title">' + escHtml(song.name) + '</div>' +
-            '<div class="ctl-msg-artist">' + escHtml(song.artist || '加载中…') + '</div>' +
+            '<div class="ctl-msg-artist">' + escHtml(song.artist || '点击播放') + '</div>' +
           '</div>' +
         '</div>' +
         '<div class="ctl-msg-foot">' +
@@ -264,36 +285,63 @@
     );
   }
 
-  function hydrateMissingSongMeta(songName, cardEl) {
-    if (!songName) return;
-    if (pendingLookups[songName]) return;
+  function parseSongsArray(rawSongs) {
+    if (!Array.isArray(rawSongs)) return [];
+    var out = [];
+    for (var i = 0; i < rawSongs.length; i++) {
+      var s = rawSongs[i];
+      if (!s) continue;
+      var songObj = s.song || s;
+      var arList = songObj.ar || songObj.artists || s.ar || s.artists || [];
+      var ar = Array.isArray(arList)
+        ? arList.map(function (a) { return a && a.name ? a.name : ''; }).filter(Boolean).join(' / ')
+        : '';
+      var cov =
+        (songObj.al && songObj.al.picUrl) ||
+        (songObj.album && songObj.album.picUrl) ||
+        s.picUrl ||
+        (s.al && s.al.picUrl) ||
+        '';
+      if (s.id || songObj.id) {
+        out.push({
+          id: s.id || songObj.id,
+          name: s.name || songObj.name || '未知歌曲',
+          artist: ar || '未知歌手',
+          cover: toHttps(cov)
+        });
+      }
+    }
+    return out;
+  }
+
+  function hydrateMissingSongMeta(songName) {
+    if (!songName || pendingLookups[songName]) return;
     pendingLookups[songName] = true;
-    var api = getApiBase();
-    fetch(api + '/cloudsearch?keywords=' + encodeURIComponent(songName) + '&limit=1')
+    fetch(buildApiUrl('/cloudsearch?keywords=' + encodeURIComponent(songName) + '&limit=1'))
       .then(function (r) { return r.json(); })
       .then(function (d) {
-        var s = d && d.result && d.result.songs && d.result.songs[0];
-        if (!s) return;
-        var ar = (s.ar || s.artists || []).map(function (a) { return a.name; }).join(' / ') || '未知歌手';
-        var cov = (s.al && s.al.picUrl) || (s.album && s.album.picUrl) || '';
-        var fullSong = {
-          id: s.id,
-          name: songName,
-          artist: ar,
-          cover: cov
-        };
+        pendingLookups[songName] = false;
+        var raw = (d && d.result && d.result.songs) || (d && d.songs) || [];
+        var list = parseSongsArray(raw);
+        var fullSong = list[0];
+        if (!fullSong) return;
+        fullSong.name = songName;
         saveSongCache(fullSong);
-        var cards = document.querySelectorAll('.ctl-msg-card[data-song-name="' + songName.replace(/"/g, '\\"') + '"]');
+        var cards = document.querySelectorAll('.ctl-msg-card');
         cards.forEach(function (c) {
-          c.setAttribute('data-song-id', String(fullSong.id));
-          c._ctlSongObj = fullSong;
-          var covEl = c.querySelector('.ctl-msg-cover');
-          var artEl = c.querySelector('.ctl-msg-artist');
-          if (covEl && fullSong.cover) covEl.style.backgroundImage = 'url("' + fullSong.cover + '")';
-          if (artEl) artEl.textContent = fullSong.artist;
+          if (c.getAttribute('data-song-name') === songName) {
+            c.setAttribute('data-song-id', String(fullSong.id));
+            c._ctlSongObj = fullSong;
+            var covEl = c.querySelector('.ctl-msg-cover');
+            var artEl = c.querySelector('.ctl-msg-artist');
+            if (covEl && fullSong.cover) covEl.style.backgroundImage = 'url("' + fullSong.cover + '")';
+            if (artEl) artEl.textContent = fullSong.artist;
+          }
         });
       })
-      .catch(function () {});
+      .catch(function () {
+        pendingLookups[songName] = false;
+      });
   }
 
   function bindListenCardClick(card, song) {
@@ -315,18 +363,17 @@
       if (curSong && curSong.id) {
         loadSongAndPlay(curSong, false);
       } else if (curSong && curSong.name) {
-        var api = getApiBase();
-        fetch(api + '/cloudsearch?keywords=' + encodeURIComponent(curSong.name) + '&limit=1')
+        fetch(buildApiUrl('/cloudsearch?keywords=' + encodeURIComponent(curSong.name) + '&limit=1'))
           .then(function (r) { return r.json(); })
           .then(function (d) {
-            var s = d && d.result && d.result.songs && d.result.songs[0];
-            if (!s) {
+            var raw = (d && d.result && d.result.songs) || (d && d.songs) || [];
+            var list = parseSongsArray(raw);
+            if (!list.length) {
               openSongModal();
               return;
             }
-            var ar = (s.ar || s.artists || []).map(function (a) { return a.name; }).join(' / ') || '未知歌手';
-            var cov = (s.al && s.al.picUrl) || (s.album && s.album.picUrl) || '';
-            var resolved = { id: s.id, name: curSong.name, artist: ar, cover: cov };
+            var resolved = list[0];
+            resolved.name = curSong.name;
             saveSongCache(resolved);
             card._ctlSongObj = resolved;
             loadSongAndPlay(resolved, false);
@@ -355,13 +402,13 @@
       if (txt.indexOf('[一起听]') !== 0) return;
       var songName = txt.replace(/^\[一起听\]\s*/, '').trim();
       if (!songName) return;
-      var cached = getSongCache(songName) || { id: '', name: songName, artist: '加载中…', cover: '' };
+      var cached = getSongCache(songName) || { id: '', name: songName, artist: '点击播放', cover: '' };
       bubble.classList.add('ctl-listen-bubble');
       bubble.innerHTML = buildListenCardHtml(cached, info);
       var card = bubble.querySelector('.ctl-msg-card');
       bindListenCardClick(card, cached);
       if (!cached.id || !cached.cover) {
-        hydrateMissingSongMeta(songName, card);
+        hydrateMissingSongMeta(songName);
       }
     });
   }
@@ -460,7 +507,7 @@
     modal.id = 'ctlSongModal';
     modal.className = 'ctl-modal';
     modal.innerHTML =
-      '<div class="ctl-sheet">' +
+      '<div class="ctl-sheet" id="ctlSheet">' +
         '<div class="ctl-sheet-head">' +
           '<div class="ctl-sheet-title">选择一起听的歌</div>' +
           '<div class="ctl-sheet-close" id="ctlModalClose">×</div>' +
@@ -514,6 +561,7 @@
       playBtn: document.getElementById('ctlPlayBtn'),
       nextBtn: document.getElementById('ctlNextBtn'),
       modal: modal,
+      sheet: document.getElementById('ctlSheet'),
       modalClose: document.getElementById('ctlModalClose'),
       searchInput: document.getElementById('ctlSearchInput'),
       songList: document.getElementById('ctlSongList'),
@@ -521,8 +569,35 @@
     };
 
     bindGlobalEvents();
+    setupModalKeyboardFollow();
     renderPlayButtons();
     renderModeUI();
+  }
+
+  /* 监听 iOS 键盘高度：锁住底部微信界面不动，只把选歌卡片托到键盘正上方 */
+  function setupModalKeyboardFollow() {
+    if (!window.visualViewport) return;
+    var vv = window.visualViewport;
+    var onViewportChange = function () {
+      if (!state.modalOpen || !els.sheet) return;
+      window.scrollTo(0, 0);
+      var rect = els.container.getBoundingClientRect();
+      var scale = rect.width / (els.container.offsetWidth || 393) || 1;
+      var rawKb = window.innerHeight - (vv.height + vv.offsetTop);
+      if (rawKb > 70) {
+        var kbInPhone = Math.max(0, (rawKb - Math.max(0, window.innerHeight - rect.bottom)) / scale);
+        els.sheet.classList.add('kb-up');
+        els.sheet.style.marginBottom = (kbInPhone + 8) + 'px';
+        var availH = (vv.height - Math.max(0, rect.top)) / scale;
+        els.sheet.style.maxHeight = Math.max(210, Math.min(420, availH - 28)) + 'px';
+      } else {
+        els.sheet.classList.remove('kb-up');
+        els.sheet.style.marginBottom = '0px';
+        els.sheet.style.maxHeight = '74%';
+      }
+    };
+    vv.addEventListener('resize', onViewportChange);
+    vv.addEventListener('scroll', onViewportChange);
   }
 
   function renderPlayButtons() {
@@ -739,6 +814,7 @@
 
   function loadSongAndPlay(song, sendCard) {
     if (!song) return;
+    song.cover = toHttps(song.cover || '');
     saveSongCache(song);
     state.active = true;
     state.orbHidden = false;
@@ -781,12 +857,12 @@
 
     openRoom();
 
-    var api = getApiBase();
     var audio = ensureAudio();
-    fetch(api + '/song/url/v1?id=' + encodeURIComponent(song.id) + '&level=standard')
+    fetch(buildApiUrl('/song/url/v1?id=' + encodeURIComponent(song.id) + '&level=standard'))
       .then(function (r) { return r.json(); })
       .then(function (d) {
-        var url = d && d.data && d.data[0] && d.data[0].url;
+        var rawUrl = d && d.data && d.data[0] && d.data[0].url;
+        var url = toHttps(rawUrl);
         if (!url) {
           showToast('该歌曲暂无可用音源');
           return;
@@ -798,7 +874,7 @@
         showToast('获取音源失败');
       });
 
-    fetch(api + '/lyric?id=' + encodeURIComponent(song.id))
+    fetch(buildApiUrl('/lyric?id=' + encodeURIComponent(song.id)))
       .then(function (r) { return r.json(); })
       .then(function (d) {
         var lrc = d && d.lrc && d.lrc.lyric;
@@ -856,7 +932,6 @@
       contactAvatar: state.contactAvatar
     };
 
-    /* 注意：.ct-msg-row.me 在 chat.css 中为 row-reverse，头像必须排第一才能显示在最右侧 */
     var row = document.createElement('div');
     row.className = 'ct-msg-row me';
     row.innerHTML =
@@ -881,9 +956,10 @@
     var html = '';
     for (var i = 0; i < songs.length; i++) {
       var s = songs[i];
+      var cov = toHttps(s.cover || '');
       html +=
         '<div class="ctl-song-item" data-idx="' + i + '">' +
-          '<div class="ctl-song-item-cov" style="background-image:url(\'' + escHtml(s.cover || '') + '\')"></div>' +
+          '<div class="ctl-song-item-cov" style="background-image:url(\'' + escHtml(cov) + '\')"></div>' +
           '<div class="ctl-song-item-info">' +
             '<div class="ctl-song-item-t">' + escHtml(s.name) + '</div>' +
             '<div class="ctl-song-item-s">' + escHtml(s.artist) + '</div>' +
@@ -899,6 +975,7 @@
         var idx = parseInt(item.getAttribute('data-idx'), 10);
         var chosen = songs[idx];
         if (!chosen) return;
+        if (els.searchInput) els.searchInput.blur();
         state.playlist = songs.slice();
         state.currentIndex = idx;
         var shouldSendCard = !state.active;
@@ -908,28 +985,42 @@
     });
   }
 
+  /* 优先使用已缓存曲库，同时用稳定的 /cloudsearch 与歌单接口拉取推荐曲库 */
   function fetchInitialSongs() {
     if (!els.songList) return;
+    if (state.defaultSongs && state.defaultSongs.length) {
+      renderSongPickerList(state.defaultSongs);
+      return;
+    }
+
     els.songList.innerHTML = '<div class="ctl-list-tip">正在加载曲库…</div>';
-    var api = getApiBase();
-    fetch(api + '/personalized/newsong?limit=20')
+
+    fetch(buildApiUrl('/cloudsearch?keywords=' + encodeURIComponent('热歌') + '&limit=24'))
       .then(function (r) { return r.json(); })
       .then(function (d) {
-        var arr = (d && d.result) || [];
-        var list = arr.map(function (item) {
-          var song = item.song || item;
-          var artists = (song.artists || []).map(function (a) { return a.name; }).join(' / ');
-          return {
-            id: item.id,
-            name: item.name || song.name,
-            artist: artists || '未知歌手',
-            cover: item.picUrl || (song.album && song.album.picUrl) || ''
-          };
-        });
-        renderSongPickerList(list);
+        var raw = (d && d.result && d.result.songs) || (d && d.songs) || [];
+        var list = parseSongsArray(raw);
+        if (list.length) {
+          state.defaultSongs = list;
+          renderSongPickerList(list);
+          return;
+        }
+        return fetch(buildApiUrl('/personalized?limit=6'))
+          .then(function (r2) { return r2.json(); })
+          .then(function (d2) {
+            var pls = (d2 && d2.result) || [];
+            if (!pls.length) throw new Error('empty');
+            return fetch(buildApiUrl('/playlist/track/all?id=' + encodeURIComponent(pls[0].id) + '&limit=20'));
+          })
+          .then(function (r3) { return r3.json(); })
+          .then(function (d3) {
+            var list2 = parseSongsArray((d3 && d3.songs) || []);
+            state.defaultSongs = list2;
+            renderSongPickerList(list2);
+          });
       })
       .catch(function () {
-        els.songList.innerHTML = '<div class="ctl-list-tip">加载失败，请试试搜索歌名</div>';
+        els.songList.innerHTML = '<div class="ctl-list-tip">上方输入歌名或歌手即可搜索</div>';
       });
   }
 
@@ -940,21 +1031,11 @@
     }
     if (!els.songList) return;
     els.songList.innerHTML = '<div class="ctl-list-tip">搜索中…</div>';
-    var api = getApiBase();
-    fetch(api + '/cloudsearch?keywords=' + encodeURIComponent(kw) + '&limit=20')
+    fetch(buildApiUrl('/cloudsearch?keywords=' + encodeURIComponent(kw) + '&limit=24'))
       .then(function (r) { return r.json(); })
       .then(function (d) {
-        var songs = (d && d.result && d.result.songs) || [];
-        var list = songs.map(function (s) {
-          var ar = (s.ar || s.artists || []).map(function (a) { return a.name; }).join(' / ');
-          var cov = (s.al && s.al.picUrl) || (s.album && s.album.picUrl) || '';
-          return {
-            id: s.id,
-            name: s.name,
-            artist: ar || '未知歌手',
-            cover: cov
-          };
-        });
+        var raw = (d && d.result && d.result.songs) || (d && d.songs) || [];
+        var list = parseSongsArray(raw);
         renderSongPickerList(list);
       })
       .catch(function () {
@@ -971,12 +1052,27 @@
       state.contactName = info.contactName;
       state.contactAvatar = info.contactAvatar;
     }
+    state.modalOpen = true;
+    document.body.classList.add('ctl-modal-open');
+    if (els.sheet) {
+      els.sheet.classList.remove('kb-up');
+      els.sheet.style.marginBottom = '0px';
+      els.sheet.style.maxHeight = '74%';
+    }
     els.modal.classList.add('open');
     if (els.searchInput) els.searchInput.value = '';
     fetchInitialSongs();
   }
 
   function closeSongModal() {
+    state.modalOpen = false;
+    document.body.classList.remove('ctl-modal-open');
+    if (els.searchInput) els.searchInput.blur();
+    if (els.sheet) {
+      els.sheet.classList.remove('kb-up');
+      els.sheet.style.marginBottom = '0px';
+      els.sheet.style.maxHeight = '74%';
+    }
     if (els.modal) els.modal.classList.remove('open');
   }
 
@@ -1144,7 +1240,7 @@
       var val = els.searchInput.value.trim();
       state.searchTimer = setTimeout(function () {
         searchSongs(val);
-      }, 320);
+      }, 300);
     });
 
     els.stage.addEventListener('click', function (e) {
