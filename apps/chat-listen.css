@@ -1,15 +1,15 @@
 /* =========================================================
-   Chat「一起听」独立模块（液态玻璃风格 + 顺滑 iOS 动效）
+   Chat「一起听」独立模块（高清透 0 模糊液态玻璃 + 顺滑 iOS 动效）
    ========================================================= */
 .ctl-glass {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.58) 0%, rgba(255, 255, 255, 0.24) 52%, rgba(255, 255, 255, 0.42) 100%);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  backdrop-filter: blur(18px) saturate(160%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.24) 100%);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   border: 1px solid rgba(255, 255, 255, 0.92);
   box-shadow:
     0 8px 24px rgba(0, 0, 0, 0.10),
-    inset 0 1.5px 1px rgba(255, 255, 255, 1),
-    inset 0 -1.5px 3px rgba(0, 0, 0, 0.05);
+    inset 0 2px 2px rgba(255, 255, 255, 1),
+    inset 0 -1.5px 3px rgba(0, 0, 0, 0.06);
 }
 
 /* 聊天室液态玻璃「一起听」气泡卡片 */
@@ -18,9 +18,9 @@
   max-width: 236px;
   padding: 11px 12px !important;
   border-radius: 16px !important;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(255, 255, 255, 0.52) 55%, rgba(255, 255, 255, 0.68) 100%) !important;
-  -webkit-backdrop-filter: blur(16px) saturate(150%);
-  backdrop-filter: blur(16px) saturate(150%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.36) 55%, rgba(255, 255, 255, 0.56) 100%) !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   border: 1px solid rgba(255, 255, 255, 0.95) !important;
   box-shadow:
     0 6px 18px rgba(0, 0, 0, 0.08),
@@ -130,7 +130,7 @@
   display: block;
 }
 
-/* 聊天室顶部悬浮液态玻璃条（最小化共听时显示） */
+/* 聊天室顶部悬浮液态玻璃条（0 模糊高清透，可点 × 隐藏） */
 .ctl-float-pill {
   position: absolute;
   top: calc(env(safe-area-inset-top) + 52px);
@@ -138,10 +138,10 @@
   right: 14px;
   z-index: 25;
   border-radius: 999px;
-  padding: 7px 12px;
+  padding: 7px 10px 7px 12px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   opacity: 0;
   visibility: hidden;
   transform: translateY(-10px) scale(0.96);
@@ -195,6 +195,12 @@
   justify-content: center;
   padding: 0;
   flex-shrink: 0;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.ctl-float-btn:active {
+  transform: scale(0.9);
 }
 
 /* 选歌底部液态玻璃抽屉 */
@@ -221,9 +227,7 @@
 .ctl-pick-sheet {
   height: 76%;
   border-radius: 24px 24px 0 0;
-  background: rgba(246, 246, 249, 0.88);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  backdrop-filter: blur(28px) saturate(180%);
+  background: rgba(246, 246, 249, 0.94);
   border-top: 1px solid rgba(255, 255, 255, 0.95);
   display: flex;
   flex-direction: column;
@@ -262,7 +266,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.85);
+  background: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.95);
   border-radius: 14px;
   padding: 9px 12px;
@@ -293,17 +297,15 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid rgba(255, 255, 255, 0.95);
+  background: #ffffff;
   border-radius: 14px;
   padding: 9px 12px;
-  transition: transform 0.12s ease, background 0.12s ease;
+  transition: transform 0.12s ease, opacity 0.12s ease;
 }
 
-.ctl-song-row.is-pressed,
 .ctl-song-row:active {
   transform: scale(0.98);
-  background: rgba(255, 255, 255, 0.6);
+  opacity: 0.75;
 }
 
 .ctl-song-cover {
@@ -413,24 +415,6 @@
 
 .ctl-nav-circle:active {
   transform: scale(0.92);
-}
-
-.ctl-nav-badge {
-  border-radius: 999px;
-  padding: 6px 14px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #111111;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.ctl-live-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #07c160;
 }
 
 .ctl-nav-exit {
@@ -576,9 +560,10 @@
 
 .ctl-lrc-line {
   font-size: 15px;
-  line-height: 2.2;
+  line-height: 2.25;
   color: rgba(17, 17, 17, 0.35);
   transition: color 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
 }
 
 .ctl-lrc-line.active {
@@ -659,13 +644,14 @@
 .ctl-ctrls {
   display: flex;
   align-items: center;
-  justify-content: space-around;
+  justify-content: space-between;
   margin-top: 10px;
+  padding: 0 4px;
 }
 
 .ctl-ctrl-btn {
-  width: 46px;
-  height: 46px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   background: transparent;
   border: none;
@@ -687,4 +673,11 @@
   background: rgba(255, 255, 255, 0.85);
   border: 1px solid #ffffff;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.10);
+}
+
+.ctl-mode-lbl {
+  font-size: 11px;
+  color: #666666;
+  min-width: 46px;
+  text-align: right;
 }
