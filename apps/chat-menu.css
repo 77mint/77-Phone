@@ -1,5 +1,5 @@
 /* =========================================================
-   Chat 聊天室长按消息菜单（严格仿微信 iOS 深灰实心网格浮层）
+   Chat 聊天室长按消息菜单（严格仿微信 iOS 深灰实心 5 列网格浮层 + 多选模式）
    ========================================================= */
 #app-chat .ct-msg-bubble {
   -webkit-user-select: none;
@@ -20,7 +20,7 @@
 
 .ctmu-popover {
   position: absolute;
-  width: 244px;
+  width: 280px;
   background: #4c4c4c;
   border-radius: 8px;
   padding: 12px 8px 11px;
@@ -31,7 +31,7 @@
 
 .ctmu-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   row-gap: 13px;
 }
 
@@ -87,6 +87,76 @@
 /* 隐藏消息占位：界面不显示，数据保留在记录中计入上下文 */
 .ct-msg-group.ctmu-is-hidden {
   display: none !important;
+}
+
+/* 多选模式 */
+#ctRoomView.ctmu-multiselect .ct-msg-group {
+  position: relative;
+  padding-left: 34px;
+}
+
+.ctmu-sel-box {
+  display: none;
+  position: absolute;
+  left: 4px;
+  top: 10px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid #c7c7cc;
+  background: #ffffff;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  z-index: 2;
+}
+
+#ctRoomView.ctmu-multiselect .ctmu-sel-box {
+  display: flex;
+}
+
+.ct-msg-group.ctmu-selected .ctmu-sel-box {
+  background: #07c160;
+  border-color: #07c160;
+}
+
+.ctmu-multi-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 42;
+  background: #f7f7f7;
+  border-top: 0.5px solid rgba(0, 0, 0, 0.08);
+  padding: 10px 14px calc(env(safe-area-inset-bottom) + 10px);
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#ctRoomView.ctmu-multiselect .ctmu-multi-bar {
+  display: flex;
+}
+
+.ctmu-multi-btn {
+  flex: 1;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  background: #ffffff;
+  color: #111111;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+}
+
+.ctmu-multi-btn:active {
+  background: #ececec;
+}
+
+.ctmu-multi-btn.danger {
+  color: #ff3b30;
 }
 
 /* 编辑 / 转发弹窗 */
