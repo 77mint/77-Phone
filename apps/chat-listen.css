@@ -282,7 +282,7 @@ body.ctl-modal-open #ctRoomView {
 }
 
 /* =========================================================
-   全局可拖动黑胶唱片小球（无外层白框，整体黑胶旋转）
+   全局可拖动黑胶唱片小球（带中心轴孔）
    ========================================================= */
 .ctl-mini-orb {
   position: absolute;
@@ -366,6 +366,19 @@ body.ctl-modal-open #ctRoomView {
   background-size: cover;
   background-position: center;
   box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 黑胶唱片正中间的轴心小圆孔 */
+.ctl-mini-orb-hole {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #141416;
+  border: 1.5px solid rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.45);
 }
 
 .ctl-mini-orb-close {
