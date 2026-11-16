@@ -514,7 +514,7 @@
 .ctp-pay-hud {
   position: absolute;
   inset: 0;
-  z-index: 66;
+  z-index: 75;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -746,6 +746,181 @@
   text-align: center;
   font-size: 11px;
   color: #aeaeb2;
+}
+
+/* 请输入支付密码界面（居中密码弹窗 + 底部 3x4 键盘） */
+.ctp-pwd-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 72;
+  background: rgba(0, 0, 0, 0.48);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.22s ease, visibility 0.22s ease;
+}
+
+.ctp-pwd-mask.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.ctp-pwd-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.ctp-pwd-card {
+  width: 100%;
+  max-width: 312px;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 14px 18px 20px;
+  transform: scale(0.94);
+  transition: transform 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ctp-pwd-mask.open .ctp-pwd-card {
+  transform: scale(1);
+}
+
+.ctp-pwd-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  margin-bottom: 10px;
+}
+
+.ctp-pwd-close {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  color: #8e8e93;
+  line-height: 1;
+  padding: 0;
+}
+
+.ctp-pwd-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111111;
+}
+
+.ctp-pwd-sub {
+  text-align: center;
+  font-size: 14px;
+  color: #555555;
+}
+
+.ctp-pwd-amt {
+  text-align: center;
+  font-size: 32px;
+  font-weight: 700;
+  color: #111111;
+  margin: 6px 0 14px;
+  letter-spacing: -0.5px;
+}
+
+.ctp-pwd-method {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 0;
+  border-top: 0.5px solid rgba(0, 0, 0, 0.08);
+  font-size: 13px;
+  color: #8e8e93;
+  margin-bottom: 12px;
+}
+
+.ctp-pwd-method-val {
+  color: #333333;
+}
+
+.ctp-pwd-boxes {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  height: 44px;
+  border: 0.5px solid #c7c7cc;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.ctp-pwd-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ctp-pwd-cell + .ctp-pwd-cell {
+  border-left: 0.5px solid #e5e5ea;
+}
+
+.ctp-pwd-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #111111;
+}
+
+.ctp-pwd-pad {
+  background: #d2d5dc;
+  padding: 6px 6px calc(8px + env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  transform: translateY(100%);
+  transition: transform 0.26s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ctp-pwd-mask.open .ctp-pwd-pad {
+  transform: translateY(0);
+}
+
+.ctp-pwd-key {
+  height: 48px;
+  background: #ffffff;
+  border: none;
+  border-radius: 5px;
+  font-size: 22px;
+  font-weight: 500;
+  color: #111111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ctp-pwd-key:active {
+  background: #e5e5ea;
+}
+
+.ctp-pwd-key.is-empty {
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.ctp-pwd-key.is-del {
+  background: transparent;
+  box-shadow: none;
+  color: #333333;
 }
 
 /* 转账详情页 */
