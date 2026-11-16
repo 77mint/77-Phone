@@ -130,7 +130,7 @@
   display: block;
 }
 
-/* 聊天室顶部悬浮液态玻璃条（0 模糊高清透，可点 × 隐藏） */
+/* 聊天室顶部悬浮液态玻璃条（0 模糊高清透 + 白色文字微光护底） */
 .ctl-float-pill {
   position: absolute;
   top: calc(env(safe-area-inset-top) + 52px);
@@ -176,8 +176,9 @@
   flex: 1;
   min-width: 0;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: #111111;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.98), 0 1px 3px rgba(255, 255, 255, 0.95);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -187,20 +188,65 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.06);
-  border: none;
+  background: rgba(255, 255, 255, 0.55);
+  border: 0.5px solid rgba(255, 255, 255, 0.85);
   color: #111111;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   flex-shrink: 0;
-  font-size: 15px;
-  line-height: 1;
+  transition: transform 0.12s ease;
 }
 
 .ctl-float-btn:active {
   transform: scale(0.9);
+}
+
+/* 收起后的右上角液态玻璃小圆球 */
+.ctl-mini-orb {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 52px);
+  right: 14px;
+  z-index: 25;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(0.75);
+  pointer-events: none;
+  transition: transform 0.26s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.ctl-mini-orb.open {
+  opacity: 1;
+  visibility: visible;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+.ctl-mini-orb:active {
+  transform: scale(0.92);
+}
+
+.ctl-mini-orb-art {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #2b3a42;
+  background-size: cover;
+  background-position: center;
+  animation: ctlSpin 14s linear infinite;
+  animation-play-state: paused;
+}
+
+.ctl-mini-orb.playing .ctl-mini-orb-art {
+  animation-play-state: running;
 }
 
 /* 选歌底部液态玻璃抽屉 */
@@ -415,6 +461,13 @@
 
 .ctl-nav-circle:active {
   transform: scale(0.92);
+}
+
+.ctl-nav-time {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111111;
+  letter-spacing: 0.2px;
 }
 
 .ctl-nav-exit {
