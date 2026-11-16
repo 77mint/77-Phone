@@ -1,5 +1,5 @@
 /* =========================================================
-   Chat「一起听」独立模块（高清透 0 模糊液态玻璃 + 极细红线 Love + 悬浮条实时歌词）
+   Chat「一起听」独立模块（0 模糊透白液态玻璃 + 鲜红 Love + 修复歌词滚动防卡死）
    ========================================================= */
 (function () {
   var STORAGE_THREADS_KEY = 'chat_threads_v1';
@@ -883,7 +883,8 @@
             var on = idx === activeIdx;
             el.classList.toggle('active', on);
             if (on && document.getElementById('ctlStage').classList.contains('lyrics-on') && Date.now() > manualScrollUntil) {
-              el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+              var targetTop = Math.max(0, el.offsetTop - lyricsEl.clientHeight / 2 + el.clientHeight / 2);
+              lyricsEl.scrollTo({ top: targetTop, behavior: 'smooth' });
             }
           });
         }
