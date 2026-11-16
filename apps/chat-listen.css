@@ -1,11 +1,11 @@
 /* =========================================================
-   Chat「一起听」独立模块（高清透 0 模糊液态玻璃 + 极细红线 Love + 悬浮条实时歌词）
+   Chat「一起听」独立模块（0 模糊透白液态玻璃 + 鲜红手写 Love + 悬浮条实时歌词）
    ========================================================= */
 .ctl-glass {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.24) 100%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.56) 0%, rgba(255, 255, 255, 0.22) 50%, rgba(255, 255, 255, 0.38) 100%);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
-  border: 1px solid rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.94);
   box-shadow:
     0 8px 24px rgba(0, 0, 0, 0.10),
     inset 0 2px 2px rgba(255, 255, 255, 1),
@@ -130,7 +130,7 @@
   display: block;
 }
 
-/* 聊天室顶部悬浮液态玻璃条（0 模糊高清透 + 实时单行滚动歌词） */
+/* 聊天室顶部悬浮液态玻璃条（0 模糊极薄透白 + 实时单行滚动歌词） */
 .ctl-float-pill {
   position: absolute;
   top: calc(env(safe-area-inset-top) + 52px);
@@ -180,7 +180,7 @@
   font-size: 13px;
   font-weight: 600;
   color: #111111;
-  text-shadow: 0 0 8px rgba(255, 255, 255, 0.98), 0 1px 3px rgba(255, 255, 255, 0.95);
+  text-shadow: 0 0 6px rgba(255, 255, 255, 0.9);
 }
 
 .ctl-float-txt-inner {
@@ -203,8 +203,8 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.55);
-  border: 0.5px solid rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.65);
+  border: 0.5px solid rgba(255, 255, 255, 0.9);
   color: #111111;
   display: flex;
   align-items: center;
@@ -526,7 +526,7 @@
   color: #111111;
 }
 
-/* 双人头像 + 极细红线手写 Love 动态连线（仿 IMG_1829） */
+/* 双人头像 + 鲜艳正红丝线 Love 连线 */
 .ctl-pair {
   position: relative;
   z-index: 2;
@@ -580,17 +580,17 @@
 
 .ctl-red-ghost {
   fill: none;
-  stroke: #b91c1c;
+  stroke: #e60023;
   stroke-width: 0.7;
   stroke-linecap: round;
   stroke-linejoin: round;
-  opacity: 0.14;
+  opacity: 0.16;
 }
 
 .ctl-red-draw {
   fill: none;
-  stroke: #b91c1c;
-  stroke-width: 1.15;
+  stroke: #e60023;
+  stroke-width: 1.25;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-dasharray: 100;
@@ -606,7 +606,7 @@
 @keyframes ctlLoveDraw {
   0% {
     stroke-dashoffset: 100;
-    opacity: 0.3;
+    opacity: 0.35;
   }
   58% {
     stroke-dashoffset: 0;
