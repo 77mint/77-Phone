@@ -1,21 +1,30 @@
 /* =========================================================
-   Chat 聊天室长按消息菜单 & 微信同款多选 / 动作表 / 选择聊天页
+   Chat 聊天室长按消息菜单 & 微信同款多选 / 动作表 / 选择聊天页（顺滑 iOS 动效版）
    ========================================================= */
 #app-chat .ct-msg-bubble {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
+  transition: transform 0.16s ease, filter 0.16s ease;
+}
+
+#app-chat .ct-msg-bubble.ctmu-pressing {
+  transform: scale(0.97);
+  filter: brightness(0.96);
 }
 
 .ctmu-backdrop {
   position: absolute;
   inset: 0;
   z-index: 55;
-  display: none;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
 }
 
 .ctmu-backdrop.open {
-  display: block;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .ctmu-popover {
@@ -24,9 +33,23 @@
   background: #4c4c4c;
   border-radius: 8px;
   padding: 12px 8px 11px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
   z-index: 56;
   color: #ffffff;
+  transform: scale(0.9);
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ctmu-backdrop.open .ctmu-popover {
+  transform: scale(1);
+}
+
+.ctmu-popover.is-above {
+  transform-origin: center bottom;
+}
+
+.ctmu-popover.is-below {
+  transform-origin: center top;
 }
 
 .ctmu-grid {
@@ -46,10 +69,11 @@
   border: none;
   color: #ffffff;
   font-family: inherit;
+  transition: opacity 0.12s ease;
 }
 
 .ctmu-item:active {
-  opacity: 0.65;
+  opacity: 0.55;
 }
 
 .ctmu-item svg {
@@ -97,13 +121,19 @@
   z-index: 44;
   background: #ededed;
   padding-top: env(safe-area-inset-top);
-  display: none;
+  display: flex;
   flex-direction: column;
   border-bottom: 0.5px solid rgba(0, 0, 0, 0.08);
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 #ctRoomView.ctmu-multiselect .ctmu-multi-head {
-  display: flex;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
 .ctmu-multi-top {
@@ -162,17 +192,24 @@
   text-align: left;
 }
 
+#ctRoomView .ct-room-messages {
+  transition: padding-top 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
 #ctRoomView.ctmu-multiselect .ct-room-messages {
   padding-top: 52px;
 }
 
-#ctRoomView.ctmu-multiselect .ct-msg-group {
+#ctRoomView .ct-msg-group {
   position: relative;
+  transition: padding-left 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+#ctRoomView.ctmu-multiselect .ct-msg-group {
   padding-left: 38px;
 }
 
 .ctmu-sel-box {
-  display: none;
   position: absolute;
   left: 4px;
   top: 10px;
@@ -181,14 +218,21 @@
   border-radius: 50%;
   border: 1.5px solid #c7c7cc;
   background: #ffffff;
+  display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
   z-index: 2;
+  opacity: 0;
+  transform: scale(0.75);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.2s cubic-bezier(0.32, 0.72, 0, 1), background 0.15s ease, border-color 0.15s ease;
 }
 
 #ctRoomView.ctmu-multiselect .ctmu-sel-box {
-  display: flex;
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
 }
 
 .ct-msg-group.ctmu-selected .ctmu-sel-box {
@@ -206,13 +250,17 @@
   border-top: 0.5px solid rgba(0, 0, 0, 0.08);
   height: calc(52px + env(safe-area-inset-bottom));
   padding: 0 16px env(safe-area-inset-bottom);
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: space-around;
+  transform: translateY(100%);
+  pointer-events: none;
+  transition: transform 0.24s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 #ctRoomView.ctmu-multiselect .ctmu-multi-bar {
-  display: flex;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
 .ctmu-multi-icon-btn {
@@ -225,10 +273,12 @@
   align-items: center;
   justify-content: center;
   padding: 0;
+  transition: opacity 0.12s ease, transform 0.12s ease;
 }
 
 .ctmu-multi-icon-btn:active {
   opacity: 0.5;
+  transform: scale(0.92);
 }
 
 .ctmu-multi-icon-btn svg {
@@ -237,19 +287,23 @@
   display: block;
 }
 
-/* ===== P2 / P3 微信底部动作表 ===== */
+/* ===== P2 / P3 微信底部动作表（丝滑上滑） ===== */
 .ctmu-sheet-mask {
   position: absolute;
   inset: 0;
   z-index: 68;
   background: rgba(0, 0, 0, 0.42);
-  display: none;
+  display: flex;
   align-items: flex-end;
   justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease;
 }
 
 .ctmu-sheet-mask.open {
-  display: flex;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .ctmu-sheet {
@@ -258,6 +312,12 @@
   border-radius: 14px 14px 0 0;
   overflow: hidden;
   padding-bottom: env(safe-area-inset-bottom);
+  transform: translateY(100%);
+  transition: transform 0.26s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ctmu-sheet-mask.open .ctmu-sheet {
+  transform: translateY(0);
 }
 
 .ctmu-sheet-btn {
@@ -286,19 +346,23 @@
   background: #f2f2f7;
 }
 
-/* ===== P4 选择聊天全屏转发页 ===== */
+/* ===== P4 选择聊天全屏转发页（丝滑上推） ===== */
 .ctmu-fwd-page {
   position: absolute;
   inset: 0;
   z-index: 70;
   background: #ededed;
-  display: none;
+  display: flex;
   flex-direction: column;
   padding-top: env(safe-area-inset-top);
+  transform: translateY(100%);
+  pointer-events: none;
+  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .ctmu-fwd-page.open {
-  display: flex;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
 .ctmu-fwd-head {
@@ -606,20 +670,24 @@
   color: #8e8e93;
 }
 
-/* 编辑弹窗 */
+/* 编辑 & 重roll 居中弹窗（平滑缩放淡入） */
 .ctmu-modal-mask {
   position: absolute;
   inset: 0;
   z-index: 65;
   background: rgba(0, 0, 0, 0.42);
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
 }
 
 .ctmu-modal-mask.open {
-  display: flex;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .ctmu-modal {
@@ -632,6 +700,12 @@
   flex-direction: column;
   gap: 12px;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
+  transform: scale(0.94);
+  transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ctmu-modal-mask.open .ctmu-modal {
+  transform: scale(1);
 }
 
 .ctmu-modal-head {
@@ -661,7 +735,7 @@
 
 .ctmu-edit-area {
   width: 100%;
-  min-height: 110px;
+  min-height: 104px;
   border-radius: 12px;
   border: none;
   outline: none;
@@ -674,8 +748,24 @@
   line-height: 1.5;
 }
 
+.ctmu-modal-btns {
+  display: flex;
+  gap: 10px;
+}
+
+.ctmu-modal-cancel {
+  flex: 1;
+  padding: 11px 0;
+  border-radius: 999px;
+  border: none;
+  background: #f2f2f7;
+  color: #111111;
+  font-size: 15px;
+  font-weight: 500;
+}
+
 .ctmu-modal-save {
-  width: 100%;
+  flex: 1;
   padding: 11px 0;
   border-radius: 999px;
   border: none;
