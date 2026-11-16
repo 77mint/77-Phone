@@ -1,5 +1,5 @@
 /* =========================================================
-   Chat 一起听（全局常驻：黑胶唱臂 + 液态玻璃悬浮条 + 黑胶小球）
+   Chat 一起听（全局常驻：黑胶唱臂 + 液态玻璃悬浮条 + 纯黑胶小球）
    ========================================================= */
 
 /* 选歌弹窗打开时，锁死微信聊天页，防止聊天输入栏随键盘往上跳 */
@@ -282,7 +282,7 @@ body.ctl-modal-open #ctRoomView {
 }
 
 /* =========================================================
-   全局可拖动黑胶唱片小球（轻点切回悬浮条，长按变 × 隐藏）
+   全局可拖动黑胶唱片小球（纯黑胶旋转，轻点切回悬浮条，长按变 × 隐藏）
    ========================================================= */
 .ctl-mini-orb {
   position: absolute;
@@ -366,18 +366,6 @@ body.ctl-modal-open #ctRoomView {
   background-size: cover;
   background-position: center;
   box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.65);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.ctl-mini-orb-hole {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #111113;
-  border: 2px solid rgba(255, 255, 255, 0.96);
-  box-shadow: 0 0 3px rgba(0, 0, 0, 0.55);
 }
 
 .ctl-mini-orb-close {
