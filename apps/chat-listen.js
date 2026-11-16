@@ -13,6 +13,12 @@
   var RED_LOVE_PATH =
     'M 2,26 C 14,25 22,19 25,11 C 27,5 22,2 19,6 C 15,12 14,23 19,27 C 24,30 33,24 38,18 C 41,15 47,15 48,19 C 49,24 43,28 39,26 C 36,24 38,17 44,17 C 49,17 53,22 57,24 C 60,25 63,21 65,16 C 67,22 70,25 74,23 C 77,21 79,16 83,16 C 87,16 88,21 84,23 C 80,25 79,20 84,18 C 91,15 103,20 116,22';
 
+  var HEADPHONE_SVG =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M3 18v-6a9 9 0 0 1 18 0v6"/>' +
+      '<path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>' +
+    '</svg>';
+
   var state = {
     inited: false,
     active: false,
@@ -133,6 +139,57 @@
       contactName: name,
       contactAvatar: avatar
     };
+  }
+
+  function ensureListenTile() {
+    var grid = document.querySelector('#ctpDrawer .ctp-grid');
+    if (!grid) return;
+    var existing = grid.querySelector('[data-ctl-listen="1"]');
+    if (existing) return;
+
+    var children = grid.children;
+    for (var i = 0; i < children.length; i++) {
+      if ((children[i].textContent || '').trim().indexOf('一起听') !== -1) {
+        children[i].setAttribute('data-ctl-listen', '1');
+        return;
+      }
+    }
+
+    var tile;
+    if (children.length > 0) {
+      tile = children[0].cloneNode(true);
+      tile.removeAttribute('id');
+      tile.removeAttribute('data-action');
+      tile.setAttribute('data-ctl-listen', '1');
+      var oldSvg = tile.querySelector('svg');
+      if (oldSvg && oldSvg.parentNode) {
+        oldSvg.parentNode.innerHTML = HEADPHONE_SVG;
+      }
+      var labelNodes = tile.querySelectorAll('span, div, p');
+      var replacedLabel = false;
+      for (var k = labelNodes.length - 1; k >= 0; k--) {
+        if (!labelNodes[k].querySelector('svg') && (labelNodes[k].textContent || '').trim()) {
+          labelNodes[k].textContent = '一起听';
+          replacedLabel = true;
+          break;
+        }
+      }
+      if (!replacedLabel) {
+        var lbl = document.createElement('div');
+        lbl.textContent = '一起听';
+        tile.appendChild(lbl);
+      }
+    } else {
+      tile = document.createElement('div');
+      tile.className = 'ctp-item';
+      tile.setAttribute('data-ctl-listen', '1');
+      tile.innerHTML =
+        '<div class="ctp-item-ico">' + HEADPHONE_SVG + '</div>' +
+        '<div class="ctp-item-txt">一起听</div>';
+    }
+
+    bindPressFeedback(tile);
+    grid.appendChild(tile);
   }
 
   function buildGlobalDOM() {
@@ -1002,12 +1059,27 @@
   }
 
   function hookDrawerListenTile() {
+    ensureListenTile();
+
+    var appChat = document.getElementById('app-chat') || document.body;
+    if (window.MutationObserver) {
+      var mo = new MutationObserver(function () {
+        ensureListenTile();
+      });
+      mo.observe(appChat, { childList: true, subtree: true });
+    }
+
     document.addEventListener('click', function (e) {
-      var tile = e.target.closest('.ctp-item');
+      if (e.target.closest('#ctRoomPlusBtn')) {
+        setTimeout(ensureListenTile, 0);
+        return;
+      }
+      var tile = e.target.closest('[data-ctl-listen="1"]') || e.target.closest('.ctp-item, .ctp-tile');
       if (!tile) return;
       var txt = (tile.textContent || '').trim();
-      if (txt.indexOf('一起听') !== -1) {
+      if (tile.getAttribute('data-ctl-listen') === '1' || txt.indexOf('一起听') !== -1) {
         e.stopPropagation();
+        e.preventDefault();
         var drawer = document.getElementById('ctpDrawer');
         if (drawer) drawer.classList.remove('open');
         openSongModal();
