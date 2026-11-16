@@ -1,7 +1,7 @@
 /* =========================================================
    Chat 输入扩展面板、发照片 & 转账模块（独立模块化，不修改 chat.js）
    - 照片：支持单张无框图 + 多张合并叠卡（展开后竖排一张一张显示）
-   - 转账：严格复刻微信转账页、微信支付加载框、付款方式抽屉、6位支付密码弹窗、褪色气泡状态
+   - 转账：严格复刻微信转账页、支付加载、面容/密码切换抽屉、选择付款方式、支付成功页、褪色气泡
    ========================================================= */
 (function () {
   var STORAGE_THREADS_KEY = 'chat_threads_v1';
@@ -28,6 +28,7 @@
   var transferNote = '';
   var pendingPayAmount = 0;
   var selectedPayMethod = 'wallet';
+  var isPwdMode = false;
   var payPassword = '';
   var detailMsgId = '';
 
@@ -360,29 +361,55 @@
     document.getElementById('ctpTrPage').classList.add('open');
   }
 
-  function openPaySheet(amt) {
+  function syncWxPaySheet() {
+    var peer = getPeerInfo();
+    var sheet = document.getElementById('ctpWxPaySheet');
+    var modeBtn = document.getElementById('ctpWxPayModeBtn');
+    var cardIco = document.getElementById('ctpWxPayCardIco');
+    var cardName = document.getElementById('ctpWxPayCardName');
+
+    document.getElementById('ctpWxPayTo').textContent = '向 ' + peer.name + ' 转账';
+    document.getElementById('ctpWxPayAmt').textContent = '¥ ' + pendingPayAmount.toFixed(2);
+    sheet.classList.toggle('is-pwd', isPwdMode);
+    modeBtn.textContent = isPwdMode ? '使用面容' : '使用密码';
+
+    if (selectedPayMethod === 'wallet') {
+      cardIco.className = 'ctp-pay-coin';
+      cardIco.textContent = '¥';
+      cardName.textContent = '零钱';
+    } else {
+      cardIco.className = 'ctp-pay-card-ico';
+      cardIco.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>';
+      cardName.textContent = '招商银行储蓄卡 (8888)';
+    }
+    syncPwdDots();
+  }
+
+  function openWxPaySheet(amt) {
     pendingPayAmount = amt;
     var bal = getWalletBalance();
-    var enough = bal >= amt;
-    selectedPayMethod = enough ? 'wallet' : 'bank';
-
-    document.getElementById('ctpPaySub').textContent = '微信转账 ¥' + amt.toFixed(2);
-    document.getElementById('ctpPayWalletName').textContent = '零钱 (剩余 ¥' + bal.toFixed(2) + ')';
-    document.getElementById('ctpPayWalletDesc').textContent = enough ? '优先使用零钱支付' : ('零钱不足，剩余 ' + bal.toFixed(2) + '元');
-    document.getElementById('ctpPayWalletRow').style.opacity = enough ? '1' : '0.45';
-    document.getElementById('ctpPayConfirm').textContent = '确认支付 ¥' + amt.toFixed(2);
-    syncPayMethodTicks();
+    selectedPayMethod = bal >= amt ? 'wallet' : 'bank';
+    isPwdMode = false;
+    payPassword = '';
 
     document.getElementById('ctpPayHud').classList.add('open');
     setTimeout(function () {
       document.getElementById('ctpPayHud').classList.remove('open');
-      document.getElementById('ctpPayMask').classList.add('open');
-    }, 420);
+      syncWxPaySheet();
+      document.getElementById('ctpWxPayMask').classList.add('open');
+    }, 400);
   }
 
-  function syncPayMethodTicks() {
+  function openPayMethodDrawer() {
+    var bal = getWalletBalance();
+    var enough = bal >= pendingPayAmount;
+    document.getElementById('ctpPaySub').textContent = '微信转账 ¥' + pendingPayAmount.toFixed(2);
+    document.getElementById('ctpPayWalletName').textContent = '零钱 (剩余 ¥' + bal.toFixed(2) + ')';
+    document.getElementById('ctpPayWalletDesc').textContent = enough ? '优先使用零钱支付' : ('零钱不足，剩余 ' + bal.toFixed(2) + '元');
+    document.getElementById('ctpPayWalletRow').style.opacity = enough ? '1' : '0.45';
     document.getElementById('ctpPayWalletTick').style.visibility = selectedPayMethod === 'wallet' ? 'visible' : 'hidden';
     document.getElementById('ctpPayBankTick').style.visibility = selectedPayMethod === 'bank' ? 'visible' : 'hidden';
+    document.getElementById('ctpPayMask').classList.add('open');
   }
 
   function syncPwdDots() {
@@ -392,35 +419,22 @@
     }
   }
 
-  function openPasswordModal() {
-    payPassword = '';
-    syncPwdDots();
-    document.getElementById('ctpPwdAmt').textContent = '¥' + pendingPayAmount.toFixed(2);
-    document.getElementById('ctpPwdMethodVal').textContent =
-      (selectedPayMethod === 'wallet' ? '零钱' : '招商银行储蓄卡(8888)') + ' ›';
-    document.getElementById('ctpPayMask').classList.remove('open');
-    document.getElementById('ctpPwdMask').classList.add('open');
-  }
-
   function completeTransferPayment() {
     var amtFixed = pendingPayAmount;
     if (!amtFixed || amtFixed <= 0) return;
     if (selectedPayMethod === 'wallet') {
       setWalletBalance(getWalletBalance() - amtFixed);
     }
-    document.getElementById('ctpPwdMask').classList.remove('open');
+    var peer = getPeerInfo();
+    document.getElementById('ctpWxPayMask').classList.remove('open');
     document.getElementById('ctpPayHud').classList.add('open');
     setTimeout(function () {
       document.getElementById('ctpPayHud').classList.remove('open');
-      document.getElementById('ctpTrPage').classList.remove('open');
-      appendCustomMessage({
-        type: 'transfer',
-        amount: amtFixed,
-        note: transferNote,
-        status: 'pending',
-        text: '[转账] ¥' + amtFixed.toFixed(2)
-      }, '[转账] ¥' + amtFixed.toFixed(2));
-    }, 320);
+      document.getElementById('ctpDoneTo').textContent = '向 ' + peer.name + ' 转账';
+      document.getElementById('ctpDoneAmt').textContent = '¥' + amtFixed.toFixed(2);
+      document.getElementById('ctpDoneMethod').textContent = selectedPayMethod === 'wallet' ? '零钱' : '招商银行储蓄卡 (8888)';
+      document.getElementById('ctpDonePage').classList.add('open');
+    }, 340);
   }
 
   function updateTransferStatus(msgId, nextStatus) {
@@ -554,6 +568,57 @@
           '<div class="ctp-pay-dots"><span></span><span></span><span></span></div>' +
         '</div>' +
       '</div>' +
+      '<div class="ctp-wxpay-mask" id="ctpWxPayMask">' +
+        '<div class="ctp-wxpay-sheet" id="ctpWxPaySheet">' +
+          '<div class="ctp-wxpay-top">' +
+            '<div class="ctp-wxpay-bar">' +
+              '<button class="ctp-wxpay-x" id="ctpWxPayClose" aria-label="关闭">×</button>' +
+              '<button class="ctp-wxpay-mode-btn" id="ctpWxPayModeBtn">使用密码</button>' +
+            '</div>' +
+            '<div class="ctp-wxpay-to" id="ctpWxPayTo"></div>' +
+            '<div class="ctp-wxpay-amt" id="ctpWxPayAmt"></div>' +
+            '<div class="ctp-wxpay-divider"></div>' +
+            '<div class="ctp-wxpay-method-head">' +
+              '<span>付款方式</span>' +
+              '<button class="ctp-wxpay-change" id="ctpWxPayChange">更改 ⌄</button>' +
+            '</div>' +
+            '<div class="ctp-wxpay-card" id="ctpWxPayCard">' +
+              '<div class="ctp-wxpay-card-left">' +
+                '<div class="ctp-pay-coin" id="ctpWxPayCardIco">¥</div>' +
+                '<span id="ctpWxPayCardName">零钱</span>' +
+              '</div>' +
+              '<div class="ctp-pay-tick"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="ctp-wxpay-face-area">' +
+            '<button class="ctp-wxpay-face-btn" id="ctpWxPayFaceBtn">支付</button>' +
+          '</div>' +
+          '<div class="ctp-wxpay-pwd-area">' +
+            '<div class="ctp-pwd-boxes" id="ctpPwdBoxes">' +
+              '<div class="ctp-pwd-cell"></div>' +
+              '<div class="ctp-pwd-cell"></div>' +
+              '<div class="ctp-pwd-cell"></div>' +
+              '<div class="ctp-pwd-cell"></div>' +
+              '<div class="ctp-pwd-cell"></div>' +
+              '<div class="ctp-pwd-cell"></div>' +
+            '</div>' +
+            '<div class="ctp-pwd-pad" id="ctpPwdPad">' +
+              '<button class="ctp-pwd-key" data-pkey="1">1</button>' +
+              '<button class="ctp-pwd-key" data-pkey="2">2</button>' +
+              '<button class="ctp-pwd-key" data-pkey="3">3</button>' +
+              '<button class="ctp-pwd-key" data-pkey="4">4</button>' +
+              '<button class="ctp-pwd-key" data-pkey="5">5</button>' +
+              '<button class="ctp-pwd-key" data-pkey="6">6</button>' +
+              '<button class="ctp-pwd-key" data-pkey="7">7</button>' +
+              '<button class="ctp-pwd-key" data-pkey="8">8</button>' +
+              '<button class="ctp-pwd-key" data-pkey="9">9</button>' +
+              '<div class="ctp-pwd-key is-muted"></div>' +
+              '<button class="ctp-pwd-key" data-pkey="0">0</button>' +
+              '<button class="ctp-pwd-key is-muted" data-pkey="del" aria-label="删除">' + SVG_BACKSPACE + '</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
       '<div class="ctp-pay-mask" id="ctpPayMask">' +
         '<div class="ctp-pay-sheet">' +
           '<div class="ctp-pay-head">' +
@@ -587,47 +652,18 @@
             '</div>' +
             '<div class="ctp-pay-tick" id="ctpPayBankTick"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>' +
           '</div>' +
-          '<button class="ctp-pay-confirm" id="ctpPayConfirm">确认支付</button>' +
           '<div class="ctp-pay-legal">本服务由小手机本地模拟提供</div>' +
         '</div>' +
       '</div>' +
-      '<div class="ctp-pwd-mask" id="ctpPwdMask">' +
-        '<div class="ctp-pwd-center">' +
-          '<div class="ctp-pwd-card">' +
-            '<div class="ctp-pwd-head">' +
-              '<button class="ctp-pwd-close" id="ctpPwdClose" aria-label="关闭">×</button>' +
-              '<div class="ctp-pwd-title">请输入支付密码</div>' +
-            '</div>' +
-            '<div class="ctp-pwd-sub">微信转账</div>' +
-            '<div class="ctp-pwd-amt" id="ctpPwdAmt"></div>' +
-            '<div class="ctp-pwd-method" id="ctpPwdMethod">' +
-              '<span>付款方式</span>' +
-              '<span class="ctp-pwd-method-val" id="ctpPwdMethodVal"></span>' +
-            '</div>' +
-            '<div class="ctp-pwd-boxes" id="ctpPwdBoxes">' +
-              '<div class="ctp-pwd-cell"></div>' +
-              '<div class="ctp-pwd-cell"></div>' +
-              '<div class="ctp-pwd-cell"></div>' +
-              '<div class="ctp-pwd-cell"></div>' +
-              '<div class="ctp-pwd-cell"></div>' +
-              '<div class="ctp-pwd-cell"></div>' +
-            '</div>' +
-          '</div>' +
+      '<div class="ctp-done-page" id="ctpDonePage">' +
+        '<div class="ctp-done-badge">' +
+          '<span class="ctp-done-circle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>' +
+          '<span>支付成功</span>' +
         '</div>' +
-        '<div class="ctp-pwd-pad" id="ctpPwdPad">' +
-          '<button class="ctp-pwd-key" data-pkey="1">1</button>' +
-          '<button class="ctp-pwd-key" data-pkey="2">2</button>' +
-          '<button class="ctp-pwd-key" data-pkey="3">3</button>' +
-          '<button class="ctp-pwd-key" data-pkey="4">4</button>' +
-          '<button class="ctp-pwd-key" data-pkey="5">5</button>' +
-          '<button class="ctp-pwd-key" data-pkey="6">6</button>' +
-          '<button class="ctp-pwd-key" data-pkey="7">7</button>' +
-          '<button class="ctp-pwd-key" data-pkey="8">8</button>' +
-          '<button class="ctp-pwd-key" data-pkey="9">9</button>' +
-          '<button class="ctp-pwd-key is-empty"></button>' +
-          '<button class="ctp-pwd-key" data-pkey="0">0</button>' +
-          '<button class="ctp-pwd-key is-del" data-pkey="del" aria-label="删除">' + SVG_BACKSPACE + '</button>' +
-        '</div>' +
+        '<div class="ctp-done-to" id="ctpDoneTo"></div>' +
+        '<div class="ctp-done-amt" id="ctpDoneAmt"></div>' +
+        '<div class="ctp-done-row"><span>付款方式</span><span id="ctpDoneMethod"></span></div>' +
+        '<button class="ctp-done-btn" id="ctpDoneBtn">完成</button>' +
       '</div>' +
       '<div class="ctp-tr-detail" id="ctpTrDetailPage">' +
         '<div class="ctp-tr-nav">' +
@@ -824,40 +860,27 @@
       syncTransferUI();
     });
 
-    // 点绿色「转账」→ 先弹「微信支付」加载框，再弹「选择付款方式」
+    // 点绿色「转账」→ 微信支付 HUD → 微信支付主弹窗（IMG_1801/1802）
     document.getElementById('ctpTrSubmit').addEventListener('click', function () {
       var num = parseFloat(transferAmount);
       if (!num || num <= 0) return;
-      openPaySheet(Number(num.toFixed(2)));
+      openWxPaySheet(Number(num.toFixed(2)));
     });
 
-    document.getElementById('ctpPayClose').addEventListener('click', function () {
-      document.getElementById('ctpPayMask').classList.remove('open');
+    document.getElementById('ctpWxPayClose').addEventListener('click', function () {
+      document.getElementById('ctpWxPayMask').classList.remove('open');
     });
 
-    document.getElementById('ctpPayWalletRow').addEventListener('click', function () {
-      if (getWalletBalance() < pendingPayAmount) return;
-      selectedPayMethod = 'wallet';
-      syncPayMethodTicks();
+    document.getElementById('ctpWxPayModeBtn').addEventListener('click', function () {
+      isPwdMode = !isPwdMode;
+      payPassword = '';
+      syncWxPaySheet();
     });
 
-    document.getElementById('ctpPayBankRow').addEventListener('click', function () {
-      selectedPayMethod = 'bank';
-      syncPayMethodTicks();
-    });
+    document.getElementById('ctpWxPayChange').addEventListener('click', openPayMethodDrawer);
+    document.getElementById('ctpWxPayCard').addEventListener('click', openPayMethodDrawer);
 
-    // 点确认支付 → 弹出 6 位密码框
-    document.getElementById('ctpPayConfirm').addEventListener('click', openPasswordModal);
-
-    // 密码框交互
-    document.getElementById('ctpPwdClose').addEventListener('click', function () {
-      document.getElementById('ctpPwdMask').classList.remove('open');
-    });
-
-    document.getElementById('ctpPwdMethod').addEventListener('click', function () {
-      document.getElementById('ctpPwdMask').classList.remove('open');
-      document.getElementById('ctpPayMask').classList.add('open');
-    });
+    document.getElementById('ctpWxPayFaceBtn').addEventListener('click', completeTransferPayment);
 
     document.getElementById('ctpPwdPad').addEventListener('click', function (e) {
       var btn = e.target.closest('[data-pkey]');
@@ -874,6 +897,39 @@
       if (payPassword.length === 6) {
         setTimeout(completeTransferPayment, 160);
       }
+    });
+
+    // 选择付款方式抽屉
+    document.getElementById('ctpPayClose').addEventListener('click', function () {
+      document.getElementById('ctpPayMask').classList.remove('open');
+    });
+
+    document.getElementById('ctpPayWalletRow').addEventListener('click', function () {
+      if (getWalletBalance() < pendingPayAmount) return;
+      selectedPayMethod = 'wallet';
+      document.getElementById('ctpPayMask').classList.remove('open');
+      syncWxPaySheet();
+    });
+
+    document.getElementById('ctpPayBankRow').addEventListener('click', function () {
+      selectedPayMethod = 'bank';
+      document.getElementById('ctpPayMask').classList.remove('open');
+      syncWxPaySheet();
+    });
+
+    // 支付成功完成页 → 点完成发进聊天
+    document.getElementById('ctpDoneBtn').addEventListener('click', function () {
+      var amtFixed = pendingPayAmount;
+      document.getElementById('ctpDonePage').classList.remove('open');
+      document.getElementById('ctpTrPage').classList.remove('open');
+      if (!amtFixed || amtFixed <= 0) return;
+      appendCustomMessage({
+        type: 'transfer',
+        amount: amtFixed,
+        note: transferNote,
+        status: 'pending',
+        text: '[转账] ¥' + amtFixed.toFixed(2)
+      }, '[转账] ¥' + amtFixed.toFixed(2));
     });
 
     document.getElementById('ctpTrNoteBtn').addEventListener('click', function () {
