@@ -1,5 +1,5 @@
 /* =========================================================
-   Chat 一起听（全局常驻：黑胶唱臂 + 原生消息发送防删失败 + 纯黑胶球）
+   Chat 一起听（全局常驻：持续动态红线 + 标准随机图标 + 长按删除防误触）
    ========================================================= */
 (function () {
   var DEFAULT_API = 'https://api-enhanced-ashen-one-33.vercel.app';
@@ -146,6 +146,18 @@
     });
     el.addEventListener('mouseup', clear);
     el.addEventListener('mouseleave', clear);
+  }
+
+  function isChatMenuOrMultiSelectActive() {
+    var appChat = document.getElementById('app-chat');
+    if (appChat && (appChat.classList.contains('ctm-selecting') || appChat.querySelector('.ctm-menu.open, .ctm-mask.open, .ctm-bar.open'))) {
+      return true;
+    }
+    var menus = document.querySelectorAll('.ctm-menu, .ct-menu, #ctmMenu');
+    for (var i = 0; i < menus.length; i++) {
+      if (menus[i].classList.contains('open') || menus[i].classList.contains('show')) return true;
+    }
+    return false;
   }
 
   function getContactInfoFromRoom() {
@@ -348,7 +360,27 @@
     card._ctlBound = true;
     card._ctlSongObj = song;
     bindPressFeedback(card);
-    card.addEventListener('click', function () {
+
+    var downTime = 0;
+    var blockNextClick = false;
+
+    card.addEventListener('touchstart', function () {
+      downTime = Date.now();
+      blockNextClick = false;
+    }, { passive: true });
+
+    card.addEventListener('touchend', function () {
+      if (Date.now() - downTime > 280 || isChatMenuOrMultiSelectActive()) {
+        blockNextClick = true;
+      }
+    }, { passive: true });
+
+    card.addEventListener('click', function (e) {
+      if (blockNextClick || isChatMenuOrMultiSelectActive()) {
+        blockNextClick = false;
+        e.preventDefault();
+        return;
+      }
       var curSong = card._ctlSongObj || song;
       if (state.active && state.currentSong && String(state.currentSong.name) === String(curSong.name)) {
         openRoom();
@@ -413,7 +445,6 @@
     });
   }
 
-  /* 走聊天原生输入框 + 发送按钮发送 [一起听] 消息，确保内存/时间戳/长按删除 100% 同步 */
   function sendListenCardViaNativeChat(song) {
     saveSongCache(song);
     var input = document.getElementById('ctRoomInput');
@@ -469,7 +500,7 @@
       '</button>';
     container.appendChild(pill);
 
-    /* 2. 全局可拖动贴边纯黑胶小球（无中间小白圈） */
+    /* 2. 全局可拖动贴边纯黑胶小球 */
     var orb = document.createElement('div');
     orb.id = 'ctlMiniOrb';
     orb.className = 'ctl-mini-orb';
@@ -480,7 +511,7 @@
       '<div class="ctl-mini-orb-close"><svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></div>';
     container.appendChild(orb);
 
-    /* 3. 全局全屏一起听房间 */
+    /* 3. 全局全屏一起听房间（含持续动态红线） */
     var room = document.createElement('div');
     room.id = 'ctlRoom';
     room.className = 'ctl-room';
@@ -497,6 +528,7 @@
         '<div class="ctl-pair-av" id="ctlMyAv">我</div>' +
         '<svg class="ctl-red-thread" viewBox="0 0 118 44" preserveAspectRatio="none">' +
           '<path class="ctl-love-path" pathLength="100" d="' + RED_LOVE_PATH + '"/>' +
+          '<path class="ctl-love-flow" pathLength="100" d="' + RED_LOVE_PATH + '"/>' +
         '</svg>' +
         '<div class="ctl-pair-av" id="ctlPeerAv"></div>' +
       '</div>' +
@@ -655,13 +687,13 @@
           '<path d="M11 10l1.5-1.5V15"/>' +
         '</svg>';
     } else if (mode === 'shuffle') {
+      /* 标准 🔀 样式：两条平滑交叉曲线 + 右侧双箭头 */
       els.modeBtn.innerHTML =
         '<svg viewBox="0 0 24 24">' +
-          '<path d="M16 3h5v5"/>' +
-          '<path d="M4 20L21 3"/>' +
-          '<path d="M21 16v5h-5"/>' +
-          '<path d="M15 15l6 6"/>' +
-          '<path d="M4 4l5 5"/>' +
+          '<path d="M3 7h4c2.4 0 3.8 2.4 5 5s2.6 5 5 5h4"/>' +
+          '<polyline points="18 14 21 17 18 20"/>' +
+          '<path d="M3 17h4c2.4 0 3.8-2.4 5-5s2.6-5 5-5h4"/>' +
+          '<polyline points="18 4 21 7 18 10"/>' +
         '</svg>';
     } else {
       els.modeBtn.innerHTML =
