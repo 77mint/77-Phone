@@ -34,6 +34,14 @@
             <rect x="10.5" y="16.2" width="7" height="1.8" rx="0.6" fill="currentColor" stroke="none"/>
         </svg>`;
 
+    const SVG_EMOJI_CIRCLE = `
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="14" cy="14" r="11.5"/>
+            <circle cx="10.8" cy="11.8" r="1.1" fill="currentColor" stroke="none"/>
+            <circle cx="17.2" cy="11.8" r="1.1" fill="currentColor" stroke="none"/>
+            <path d="M10.2 15.6c.9 1.7 2.2 2.5 3.8 2.5s2.9-.8 3.8-2.5"/>
+        </svg>`;
+
     const SVG_VOICE_WAVE_ME = `
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round">
             <circle cx="18" cy="12" r="1.5" fill="currentColor" stroke="none"/>
@@ -289,9 +297,6 @@
                     <div class="ct-room-messages" id="ctRoomMessages"></div>
                     <div class="ct-room-footer" id="ctRoomFooter">
                         <div class="ct-room-input-bar">
-                            <button class="ct-room-icon-btn" id="ctRoomVoiceBtn" aria-label="切换语音">${SVG_VOICE_CIRCLE}</button>
-                            <input class="ct-room-input" id="ctRoomInput" placeholder="可按住 转文字" />
-                            <button class="ct-hold-talk-btn" id="ctHoldTalkBtn">按住 说话</button>
                             <button class="ct-room-icon-btn" id="ctRoomPlusBtn" aria-label="更多">
                                 <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
                                     <circle cx="14" cy="14" r="11.5"/>
@@ -299,6 +304,10 @@
                                     <line x1="9" y1="14" x2="19" y2="14"/>
                                 </svg>
                             </button>
+                            <button class="ct-room-icon-btn" id="ctRoomVoiceBtn" aria-label="切换语音">${SVG_VOICE_CIRCLE}</button>
+                            <input class="ct-room-input" id="ctRoomInput" placeholder="可按住 转文字" />
+                            <button class="ct-hold-talk-btn" id="ctHoldTalkBtn">按住 说话</button>
+                            <button class="ct-room-icon-btn" id="ctRoomEmojiBtn" aria-label="表情">${SVG_EMOJI_CIRCLE}</button>
                             <button class="ct-room-icon-btn" id="ctRoomSendBtn" aria-label="发送">
                                 <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                                     <circle cx="14" cy="14" r="11.5"/>
@@ -757,6 +766,7 @@
         document.getElementById('ctRoomMoreBtn').addEventListener('click', () => showToast('聊天详情待接入'));
         document.getElementById('ctRoomSendBtn').addEventListener('click', sendRoomMessage);
         document.getElementById('ctRoomPlusBtn').addEventListener('click', () => showToast('更多功能待接入'));
+        document.getElementById('ctRoomEmojiBtn').addEventListener('click', () => showToast('表情面板待接入'));
         document.getElementById('ctRoomVoiceBtn').addEventListener('click', () => setVoiceMode(!isVoiceMode));
         document.getElementById('ctQuoteBarClose').addEventListener('click', () => {
             pendingQuote = null;
