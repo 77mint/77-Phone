@@ -1,12 +1,10 @@
 /* =========================================================
-   Chat 朋友圈页（仿微信朋友圈独立模块）
+   Chat 朋友圈页（仿微信朋友圈独立模块，顺滑交互 + 全球真实地址定位/搜索）
    - 不改动 apps/chat.js / apps/chat.css，独立接管朋友圈 tab
-   - 封面默认白色点击可上传；右上角相机发动态；全列表选择位置/提醒/可见范围
    ========================================================= */
 (function () {
   var STORAGE_MOMENTS_KEY = 'chat_moments_v1';
   var DB_COVER_KEY = 'moments_cover';
-  var PRESET_LOCATIONS = ['北京市', '上海市', '广州市', '深圳市', '杭州市', '成都市', '新加坡', '在家', '咖啡厅', '学校', '公司', '商场'];
 
   var SVG_HEART = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
   var SVG_HEART_FILL = '<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
@@ -22,12 +20,17 @@
   var draftImages = [];
   var draftLocation = '';
   var draftMentionIds = [];
-  var draftVisibility = '公开'; // '公开' | '私密' | '部分'
+  var draftVisibility = '公开';
   var draftPartialIds = [];
 
-  var pickerMode = ''; // 'location' | 'mention' | 'visibility' | 'partial'
+  var pickerMode = '';
   var pickerKeyword = '';
   var tempIds = [];
+
+  var geoStatusText = '点击获取当前真实位置';
+  var geoPlaces = [];
+  var searchPlaces = [];
+  var searchTimer = null;
 
   function loadPosts() {
     try {
@@ -98,24 +101,24 @@
     return '<div class="ctm-pick-av">' + escapeHtml(fb) + '</div>';
   }
 
-  function compressPhoto(file) {
+  function compressPhoto(file, maxSide) {
+    var limit = maxSide || 900;
     return new Promise(function (resolve) {
       var objUrl = URL.createObjectURL(file);
       var img = new Image();
       img.onload = function () {
         URL.revokeObjectURL(objUrl);
-        var maxSide = 900;
         var w = img.naturalWidth || img.width;
         var h = img.naturalHeight || img.height;
-        if (w > maxSide || h > maxSide) {
-          if (w >= h) { h = Math.round(h * maxSide / w); w = maxSide; }
-          else { w = Math.round(w * maxSide / h); h = maxSide; }
+        if (w > limit || h > limit) {
+          if (w >= h) { h = Math.round(h * limit / w); w = limit; }
+          else { w = Math.round(w * limit / h); h = limit; }
         }
         var c = document.createElement('canvas');
         c.width = w;
         c.height = h;
         c.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(c.toDataURL('image/jpeg', 0.82));
+        resolve(c.toDataURL('image/jpeg', 0.8));
       };
       img.onerror = function () {
         URL.revokeObjectURL(objUrl);
@@ -172,12 +175,12 @@
       '</div>' +
       '<div class="ctm-picker" id="ctmPickerView">' +
         '<div class="ctm-picker-head">' +
-          '<button class="ctm-picker-btn" id="ctmPickerCancel">取消</button>' +
+          '<button class="ctm-picker-btn left" id="ctmPickerCancel">取消</button>' +
           '<div class="ctm-picker-title" id="ctmPickerTitle"></div>' +
           '<button class="ctm-picker-btn primary" id="ctmPickerDone">确定</button>' +
         '</div>' +
         '<div class="ctm-picker-search" id="ctmPickerSearchBox" style="display:none;">' +
-          '<input id="ctmPickerSearchInput" placeholder="搜索或输入地点">' +
+          '<input id="ctmPickerSearchInput" placeholder="搜索全球城市、街道或地点">' +
         '</div>' +
         '<div class="ctm-picker-list" id="ctmPickerList"></div>' +
       '</div>' +
@@ -193,6 +196,80 @@
     }
 
     bindStaticEvents();
+  }
+
+  function formatNomPlace(item) {
+    if (!item) return null;
+    var addr = item.address || {};
+    var city = addr.city || addr.town || addr.village || addr.county || addr.state || '';
+    var country = addr.country || '';
+    var shortName = item.name || addr.road || addr.suburb || addr.neighbourhood || city || '';
+    var sub = [city, addr.state, country].filter(Boolean).filter(function (v, i, a) {
+      return a.indexOf(v) === i && v !== shortName;
+    }).join(' · ');
+    return {
+      title: shortName || (item.display_name ? item.display_name.split(',')[0] : ''),
+      sub: sub || item.display_name || ''
+    };
+  }
+
+  function requestRealGeolocation() {
+    if (!navigator.geolocation) {
+      geoStatusText = '当前浏览器不支持定位，请直接搜索地点';
+      if (pickerMode === 'location') renderPickerList();
+      return;
+    }
+    geoStatusText = '正在获取当前真实位置...';
+    if (pickerMode === 'location') renderPickerList();
+
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      var lat = pos.coords.latitude;
+      var lon = pos.coords.longitude;
+      var url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' + lat + '&lon=' + lon + '&addressdetails=1&accept-language=zh-CN,en';
+      fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+        var addr = (data && data.address) || {};
+        var city = addr.city || addr.town || addr.county || addr.state || '';
+        var country = addr.country || '';
+        var list = [];
+        if (addr.neighbourhood || addr.suburb || addr.road) {
+          var detail = [city, addr.suburb || addr.neighbourhood || addr.road].filter(Boolean).join(' · ');
+          list.push({ title: detail, sub: country });
+        }
+        if (city) {
+          list.push({ title: city + (country ? ' · ' + country : ''), sub: '当前所在城市' });
+        }
+        if (!list.length && data && data.display_name) {
+          list.push({ title: data.display_name.split(',').slice(0, 2).join(', '), sub: data.display_name });
+        }
+        geoPlaces = list;
+        geoStatusText = list.length ? '已定位（点击重新获取）' : '未解析到地址，可搜索全球地点';
+        if (pickerMode === 'location') renderPickerList();
+      }).catch(function () {
+        geoStatusText = '位置解析失败，请直接搜索地点';
+        if (pickerMode === 'location') renderPickerList();
+      });
+    }, function () {
+      geoStatusText = '未允许定位权限，可直接在上方搜索全球地点';
+      if (pickerMode === 'location') renderPickerList();
+    }, { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 });
+  }
+
+  function searchWorldPlaces(q) {
+    var kw = (q || '').trim();
+    if (!kw) {
+      searchPlaces = [];
+      if (pickerMode === 'location') renderPickerList();
+      return;
+    }
+    var url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&q=' + encodeURIComponent(kw) + '&limit=10&addressdetails=1&accept-language=zh-CN,en';
+    fetch(url).then(function (r) { return r.json(); }).then(function (arr) {
+      if (pickerKeyword.trim() !== kw) return;
+      searchPlaces = (Array.isArray(arr) ? arr : []).map(formatNomPlace).filter(function (x) { return x && x.title; });
+      if (pickerMode === 'location') renderPickerList();
+    }).catch(function () {
+      searchPlaces = [];
+      if (pickerMode === 'location') renderPickerList();
+    });
   }
 
   function syncOptLabels() {
@@ -262,6 +339,7 @@
   function openPicker(mode) {
     pickerMode = mode;
     pickerKeyword = '';
+    searchPlaces = [];
     var titleEl = document.getElementById('ctmPickerTitle');
     var doneBtn = document.getElementById('ctmPickerDone');
     var searchBox = document.getElementById('ctmPickerSearchBox');
@@ -273,6 +351,7 @@
       titleEl.textContent = '所在位置';
       doneBtn.style.display = 'none';
       searchBox.style.display = 'block';
+      if (!geoPlaces.length) requestRealGeolocation();
     } else if (mode === 'mention') {
       titleEl.textContent = '提醒谁看';
       doneBtn.style.display = 'block';
@@ -303,25 +382,34 @@
         '<div class="ctm-pick-row" data-pick-loc="">' +
           '<div class="ctm-pick-main"><div class="ctm-pick-title">不显示位置</div></div>' +
           '<div class="ctm-pick-check ' + (!draftLocation ? 'on' : '') + '">' + (!draftLocation ? SVG_CHECK : '') + '</div>' +
+        '</div>' +
+        '<div class="ctm-pick-row" id="ctmLocateNowRow">' +
+          '<div class="ctm-pick-main">' +
+            '<div class="ctm-pick-title">定位当前真实位置</div>' +
+            '<div class="ctm-pick-sub">' + escapeHtml(geoStatusText) + '</div>' +
+          '</div>' +
         '</div>';
 
-      if (kw && PRESET_LOCATIONS.indexOf(kw) === -1) {
+      var places = kw ? searchPlaces : geoPlaces;
+      places.forEach(function (pl) {
+        var on = draftLocation === pl.title;
         html +=
-          '<div class="ctm-pick-row" data-pick-loc="' + escapeHtml(kw) + '">' +
-            '<div class="ctm-pick-main"><div class="ctm-pick-title">使用「' + escapeHtml(kw) + '」</div></div>' +
-          '</div>';
-      }
-
-      PRESET_LOCATIONS.filter(function (loc) {
-        return !kw || loc.toLowerCase().indexOf(kw.toLowerCase()) !== -1;
-      }).forEach(function (loc) {
-        var on = draftLocation === loc;
-        html +=
-          '<div class="ctm-pick-row" data-pick-loc="' + escapeHtml(loc) + '">' +
-            '<div class="ctm-pick-main"><div class="ctm-pick-title">' + escapeHtml(loc) + '</div></div>' +
+          '<div class="ctm-pick-row" data-pick-loc="' + escapeHtml(pl.title) + '">' +
+            '<div class="ctm-pick-main">' +
+              '<div class="ctm-pick-title">' + escapeHtml(pl.title) + '</div>' +
+              (pl.sub ? '<div class="ctm-pick-sub">' + escapeHtml(pl.sub) + '</div>' : '') +
+            '</div>' +
             '<div class="ctm-pick-check ' + (on ? 'on' : '') + '">' + (on ? SVG_CHECK : '') + '</div>' +
           '</div>';
       });
+
+      if (kw) {
+        html +=
+          '<div class="ctm-pick-row" data-pick-loc="' + escapeHtml(kw) + '">' +
+            '<div class="ctm-pick-main"><div class="ctm-pick-title">直接使用「' + escapeHtml(kw) + '」</div></div>' +
+          '</div>';
+      }
+
       listEl.innerHTML = html;
       return;
     }
@@ -386,7 +474,7 @@
       var files = Array.prototype.slice.call(this.files || []).slice(0, 9 - draftImages.length);
       this.value = '';
       if (!files.length) return;
-      Promise.all(files.map(compressPhoto)).then(function (urls) {
+      Promise.all(files.map(function (f) { return compressPhoto(f, 900); })).then(function (urls) {
         urls.forEach(function (u) {
           if (u && draftImages.length < 9) draftImages.push(u);
         });
@@ -421,10 +509,19 @@
 
     document.getElementById('ctmPickerSearchInput').addEventListener('input', function (e) {
       pickerKeyword = e.target.value;
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(function () {
+        searchWorldPlaces(pickerKeyword);
+      }, 360);
       renderPickerList();
     });
 
     document.getElementById('ctmPickerList').addEventListener('click', function (e) {
+      if (e.target.closest('#ctmLocateNowRow')) {
+        requestRealGeolocation();
+        return;
+      }
+
       var locRow = e.target.closest('[data-pick-loc]');
       if (locRow) {
         draftLocation = locRow.getAttribute('data-pick-loc') || '';
@@ -484,12 +581,19 @@
       var file = this.files && this.files[0];
       this.value = '';
       if (!file) return;
-      compressPhoto(file).then(function (url) {
-        if (!url) return;
-        coverUrl = url;
-        if (window.PhoneDB) PhoneDB.set(DB_COVER_KEY, url);
-        renderMoments();
-      });
+      // 原地压缩并更新封面，不重绘整页，避免 iPhone 收起相册时卡顿
+      setTimeout(function () {
+        compressPhoto(file, 1080).then(function (url) {
+          if (!url) return;
+          coverUrl = url;
+          var area = document.getElementById('ctmCoverArea');
+          if (area) {
+            area.style.backgroundImage = 'url("' + url + '")';
+            area.classList.add('has-cover');
+          }
+          if (window.PhoneDB) PhoneDB.set(DB_COVER_KEY, url);
+        });
+      }, 60);
     });
 
     var commentInput = document.getElementById('ctmCommentInput');
@@ -549,7 +653,11 @@
       PhoneDB.get(DB_COVER_KEY).then(function (val) {
         if (val) {
           coverUrl = val;
-          if (isMomentsTabActive()) renderMoments();
+          var area = document.getElementById('ctmCoverArea');
+          if (area) {
+            area.style.backgroundImage = 'url("' + val + '")';
+            area.classList.add('has-cover');
+          }
         }
       });
     }
@@ -675,7 +783,10 @@
           e.stopPropagation();
           var pid = popBtn.getAttribute('data-pop-btn');
           openPopId = (openPopId === pid) ? '' : pid;
-          renderMoments();
+          wrap.querySelectorAll('.ctm-action-pop').forEach(function (el) {
+            var postEl = el.closest('[data-post-id]');
+            el.classList.toggle('open', !!(postEl && postEl.getAttribute('data-post-id') === openPopId));
+          });
           return;
         }
 
@@ -702,7 +813,7 @@
           e.stopPropagation();
           commentTargetId = cmtBtn.getAttribute('data-comment-post');
           openPopId = '';
-          renderMoments();
+          wrap.querySelectorAll('.ctm-action-pop.open').forEach(function (el) { el.classList.remove('open'); });
           var bar = document.getElementById('ctmCommentBar');
           var inp = document.getElementById('ctmCommentInput');
           if (bar && inp) {
@@ -726,7 +837,7 @@
 
         if (openPopId) {
           openPopId = '';
-          renderMoments();
+          wrap.querySelectorAll('.ctm-action-pop.open').forEach(function (el) { el.classList.remove('open'); });
         }
       });
     }
