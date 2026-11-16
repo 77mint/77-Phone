@@ -1,6 +1,5 @@
 /* =========================================================
-   Chat 聊天室长按消息菜单（独立模块，不改动 apps/chat.js / apps/chat.css）
-   - 包含：复制 / 转发 / 收藏 / 删除 / 多选 / 引用 / 编辑 / 重roll / 隐藏
+   Chat 聊天室长按消息菜单 & 微信同款多选 / 逐条合并转发 / 删除确认 / 选择聊天页
    ========================================================= */
 (function () {
   var STORAGE_THREADS_KEY = 'chat_threads_v1';
@@ -10,9 +9,18 @@
   var activeThreadId = '';
   var targetMsgId = '';
   var targetGroupEl = null;
+
   var multiSelectMode = false;
   var selectedIds = [];
+  var multiSearchKw = '';
+
   var pendingForwardMsgs = [];
+  var forwardMode = 'single'; // 'single' | 'merged'
+  var fwdMultiDest = false;
+  var fwdDestIds = [];
+  var fwdSearchKw = '';
+
+  var pendingDeleteIds = [];
 
   var SVG_CHECK = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 
@@ -157,26 +165,58 @@
     var tid = resolveCurrentThreadId();
     if (!tid) return;
     var msgs = getThreadMsgs(tid);
-    var hiddenMap = {};
-    msgs.forEach(function (m) {
-      if (m.hidden) hiddenMap[m.id] = true;
-    });
+    var msgMap = {};
+    msgs.forEach(function (m) { msgMap[m.id] = m; });
+
     document.querySelectorAll('#ctRoomMessages .ct-msg-group[data-msg-id]').forEach(function (el) {
       var mid = el.getAttribute('data-msg-id');
-      el.classList.toggle('ctmu-is-hidden', !!hiddenMap[mid]);
+      var m = msgMap[mid];
+      var isHidden = !!(m && m.hidden);
+      var filteredOut = false;
+      if (multiSelectMode && multiSearchKw && m) {
+        filteredOut = getMsgPlainText(m).toLowerCase().indexOf(multiSearchKw) === -1;
+      }
+      el.classList.toggle('ctmu-is-hidden', isHidden || filteredOut);
       el.classList.toggle('ctmu-selected', selectedIds.indexOf(mid) !== -1);
+
       if (!el.querySelector('.ctmu-sel-box')) {
         var box = document.createElement('div');
         box.className = 'ctmu-sel-box';
         box.innerHTML = SVG_CHECK;
         el.appendChild(box);
       }
+
+      // 合并转发卡片渲染
+      if (m && m.type === 'forward_bundle' && Array.isArray(m.items)) {
+        var bubble = el.querySelector('.ct-msg-bubble');
+        if (bubble && !bubble.querySelector('.ctmu-bundle-card')) {
+          var lines = m.items.slice(0, 3).map(function (it) {
+            return '<div class="ctmu-bundle-line">' + escapeHtml((it.senderName || '我') + '：' + (it.text || '')) + '</div>';
+          }).join('');
+          bubble.style.background = '#ffffff';
+          bubble.style.color = '#111111';
+          bubble.innerHTML =
+            '<div class="ctmu-bundle-card">' +
+              '<div class="ctmu-bundle-title">' + escapeHtml(m.bundleTitle || '聊天记录') + '</div>' +
+              lines +
+              '<div class="ctmu-bundle-foot">聊天记录</div>' +
+            '</div>';
+        }
+      }
     });
+
+    var countEl = document.getElementById('ctmuMultiCount');
+    if (countEl) {
+      countEl.textContent = '已选择 ' + selectedIds.length + ' 条消息';
+    }
   }
 
   function setMultiSelect(enabled, initialId) {
     multiSelectMode = !!enabled;
     selectedIds = (multiSelectMode && initialId) ? [initialId] : [];
+    multiSearchKw = '';
+    var sInp = document.getElementById('ctmuMultiSearchInput');
+    if (sInp) sInp.value = '';
     var room = document.getElementById('ctRoomView');
     if (room) room.classList.toggle('ctmu-multiselect', multiSelectMode);
     syncMessagesDom();
@@ -201,12 +241,74 @@
           '<div class="ctmu-arrow" id="ctmuArrow"></div>' +
         '</div>' +
       '</div>' +
-      '<div class="ctmu-multi-bar" id="ctmuMultiBar">' +
-        '<button class="ctmu-multi-btn" id="ctmuMultiCancel">取消</button>' +
-        '<button class="ctmu-multi-btn" id="ctmuMultiFwd">转发</button>' +
-        '<button class="ctmu-multi-btn" id="ctmuMultiFav">收藏</button>' +
-        '<button class="ctmu-multi-btn danger" id="ctmuMultiDel">删除</button>' +
+
+      '<!-- P1 多选顶栏与底栏 -->' +
+      '<div class="ctmu-multi-head" id="ctmuMultiHead">' +
+        '<div class="ctmu-multi-top">' +
+          '<button class="ctmu-multi-cancel" id="ctmuMultiCancel">取消</button>' +
+          '<div class="ctmu-multi-count" id="ctmuMultiCount">已选择 0 条消息</div>' +
+        '</div>' +
+        '<div class="ctmu-multi-search">' +
+          '<div class="ctmu-multi-search-box">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
+            '<input id="ctmuMultiSearchInput" placeholder="搜索">' +
+          '</div>' +
+        '</div>' +
       '</div>' +
+      '<div class="ctmu-multi-bar" id="ctmuMultiBar">' +
+        '<button class="ctmu-multi-icon-btn" id="ctmuMultiFwd" aria-label="转发">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>' +
+        '</button>' +
+        '<button class="ctmu-multi-icon-btn" id="ctmuMultiCopy" aria-label="复制">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>' +
+        '</button>' +
+        '<button class="ctmu-multi-icon-btn" id="ctmuMultiFav" aria-label="收藏">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 20.5 7.3v9.4L12 21.5 3.5 16.7V7.3Z"/><path d="M3.5 7.3 12 12l8.5-4.7"/><path d="M12 12v9.5"/></svg>' +
+        '</button>' +
+        '<button class="ctmu-multi-icon-btn" id="ctmuMultiDel" aria-label="删除">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
+        '</button>' +
+      '</div>' +
+
+      '<!-- P2 逐条转发 / 合并转发底部动作表 -->' +
+      '<div class="ctmu-sheet-mask" id="ctmuFwdModeMask">' +
+        '<div class="ctmu-sheet">' +
+          '<button class="ctmu-sheet-btn" id="ctmuSheetSingleFwd">逐条转发</button>' +
+          '<button class="ctmu-sheet-btn" id="ctmuSheetMergedFwd">合并转发</button>' +
+          '<div class="ctmu-sheet-gap"></div>' +
+          '<button class="ctmu-sheet-btn" id="ctmuSheetFwdCancel">取消</button>' +
+        '</div>' +
+      '</div>' +
+
+      '<!-- P3 删除二次确认底部动作表 -->' +
+      '<div class="ctmu-sheet-mask" id="ctmuDelConfirmMask">' +
+        '<div class="ctmu-sheet">' +
+          '<button class="ctmu-sheet-btn danger" id="ctmuSheetDelConfirm">删除</button>' +
+          '<div class="ctmu-sheet-gap"></div>' +
+          '<button class="ctmu-sheet-btn" id="ctmuSheetDelCancel">取消</button>' +
+        '</div>' +
+      '</div>' +
+
+      '<!-- P4 选择聊天全屏转发页 -->' +
+      '<div class="ctmu-fwd-page" id="ctmuFwdPage">' +
+        '<div class="ctmu-fwd-head">' +
+          '<button class="ctmu-fwd-head-btn left" id="ctmuFwdClose">关闭</button>' +
+          '<div class="ctmu-fwd-head-title">选择聊天</div>' +
+          '<button class="ctmu-fwd-head-btn right" id="ctmuFwdToggleMulti">多选</button>' +
+        '</div>' +
+        '<div class="ctmu-fwd-search">' +
+          '<div class="ctmu-fwd-search-box" id="ctmuFwdSearchBox">' +
+            '<div class="ctmu-fwd-search-ph">' +
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
+              '<span>搜索</span>' +
+            '</div>' +
+            '<input id="ctmuFwdSearchInput">' +
+          '</div>' +
+        '</div>' +
+        '<div class="ctmu-fwd-scroll" id="ctmuFwdScroll"></div>' +
+      '</div>' +
+
+      '<!-- 编辑消息弹窗 -->' +
       '<div class="ctmu-modal-mask" id="ctmuEditMask">' +
         '<div class="ctmu-modal">' +
           '<div class="ctmu-modal-head">' +
@@ -215,15 +317,6 @@
           '</div>' +
           '<textarea class="ctmu-edit-area" id="ctmuEditArea"></textarea>' +
           '<button class="ctmu-modal-save" id="ctmuEditSave">保存</button>' +
-        '</div>' +
-      '</div>' +
-      '<div class="ctmu-modal-mask" id="ctmuFwdMask">' +
-        '<div class="ctmu-modal">' +
-          '<div class="ctmu-modal-head">' +
-            '<div class="ctmu-modal-title">转发给</div>' +
-            '<button class="ctmu-modal-close" data-ctmu-close="ctmuFwdMask">×</button>' +
-          '</div>' +
-          '<div class="ctmu-fwd-list" id="ctmuFwdList"></div>' +
         '</div>' +
       '</div>';
 
@@ -330,6 +423,189 @@
     }
   }
 
+  function confirmDeleteIds(ids) {
+    if (!ids || !ids.length) return;
+    pendingDeleteIds = ids.slice();
+    document.getElementById('ctmuDelConfirmMask').classList.add('open');
+  }
+
+  function executePendingDelete() {
+    var tid = resolveCurrentThreadId();
+    var msgs = getThreadMsgs(tid).filter(function (m) {
+      return pendingDeleteIds.indexOf(m.id) === -1;
+    });
+    saveThreadMsgs(tid, msgs);
+    pendingDeleteIds.forEach(function (mid) {
+      var el = document.querySelector('#ctRoomMessages .ct-msg-group[data-msg-id="' + mid + '"]');
+      if (el) el.remove();
+    });
+    updateThreadPreview(tid, msgs);
+    pendingDeleteIds = [];
+    document.getElementById('ctmuDelConfirmMask').classList.remove('open');
+    if (multiSelectMode) setMultiSelect(false);
+    showToast('已删除（不计入上下文）');
+  }
+
+  function openForwardPage(mode) {
+    forwardMode = mode || 'single';
+    fwdMultiDest = false;
+    fwdDestIds = [];
+    fwdSearchKw = '';
+    var sInp = document.getElementById('ctmuFwdSearchInput');
+    var sBox = document.getElementById('ctmuFwdSearchBox');
+    if (sInp) sInp.value = '';
+    if (sBox) sBox.classList.remove('has-val', 'is-focus');
+    syncFwdHeaderBtn();
+    renderForwardPage();
+    document.getElementById('ctmuFwdPage').classList.add('open');
+  }
+
+  function syncFwdHeaderBtn() {
+    var page = document.getElementById('ctmuFwdPage');
+    var btn = document.getElementById('ctmuFwdToggleMulti');
+    if (!page || !btn) return;
+    page.classList.toggle('is-multi-dest', fwdMultiDest);
+    if (!fwdMultiDest) {
+      btn.textContent = '多选';
+      btn.classList.remove('send-ready');
+    } else if (fwdDestIds.length > 0) {
+      btn.textContent = '发送(' + fwdDestIds.length + ')';
+      btn.classList.add('send-ready');
+    } else {
+      btn.textContent = '完成';
+      btn.classList.remove('send-ready');
+    }
+  }
+
+  function sendForwardToTargets(targetTids) {
+    if (!targetTids.length || !pendingForwardMsgs.length) return;
+    var nowTime = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    var curTitleEl = document.getElementById('ctRoomTitle');
+    var curTitle = (curTitleEl ? curTitleEl.textContent : '') || '聊天';
+
+    targetTids.forEach(function (destTid) {
+      var destMsgs = getThreadMsgs(destTid);
+      if (forwardMode === 'merged' && pendingForwardMsgs.length > 1) {
+        var items = pendingForwardMsgs.map(function (m) {
+          var grp = document.querySelector('#ctRoomMessages .ct-msg-group[data-msg-id="' + m.id + '"]');
+          var sName = (grp && grp.getAttribute('data-sender-name')) || (m.sender === 'me' ? '我' : curTitle);
+          return { senderName: sName, text: getMsgPlainText(m) };
+        });
+        destMsgs.push({
+          id: 'm-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5),
+          sender: 'me',
+          type: 'forward_bundle',
+          bundleTitle: curTitle + '的聊天记录',
+          items: items,
+          text: '[聊天记录]',
+          time: nowTime
+        });
+      } else {
+        pendingForwardMsgs.forEach(function (m, i) {
+          destMsgs.push({
+            id: 'm-' + Date.now() + '-' + i + '-' + Math.random().toString(36).slice(2, 4),
+            sender: 'me',
+            text: getMsgPlainText(m),
+            time: nowTime
+          });
+        });
+      }
+      saveThreadMsgs(destTid, destMsgs);
+      updateThreadPreview(destTid, destMsgs);
+    });
+
+    document.getElementById('ctmuFwdPage').classList.remove('open');
+    if (multiSelectMode) setMultiSelect(false);
+    showToast('已转发');
+  }
+
+  function renderForwardPage() {
+    var scrollEl = document.getElementById('ctmuFwdScroll');
+    if (!scrollEl) return;
+
+    var curTid = resolveCurrentThreadId();
+    var threads = loadJSON(STORAGE_THREADS_KEY, []);
+    var chars = (window.PhoneArchive && window.PhoneArchive.getChars) ? (window.PhoneArchive.getChars() || []) : [];
+
+    var items = threads.map(function (t) {
+      var isGroup = t.type === 'group';
+      var cObj = !isGroup ? chars.find(function (c) { return c.id === t.charId; }) : null;
+      var name = cObj ? (cObj.name || cObj.nickname || '未命名') : (t.name || '聊天');
+      var av = (cObj && window.PhoneArchive && window.PhoneArchive.getCharAvatar) ? (window.PhoneArchive.getCharAvatar(cObj.id) || '') : '';
+      var countText = isGroup && Array.isArray(t.memberIds) ? ' (' + t.memberIds.length + '人)' : '';
+      return {
+        id: t.id,
+        name: name,
+        countText: countText,
+        av: av,
+        isCurrent: t.id === curTid
+      };
+    }).filter(function (it) {
+      if (!fwdSearchKw) return true;
+      return it.name.toLowerCase().indexOf(fwdSearchKw) !== -1;
+    });
+
+    var recentHtml = '';
+    if (!fwdSearchKw && items.length) {
+      recentHtml =
+        '<div class="ctmu-fwd-sec">' +
+          '<div class="ctmu-fwd-sec-title">最近转发</div>' +
+          '<div class="ctmu-fwd-recent-row">' +
+            items.slice(0, 8).map(function (it) {
+              var avHtml = it.av ? '<img src="' + escapeHtml(it.av) + '" alt="">' : escapeHtml(it.name.slice(0, 1));
+              return '<div class="ctmu-fwd-recent-item" data-fwd-pick="' + escapeHtml(it.id) + '">' +
+                '<div class="ctmu-fwd-recent-av">' + avHtml + '</div>' +
+                '<div class="ctmu-fwd-recent-name">' + escapeHtml(it.name) + '</div>' +
+              '</div>';
+            }).join('') +
+          '</div>' +
+        '</div>' +
+        '<div class="ctmu-fwd-gap"></div>';
+    }
+
+    var listRowsHtml = items.length ? items.map(function (it) {
+      var avHtml = it.av ? '<img src="' + escapeHtml(it.av) + '" alt="">' : escapeHtml(it.name.slice(0, 1));
+      var picked = fwdDestIds.indexOf(it.id) !== -1;
+      return '<div class="ctmu-fwd-row ' + (picked ? 'picked' : '') + '" data-fwd-pick="' + escapeHtml(it.id) + '">' +
+        '<div class="ctmu-fwd-check">' + (picked ? SVG_CHECK : '') + '</div>' +
+        '<div class="ctmu-fwd-av">' + avHtml + '</div>' +
+        '<div class="ctmu-fwd-name">' + escapeHtml(it.name) + (it.countText ? '<span style="color:#8e8e93;">' + escapeHtml(it.countText) + '</span>' : '') + '</div>' +
+        (it.isCurrent ? '<div class="ctmu-fwd-tag">当前聊天</div>' : '') +
+      '</div>';
+    }).join('') : '<div style="text-align:center;color:#8e8e93;padding:40px 0;">暂无匹配的聊天</div>';
+
+    scrollEl.innerHTML =
+      recentHtml +
+      '<div class="ctmu-fwd-list-head">' +
+        '<div class="ctmu-fwd-list-title">最近聊天</div>' +
+        '<button class="ctmu-fwd-new-btn" id="ctmuFwdCreateBtn">创建聊天</button>' +
+      '</div>' +
+      listRowsHtml;
+
+    scrollEl.querySelectorAll('[data-fwd-pick]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var tid = el.getAttribute('data-fwd-pick');
+        if (!fwdMultiDest) {
+          sendForwardToTargets([tid]);
+        } else {
+          var i = fwdDestIds.indexOf(tid);
+          if (i === -1) fwdDestIds.push(tid);
+          else fwdDestIds.splice(i, 1);
+          syncFwdHeaderBtn();
+          renderForwardPage();
+        }
+      });
+    });
+
+    var createBtn = document.getElementById('ctmuFwdCreateBtn');
+    if (createBtn) {
+      createBtn.addEventListener('click', function () {
+        var trigger = document.getElementById('ctMenuNewGroup');
+        if (trigger) trigger.click();
+      });
+    }
+  }
+
   function handleAction(act) {
     var tid = resolveCurrentThreadId();
     var msgs = getThreadMsgs(tid);
@@ -372,8 +648,7 @@
 
     if (act === 'forward') {
       pendingForwardMsgs = [msg];
-      renderForwardList();
-      document.getElementById('ctmuFwdMask').classList.add('open');
+      openForwardPage('single');
       return;
     }
 
@@ -399,58 +674,8 @@
     }
 
     if (act === 'delete') {
-      msgs.splice(idx, 1);
-      saveThreadMsgs(tid, msgs);
-      if (targetGroupEl) targetGroupEl.remove();
-      updateThreadPreview(tid, msgs);
-      showToast('已删除（不计入上下文）');
+      confirmDeleteIds([msg.id]);
     }
-  }
-
-  function renderForwardList() {
-    var listEl = document.getElementById('ctmuFwdList');
-    if (!listEl) return;
-    var threads = loadJSON(STORAGE_THREADS_KEY, []);
-    var chars = (window.PhoneArchive && window.PhoneArchive.getChars) ? (window.PhoneArchive.getChars() || []) : [];
-
-    if (!threads.length) {
-      listEl.innerHTML = '<div style="text-align:center;color:#8e8e93;padding:24px 0;">暂无可转发的聊天</div>';
-      return;
-    }
-
-    listEl.innerHTML = threads.map(function (t) {
-      var cObj = t.type === 'dm' ? chars.find(function (c) { return c.id === t.charId; }) : null;
-      var name = cObj ? (cObj.name || cObj.nickname || '未命名') : (t.name || '聊天');
-      var av = (cObj && window.PhoneArchive && window.PhoneArchive.getCharAvatar) ? (window.PhoneArchive.getCharAvatar(cObj.id) || '') : '';
-      var avHtml = av ? '<img src="' + escapeHtml(av) + '" alt="">' : escapeHtml(name.slice(0, 1));
-      return '<div class="ctmu-fwd-row" data-fwd-tid="' + escapeHtml(t.id) + '">' +
-        '<div class="ctmu-fwd-av">' + avHtml + '</div>' +
-        '<div class="ctmu-fwd-name">' + escapeHtml(name) + '</div>' +
-      '</div>';
-    }).join('');
-
-    listEl.querySelectorAll('.ctmu-fwd-row[data-fwd-tid]').forEach(function (row) {
-      row.addEventListener('click', function () {
-        var destTid = row.getAttribute('data-fwd-tid');
-        var destMsgs = getThreadMsgs(destTid);
-        var nowTime = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-        var lastText = '';
-        pendingForwardMsgs.forEach(function (m, i) {
-          lastText = getMsgPlainText(m);
-          destMsgs.push({
-            id: 'm-' + Date.now() + '-' + i,
-            sender: 'me',
-            text: lastText,
-            time: nowTime
-          });
-        });
-        saveThreadMsgs(destTid, destMsgs);
-        updateThreadPreview(destTid, destMsgs);
-        document.getElementById('ctmuFwdMask').classList.remove('open');
-        if (multiSelectMode) setMultiSelect(false);
-        showToast('已转发');
-      });
-    });
   }
 
   function bindMenuEvents() {
@@ -497,17 +722,29 @@
       showToast('已保存');
     });
 
+    /* 多选顶部/底部事件 */
     document.getElementById('ctmuMultiCancel').addEventListener('click', function () {
       setMultiSelect(false);
+    });
+
+    document.getElementById('ctmuMultiSearchInput').addEventListener('input', function (e) {
+      multiSearchKw = (e.target.value || '').trim().toLowerCase();
+      syncMessagesDom();
     });
 
     document.getElementById('ctmuMultiFwd').addEventListener('click', function () {
       if (!selectedIds.length) { showToast('请先选择消息'); return; }
       var tid = resolveCurrentThreadId();
-      var msgs = getThreadMsgs(tid);
-      pendingForwardMsgs = msgs.filter(function (m) { return selectedIds.indexOf(m.id) !== -1; });
-      renderForwardList();
-      document.getElementById('ctmuFwdMask').classList.add('open');
+      pendingForwardMsgs = getThreadMsgs(tid).filter(function (m) { return selectedIds.indexOf(m.id) !== -1; });
+      document.getElementById('ctmuFwdModeMask').classList.add('open');
+    });
+
+    document.getElementById('ctmuMultiCopy').addEventListener('click', function () {
+      if (!selectedIds.length) { showToast('请先选择消息'); return; }
+      var tid = resolveCurrentThreadId();
+      var msgs = getThreadMsgs(tid).filter(function (m) { return selectedIds.indexOf(m.id) !== -1; });
+      copyText(msgs.map(getMsgPlainText).join('\n'));
+      setMultiSelect(false);
     });
 
     document.getElementById('ctmuMultiFav').addEventListener('click', function () {
@@ -521,16 +758,65 @@
 
     document.getElementById('ctmuMultiDel').addEventListener('click', function () {
       if (!selectedIds.length) { showToast('请先选择消息'); return; }
-      var tid = resolveCurrentThreadId();
-      var msgs = getThreadMsgs(tid).filter(function (m) { return selectedIds.indexOf(m.id) === -1; });
-      saveThreadMsgs(tid, msgs);
-      selectedIds.forEach(function (mid) {
-        var el = document.querySelector('#ctRoomMessages .ct-msg-group[data-msg-id="' + mid + '"]');
-        if (el) el.remove();
-      });
-      updateThreadPreview(tid, msgs);
-      setMultiSelect(false);
-      showToast('已删除');
+      confirmDeleteIds(selectedIds);
+    });
+
+    /* P2 逐条转发 / 合并转发 */
+    document.getElementById('ctmuSheetSingleFwd').addEventListener('click', function () {
+      document.getElementById('ctmuFwdModeMask').classList.remove('open');
+      openForwardPage('single');
+    });
+    document.getElementById('ctmuSheetMergedFwd').addEventListener('click', function () {
+      document.getElementById('ctmuFwdModeMask').classList.remove('open');
+      openForwardPage('merged');
+    });
+    document.getElementById('ctmuSheetFwdCancel').addEventListener('click', function () {
+      document.getElementById('ctmuFwdModeMask').classList.remove('open');
+    });
+    document.getElementById('ctmuFwdModeMask').addEventListener('click', function (e) {
+      if (e.target.id === 'ctmuFwdModeMask') e.target.classList.remove('open');
+    });
+
+    /* P3 删除确认 */
+    document.getElementById('ctmuSheetDelConfirm').addEventListener('click', executePendingDelete);
+    document.getElementById('ctmuSheetDelCancel').addEventListener('click', function () {
+      pendingDeleteIds = [];
+      document.getElementById('ctmuDelConfirmMask').classList.remove('open');
+    });
+    document.getElementById('ctmuDelConfirmMask').addEventListener('click', function (e) {
+      if (e.target.id === 'ctmuDelConfirmMask') {
+        pendingDeleteIds = [];
+        e.target.classList.remove('open');
+      }
+    });
+
+    /* P4 选择聊天页 */
+    document.getElementById('ctmuFwdClose').addEventListener('click', function () {
+      document.getElementById('ctmuFwdPage').classList.remove('open');
+    });
+    document.getElementById('ctmuFwdToggleMulti').addEventListener('click', function () {
+      if (fwdMultiDest && fwdDestIds.length > 0) {
+        sendForwardToTargets(fwdDestIds);
+        return;
+      }
+      fwdMultiDest = !fwdMultiDest;
+      fwdDestIds = [];
+      syncFwdHeaderBtn();
+      renderForwardPage();
+    });
+
+    var fwdSearchInput = document.getElementById('ctmuFwdSearchInput');
+    var fwdSearchBox = document.getElementById('ctmuFwdSearchBox');
+    fwdSearchInput.addEventListener('focus', function () {
+      fwdSearchBox.classList.add('is-focus');
+    });
+    fwdSearchInput.addEventListener('blur', function () {
+      fwdSearchBox.classList.remove('is-focus');
+    });
+    fwdSearchInput.addEventListener('input', function (e) {
+      fwdSearchKw = (e.target.value || '').trim().toLowerCase();
+      fwdSearchBox.classList.toggle('has-val', fwdSearchKw.length > 0);
+      renderForwardPage();
     });
   }
 
