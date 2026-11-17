@@ -1,4 +1,4 @@
-/* apps/offline.css - 线下 App 首页与 Threads 1:1 房间样式 */
+/* apps/offline.css - 线下 App 首页与 Threads 剧情流样式 */
 
 #app-offline {
   background: #ffffff;
@@ -314,10 +314,13 @@
   transform: scale(0.92);
 }
 
-/* ================= 房间内页面（1:1 Threads 详情页） ================= */
+/* ================= 房间内页面（Threads 剧情流） ================= */
 .of-room {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 30;
   display: flex;
   flex-direction: column;
@@ -391,14 +394,26 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   background: #ffffff;
+  padding-bottom: 16px;
 }
 
 .of-room-scroll::-webkit-scrollbar {
   display: none;
 }
 
+/* Char 块（上面签文卡 + 下面正文区） */
+.of-char-block {
+  background: #ffffff;
+}
+
+.of-char-block + .of-char-block,
+.of-user-comment + .of-char-block {
+  border-top: 1px solid #f0f0f2;
+  padding-top: 4px;
+}
+
 .of-post {
-  padding: 6px 15px 11px;
+  padding: 8px 15px 11px;
 }
 
 .of-post-top {
@@ -528,7 +543,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 15px 10px;
+  padding: 12px 15px 8px;
   border-top: 1px solid #f0f0f2;
 }
 
@@ -549,11 +564,159 @@
   color: #8e8e93;
 }
 
-.of-room-placeholder {
-  padding: 28px 16px;
+/* 下面一整块正文区 */
+.of-story-body {
+  padding: 8px 16px 18px;
+  font-size: 15px;
+  line-height: 1.75;
+  color: #1c1c1e;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
-/* 房间底部回复条 */
+.of-story-body p {
+  margin: 0 0 11px;
+  word-break: break-word;
+}
+
+.of-story-body p:last-child {
+  margin-bottom: 0;
+}
+
+.of-story-waiting {
+  padding: 20px 16px 26px;
+  font-size: 13.5px;
+  color: #a0a0a6;
+  text-align: center;
+}
+
+/* 我发送的：像评论一样的一条一条 */
+.of-user-comment {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 15px;
+  border-top: 1px solid #f0f0f2;
+  background: #ffffff;
+}
+
+.of-cmt-avatar {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #ededf0;
+  color: #55555a;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin-top: 1px;
+}
+
+.of-cmt-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.of-cmt-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.of-cmt-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.of-cmt-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.of-cmt-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111111;
+}
+
+.of-cmt-time {
+  font-size: 13px;
+  color: #8e8e93;
+  flex-shrink: 0;
+}
+
+.of-cmt-brand {
+  flex-shrink: 0;
+  color: #111111;
+  display: inline-flex;
+  align-items: center;
+}
+
+.of-cmt-text {
+  margin-top: 4px;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: #111111;
+  word-break: break-word;
+  white-space: pre-wrap;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.of-cmt-actions {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+/* 生成中呼吸提示 */
+.of-typing-bar {
+  padding: 14px 16px 18px;
+  border-top: 1px solid #f0f0f2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #8e8e93;
+  font-size: 13.5px;
+}
+
+.of-typing-dots {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.of-typing-dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #8e8e93;
+  animation: ofPulse 1.2s infinite ease-in-out;
+}
+
+.of-typing-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.of-typing-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes ofPulse {
+  0%, 80%, 100% { opacity: 0.25; transform: scale(0.85); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+/* 房间底部真实输入回复条 */
 .of-room-footer {
   flex-shrink: 0;
   padding: 8px 10px calc(env(safe-area-inset-bottom, 0px) + 10px);
@@ -564,9 +727,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   height: 52px;
-  padding: 0 16px 0 10px;
+  padding: 0 18px 0 10px;
   border-radius: 26px;
   background: #e4e4e6;
 }
@@ -577,6 +740,7 @@
   gap: 10px;
   min-width: 0;
   flex: 1;
+  height: 100%;
 }
 
 .of-reply-avatar {
@@ -601,20 +765,156 @@
   display: block;
 }
 
-.of-reply-hint {
-  font-size: 14px;
+.of-reply-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #111111;
+  font-family: inherit;
+  font-size: 14.5px;
+  padding: 0;
+  -webkit-appearance: none;
+}
+
+.of-reply-input::placeholder {
   color: #8a8a8e;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .of-reply-icons {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  gap: 15px;
+  gap: 13px;
   color: #0b0b0b;
+  margin-right: 4px;
+}
+
+.of-reply-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  color: #0b0b0b;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease;
+}
+
+.of-reply-icon-btn.is-pressed {
+  transform: scale(0.86);
+  opacity: 0.55;
+}
+
+.of-reply-icon-btn.is-loading {
+  opacity: 0.38;
+  pointer-events: none;
+}
+
+/* ================= 展开全屏长文输入弹窗 ================= */
+.of-expand-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  background: rgba(0, 0, 0, 0.32);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.of-expand-mask.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.of-expand-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 46;
+  height: 76%;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 24px 24px 0 0;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  transform: translateY(100%);
+  transition: transform 0.34s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.of-expand-sheet.is-open {
+  transform: translateY(0);
+}
+
+.of-expand-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid #f0f0f2;
+}
+
+.of-expand-cancel {
+  border: none;
+  background: transparent;
+  color: #66666b;
+  font-family: inherit;
+  font-size: 14.5px;
+  padding: 4px 6px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.of-expand-title {
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #111111;
+}
+
+.of-expand-send {
+  border: none;
+  background: #111111;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  height: 32px;
+  padding: 0 15px;
+  border-radius: 999px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease;
+}
+
+.of-expand-send.is-pressed {
+  transform: scale(0.92);
+  opacity: 0.8;
+}
+
+.of-expand-textarea {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
+  border: none;
+  outline: none;
+  resize: none;
+  padding: 16px;
+  font-family: inherit;
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: #111111;
+  background: #ffffff;
+}
+
+.of-expand-textarea::placeholder {
+  color: #9a9aa0;
 }
 
 /* ================= 选角色发起底部抽屉 ================= */
@@ -758,4 +1058,28 @@
   text-align: center;
   font-size: 14px;
   color: #8e8e93;
+}
+
+/* 轻提示 */
+.of-toast {
+  position: absolute;
+  left: 50%;
+  top: calc(env(safe-area-inset-top, 0px) + 60px);
+  transform: translateX(-50%) translateY(-8px) scale(0.96);
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.88);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 60;
+  white-space: nowrap;
+  transition: transform 0.26s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.26s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.of-toast.is-show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
 }
