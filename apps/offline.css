@@ -71,13 +71,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   padding: 0;
   border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   background: #ffffff;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05), inset 0 0 0 1.5px rgba(245, 245, 247, 0.9);
   color: #111111;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -337,7 +337,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 10px;
+  padding: calc(env(safe-area-inset-top, 0px) + 6px) 15px 8px;
   background: #ffffff;
 }
 
@@ -345,13 +345,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   background: #ffffff;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05), inset 0 0 0 1.5px rgba(246, 246, 248, 0.92);
   color: #111111;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -372,16 +372,16 @@
 }
 
 .of-room-title {
-  font-size: 15.5px;
+  font-size: 15px;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.18;
   color: #111111;
 }
 
 .of-room-views {
   margin-top: 2px;
-  font-size: 11.5px;
-  line-height: 1.2;
+  font-size: 11px;
+  line-height: 1.15;
   color: #8e8e93;
 }
 
@@ -398,7 +398,7 @@
 }
 
 .of-post {
-  padding: 8px 16px 12px;
+  padding: 6px 15px 11px;
 }
 
 .of-post-top {
@@ -411,18 +411,18 @@
 .of-post-author {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
   min-width: 0;
 }
 
 .of-post-avatar {
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: #ededf0;
   color: #55555a;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -445,7 +445,7 @@
 }
 
 .of-post-name {
-  font-size: 14.5px;
+  font-size: 14px;
   font-weight: 700;
   color: #111111;
   white-space: nowrap;
@@ -455,7 +455,7 @@
 
 .of-post-time {
   flex-shrink: 0;
-  font-size: 13.5px;
+  font-size: 13px;
   color: #8e8e93;
 }
 
@@ -463,12 +463,19 @@
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  gap: 2.5px;
-  color: #111111;
-  font-size: 11.5px;
+  gap: 1px;
+  color: #000000;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+  font-size: 11px;
   font-weight: 800;
   font-style: italic;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+
+.of-post-brand svg {
+  display: block;
+  transform: translateY(-0.2px);
 }
 
 .of-post-bio {
@@ -487,14 +494,14 @@
   margin-top: 10px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 17px;
 }
 
 .of-act-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 0;
+  gap: 4.5px;
+  padding: 3px 0;
   border: none;
   background: transparent;
   color: #262626;
@@ -520,8 +527,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 13px 16px 10px;
-  border-top: 1px solid #ececee;
+  padding: 12px 15px 10px;
+  border-top: 1px solid #f0f0f2;
 }
 
 .of-sort-left {
@@ -548,7 +555,7 @@
 /* 房间底部回复条 */
 .of-room-footer {
   flex-shrink: 0;
-  padding: 8px 12px calc(env(safe-area-inset-bottom, 0px) + 10px);
+  padding: 8px 10px calc(env(safe-area-inset-bottom, 0px) + 10px);
   background: #ffffff;
 }
 
@@ -557,10 +564,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  height: 46px;
-  padding: 0 14px 0 9px;
-  border-radius: 23px;
-  background: #ebebed;
+  height: 52px;
+  padding: 0 16px 0 10px;
+  border-radius: 26px;
+  background: #e4e4e6;
 }
 
 .of-reply-left {
@@ -576,7 +583,7 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #dcdce0;
+  background: #d0d0d5;
   color: #55555a;
   font-size: 12px;
   font-weight: 700;
@@ -595,7 +602,7 @@
 
 .of-reply-hint {
   font-size: 14px;
-  color: #8e8e93;
+  color: #8a8a8e;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -605,8 +612,8 @@
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  gap: 14px;
-  color: #111111;
+  gap: 15px;
+  color: #0b0b0b;
 }
 
 /* ================= 选角色发起底部抽屉 ================= */
