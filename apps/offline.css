@@ -11,6 +11,11 @@ body.of-kb-lock {
   overflow: hidden !important;
 }
 
+#app-offline:not(.active),
+#app-offline:not(.active) * {
+  pointer-events: none !important;
+}
+
 #app-offline {
   background: #ffffff;
   color: #111111;
@@ -290,7 +295,6 @@ body.of-kb-lock {
 }
 
 .of-tabbar {
-  pointer-events: auto;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -305,6 +309,10 @@ body.of-kb-lock {
     0 1px 4px rgba(0, 0, 0, 0.04),
     inset 0 1px 0 rgba(255, 255, 255, 1),
     inset 0 -1px 0 rgba(0, 0, 0, 0.04);
+}
+
+#app-offline.active .of-tabbar {
+  pointer-events: auto;
 }
 
 .of-tab-btn {
