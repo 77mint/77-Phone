@@ -964,7 +964,7 @@
       '<div class="of-app">' +
         '<header class="of-header">' +
           '<div class="of-header-left">' +
-            '<button class="of-back-btn" id="ofBackBtn" type="button" aria-label="返回">' +
+            '<button class="of-back-btn" id="ofBackBtn" data-close-app type="button" aria-label="返回">' +
               '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' +
                 '<polyline points="15 18 9 12 15 6"></polyline>' +
               '</svg>' +
@@ -1202,7 +1202,7 @@
   }
 
   var observer = new MutationObserver(function () {
-    if (appEl.classList.contains('active')) {
+    if (appEl.classList.contains('open') || appEl.classList.contains('active')) {
       state.threads = loadThreads();
       renderList();
     } else {
