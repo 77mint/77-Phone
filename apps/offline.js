@@ -12,18 +12,14 @@
     keyword: '',
     threads: [],
     currentThreadId: null,
-    isGenerating: false
+    isGenerating: false,
+    editingMsgIndex: -1
   };
 
   var toastTimer = null;
 
   var THREADS_LOGO_SVG =
     '<svg width="12" height="12" viewBox="0 0 192 192" fill="currentColor" stroke="currentColor" stroke-width="4" stroke-linejoin="round">' +
-      '<path d="M141.537 88.9883C140.71 88.5919 139.87 88.2104 139.019 87.8451C137.537 60.5382 122.616 44.905 97.5619 44.745C97.4484 44.7443 97.3355 44.7443 97.222 44.7443C82.2364 44.7443 69.7731 51.1409 62.102 62.7807L75.881 72.2328C81.6116 63.5383 90.6052 61.6848 97.2286 61.6848C97.3051 61.6848 97.3819 61.6848 97.4576 61.6855C105.707 61.7381 111.932 64.1366 115.961 68.814C118.893 72.2193 120.854 76.925 121.825 82.8638C114.511 81.6207 106.601 81.2385 98.145 81.7233C74.3247 83.0954 59.0111 96.9879 60.0396 116.292C60.5615 126.084 65.4397 134.508 73.775 140.011C80.8224 144.663 89.899 146.938 99.3323 146.423C111.79 145.74 121.563 140.987 128.381 132.296C133.559 125.696 136.834 117.143 138.28 106.366C144.217 109.949 148.617 114.664 151.047 120.332C155.179 129.967 155.42 145.8 142.501 158.708C131.182 170.016 117.576 174.908 97.0135 175.059C74.2042 174.89 56.9538 167.575 45.7381 153.317C35.2355 139.966 29.8077 120.682 29.6052 96C29.8077 71.3178 35.2355 52.0336 45.7381 38.6827C56.9538 24.4249 74.2039 17.11 97.0132 16.9405C119.988 17.1113 137.539 24.4614 149.184 38.788C154.894 45.8136 159.199 54.6488 162.037 64.9503L178.184 60.6422C174.744 47.9622 169.331 37.0357 161.965 27.974C147.036 9.60668 125.202 0.195145 97.0695 0H96.9569C68.8816 0.19447 47.2921 9.6418 32.7883 28.0793C19.8819 44.4864 13.2244 67.3157 13.0007 95.9325L13 96L13.0007 96.0675C13.2244 124.684 19.8819 147.514 32.7883 163.921C47.2921 182.358 68.8816 191.806 96.9569 192H97.0695C122.03 191.827 139.624 185.292 154.118 170.811C173.081 151.866 172.51 128.119 166.26 113.541C161.776 103.087 153.227 94.5962 141.537 88.9883ZM98.4405 129.507C88.0005 130.095 77.1544 125.409 76.6196 115.372C76.2232 107.93 81.9158 99.626 99.0812 98.6368C101.047 98.5234 102.976 98.468 104.871 98.468C111.106 98.468 116.939 99.0737 122.242 100.233C120.264 124.935 108.662 128.946 98.4405 129.507Z"/>' +
-    '</svg>';
-
-  var THREADS_ICON_ONLY_SVG =
-    '<svg width="14" height="14" viewBox="0 0 192 192" fill="currentColor" stroke="currentColor" stroke-width="4" stroke-linejoin="round">' +
       '<path d="M141.537 88.9883C140.71 88.5919 139.87 88.2104 139.019 87.8451C137.537 60.5382 122.616 44.905 97.5619 44.745C97.4484 44.7443 97.3355 44.7443 97.222 44.7443C82.2364 44.7443 69.7731 51.1409 62.102 62.7807L75.881 72.2328C81.6116 63.5383 90.6052 61.6848 97.2286 61.6848C97.3051 61.6848 97.3819 61.6848 97.4576 61.6855C105.707 61.7381 111.932 64.1366 115.961 68.814C118.893 72.2193 120.854 76.925 121.825 82.8638C114.511 81.6207 106.601 81.2385 98.145 81.7233C74.3247 83.0954 59.0111 96.9879 60.0396 116.292C60.5615 126.084 65.4397 134.508 73.775 140.011C80.8224 144.663 89.899 146.938 99.3323 146.423C111.79 145.74 121.563 140.987 128.381 132.296C133.559 125.696 136.834 117.143 138.28 106.366C144.217 109.949 148.617 114.664 151.047 120.332C155.179 129.967 155.42 145.8 142.501 158.708C131.182 170.016 117.576 174.908 97.0135 175.059C74.2042 174.89 56.9538 167.575 45.7381 153.317C35.2355 139.966 29.8077 120.682 29.6052 96C29.8077 71.3178 35.2355 52.0336 45.7381 38.6827C56.9538 24.4249 74.2039 17.11 97.0132 16.9405C119.988 17.1113 137.539 24.4614 149.184 38.788C154.894 45.8136 159.199 54.6488 162.037 64.9503L178.184 60.6422C174.744 47.9622 169.331 37.0357 161.965 27.974C147.036 9.60668 125.202 0.195145 97.0695 0H96.9569C68.8816 0.19447 47.2921 9.6418 32.7883 28.0793C19.8819 44.4864 13.2244 67.3157 13.0007 95.9325L13 96L13.0007 96.0675C13.2244 124.684 19.8819 147.514 32.7883 163.921C47.2921 182.358 68.8816 191.806 96.9569 192H97.0695C122.03 191.827 139.624 185.292 154.118 170.811C173.081 151.866 172.51 128.119 166.26 113.541C161.776 103.087 153.227 94.5962 141.537 88.9883ZM98.4405 129.507C88.0005 130.095 77.1544 125.409 76.6196 115.372C76.2232 107.93 81.9158 99.626 99.0812 98.6368C101.047 98.5234 102.976 98.468 104.871 98.468C111.106 98.468 116.939 99.0737 122.242 100.233C120.264 124.935 108.662 128.946 98.4405 129.507Z"/>' +
     '</svg>';
 
@@ -167,6 +163,7 @@
   }
 
   function closeOfflineApp() {
+    document.body.classList.remove('of-kb-lock');
     if (typeof window.closeApp === 'function') {
       window.closeApp();
       return;
@@ -274,9 +271,12 @@
       : (typeof thread.likes === 'number' ? thread.likes : 1314);
 
     var heartAttr = msgData ? ' data-like-msg="' + idx + '"' : ' id="ofLikeBtn"';
-    var storyHtml = msgData && msgData.content
-      ? '<div class="of-story-body">' + formatParagraphsHtml(msgData.content) + '</div>'
-      : '<div class="of-story-waiting">点右下角 GIF 即可生成剧情</div>';
+    var storyHtml = '';
+    if (msgData && msgData.content) {
+      storyHtml = '<div class="of-story-body">' + formatParagraphsHtml(msgData.content) + '</div>';
+    } else if (!msgData) {
+      storyHtml = '<div class="of-story-waiting">点右下角 GIF 即可生成剧情</div>';
+    }
 
     return (
       '<section class="of-char-block">' +
@@ -327,7 +327,20 @@
               '<span class="of-cmt-name">我</span>' +
               '<span class="of-cmt-time">' + escapeHtml(timeText) + '</span>' +
             '</div>' +
-            '<span class="of-cmt-brand">' + THREADS_ICON_ONLY_SVG + '</span>' +
+            '<div class="of-cmt-right-tools">' +
+              '<button class="of-cmt-tool-btn" data-edit-msg="' + idx + '" type="button" aria-label="编辑">' +
+                '<svg width="14.5" height="14.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                  '<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>' +
+                '</svg>' +
+              '</button>' +
+              '<button class="of-cmt-tool-btn" data-more-msg="' + idx + '" type="button" aria-label="删除">' +
+                '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">' +
+                  '<circle cx="5.5" cy="12" r="1.75"/>' +
+                  '<circle cx="12" cy="12" r="1.75"/>' +
+                  '<circle cx="18.5" cy="12" r="1.75"/>' +
+                '</svg>' +
+              '</button>' +
+            '</div>' +
           '</div>' +
           '<div class="of-cmt-text">' + escapeHtml(msgData.content || '') + '</div>' +
           '<div class="of-cmt-actions">' +
@@ -421,9 +434,27 @@
     var msgs = loadMessages(thread.id);
     var html = '';
 
+    var hasAssistant = false;
+    for (var checkIdx = 0; checkIdx < msgs.length; checkIdx++) {
+      if (msgs[checkIdx].role === 'assistant') {
+        hasAssistant = true;
+        break;
+      }
+    }
+
     if (!msgs.length) {
       html = renderCharBlockHtml(thread, null, -1);
     } else {
+      if (!hasAssistant) {
+        html += renderCharBlockHtml(thread, {
+          role: 'assistant',
+          signature: thread.bio || '',
+          content: '',
+          createdAt: thread.createdAt,
+          likes: thread.likes,
+          liked: thread.liked
+        }, -1);
+      }
       for (var i = 0; i < msgs.length; i++) {
         var m = msgs[i];
         if (m.role === 'user') {
@@ -461,6 +492,13 @@
       (function (btn) {
         bindPress(btn, function () {
           var idx = parseInt(btn.getAttribute('data-like-msg'), 10);
+          if (idx < 0) {
+            thread.liked = !thread.liked;
+            thread.likes = (typeof thread.likes === 'number' ? thread.likes : 1314) + (thread.liked ? 1 : -1);
+            saveThreads();
+            renderRoom(thread, false);
+            return;
+          }
           var list = loadMessages(thread.id);
           var item = list[idx];
           if (!item) return;
@@ -474,6 +512,34 @@
           renderRoom(thread, false);
         });
       })(msgLikeBtns[j]);
+    }
+
+    var editBtns = bodyEl.querySelectorAll('[data-edit-msg]');
+    for (var eIdx = 0; eIdx < editBtns.length; eIdx++) {
+      (function (btn) {
+        bindPress(btn, function () {
+          var idx = parseInt(btn.getAttribute('data-edit-msg'), 10);
+          var list = loadMessages(thread.id);
+          if (!list[idx]) return;
+          openExpandModal(idx, list[idx].content || '');
+        });
+      })(editBtns[eIdx]);
+    }
+
+    var moreBtns = bodyEl.querySelectorAll('[data-more-msg]');
+    for (var mIdx = 0; mIdx < moreBtns.length; mIdx++) {
+      (function (btn) {
+        bindPress(btn, function () {
+          var idx = parseInt(btn.getAttribute('data-more-msg'), 10);
+          var list = loadMessages(thread.id);
+          if (!list[idx]) return;
+          if (window.confirm('删除这条回复？')) {
+            list.splice(idx, 1);
+            saveMessages(thread.id, list);
+            renderRoom(thread, false);
+          }
+        });
+      })(moreBtns[mIdx]);
     }
 
     var otherBtns = bodyEl.querySelectorAll('.of-act-btn:not(#ofLikeBtn):not([data-like-msg])');
@@ -498,6 +564,8 @@
     if (!target) return;
     state.currentThreadId = threadId;
     renderRoom(target, false);
+    var appInner = appEl.querySelector('.of-app');
+    if (appInner) appInner.classList.add('is-in-room');
     var roomEl = document.getElementById('ofRoom');
     if (roomEl) {
       roomEl.classList.add('is-open');
@@ -507,9 +575,13 @@
   function closeRoom() {
     var input = document.getElementById('ofReplyInput');
     if (input) input.blur();
+    document.body.classList.remove('of-kb-lock');
+    var appInner = appEl.querySelector('.of-app');
+    if (appInner) appInner.classList.remove('is-in-room');
     var roomEl = document.getElementById('ofRoom');
     if (roomEl) {
       roomEl.classList.remove('is-open');
+      roomEl.style.top = '';
       roomEl.style.bottom = '';
       roomEl.style.height = '';
     }
@@ -734,20 +806,32 @@
       });
   }
 
-  function openExpandModal() {
+  function openExpandModal(editIdx, presetText) {
     var mask = document.getElementById('ofExpandMask');
     var sheet = document.getElementById('ofExpandSheet');
     var area = document.getElementById('ofExpandTextarea');
+    var titleEl = document.getElementById('ofExpandTitle');
+    var sendBtn = document.getElementById('ofExpandSend');
     var inlineInput = document.getElementById('ofReplyInput');
     if (!mask || !sheet || !area) return;
-    if (inlineInput) {
-      area.value = inlineInput.value || '';
+
+    if (typeof editIdx === 'number' && editIdx >= 0) {
+      state.editingMsgIndex = editIdx;
+      area.value = presetText || '';
+      if (titleEl) titleEl.textContent = '编辑回复';
+      if (sendBtn) sendBtn.textContent = '保存';
+    } else {
+      state.editingMsgIndex = -1;
+      area.value = inlineInput ? (inlineInput.value || '') : '';
+      if (titleEl) titleEl.textContent = '回复剧情';
+      if (sendBtn) sendBtn.textContent = '发送';
     }
+
     mask.classList.add('is-open');
     sheet.classList.add('is-open');
     setTimeout(function () {
       area.focus();
-    }, 200);
+    }, 220);
   }
 
   function closeExpandModal() {
@@ -757,6 +841,7 @@
     if (area) area.blur();
     if (mask) mask.classList.remove('is-open');
     if (sheet) sheet.classList.remove('is-open');
+    state.editingMsgIndex = -1;
   }
 
   function openCharPicker() {
@@ -842,26 +927,38 @@
     openRoom(newThread.id);
   }
 
+  function syncKeyboardViewport() {
+    var roomEl = document.getElementById('ofRoom');
+    if (!roomEl || !roomEl.classList.contains('is-open')) return;
+    var vv = window.visualViewport;
+    if (!vv) return;
+
+    if (window.innerHeight - vv.height > 80) {
+      document.body.classList.add('of-kb-lock');
+      window.scrollTo(0, 0);
+      var rect = appEl.getBoundingClientRect();
+      var scale = rect.height > 0 && appEl.offsetHeight > 0 ? rect.height / appEl.offsetHeight : 1;
+      var topOffset = vv.offsetTop || 0;
+      var availH = (vv.height - Math.max(0, rect.top - topOffset)) / scale;
+      roomEl.style.top = '0';
+      roomEl.style.bottom = 'auto';
+      roomEl.style.height = Math.max(220, Math.round(availH)) + 'px';
+      scrollRoomToBottom(false);
+    } else {
+      document.body.classList.remove('of-kb-lock');
+      roomEl.style.top = '';
+      roomEl.style.bottom = '';
+      roomEl.style.height = '';
+    }
+  }
+
   function setupKeyboardViewport() {
     if (!window.visualViewport) return;
-    var vv = window.visualViewport;
-    function syncViewport() {
-      var roomEl = document.getElementById('ofRoom');
-      if (!roomEl || !roomEl.classList.contains('is-open')) return;
-      if (window.innerHeight - vv.height > 80) {
-        window.scrollTo(0, 0);
-        var rect = appEl.getBoundingClientRect();
-        var scale = rect.height > 0 && appEl.offsetHeight > 0 ? rect.height / appEl.offsetHeight : 1;
-        var h = (vv.height - Math.max(0, rect.top)) / scale;
-        roomEl.style.bottom = 'auto';
-        roomEl.style.height = Math.max(240, Math.round(h)) + 'px';
-        scrollRoomToBottom(false);
-      } else {
-        roomEl.style.bottom = '';
-        roomEl.style.height = '';
-      }
-    }
-    vv.addEventListener('resize', syncViewport);
+    window.visualViewport.addEventListener('resize', syncKeyboardViewport);
+    window.visualViewport.addEventListener('scroll', function () {
+      if (window.scrollY !== 0) window.scrollTo(0, 0);
+      syncKeyboardViewport();
+    });
   }
 
   function renderApp() {
@@ -975,7 +1072,7 @@
         '<div class="of-expand-sheet" id="ofExpandSheet">' +
           '<div class="of-expand-header">' +
             '<button class="of-expand-cancel" id="ofExpandCancel" type="button">取消</button>' +
-            '<span class="of-expand-title">回复剧情</span>' +
+            '<span class="of-expand-title" id="ofExpandTitle">回复剧情</span>' +
             '<button class="of-expand-send" id="ofExpandSend" type="button">发送</button>' +
           '</div>' +
           '<textarea class="of-expand-textarea" id="ofExpandTextarea" placeholder="写下你的台词或行动..."></textarea>' +
@@ -1019,14 +1116,25 @@
     bindPress(decoImgBtn);
     bindPress(decoStickerBtn);
     bindPress(gifBtn, triggerCharReply);
-    bindPress(expandBtn, openExpandModal);
+    bindPress(expandBtn, function () { openExpandModal(-1); });
     bindPress(expandCancel, closeExpandModal);
     bindPress(sheetClose, closeCharPicker);
 
     bindPress(expandSend, function () {
       if (!expandArea) return;
-      var text = expandArea.value;
-      if (!String(text || '').trim()) return;
+      var text = String(expandArea.value || '').trim();
+      if (!text) return;
+      if (state.editingMsgIndex >= 0 && state.currentThreadId) {
+        var thread = findThread(state.currentThreadId);
+        var list = loadMessages(state.currentThreadId);
+        if (list[state.editingMsgIndex]) {
+          list[state.editingMsgIndex].content = text;
+          saveMessages(state.currentThreadId, list);
+          closeExpandModal();
+          if (thread) renderRoom(thread, false);
+          return;
+        }
+      }
       if (replyInput) replyInput.value = '';
       closeExpandModal();
       sendUserComment(text);
@@ -1041,6 +1149,14 @@
     }
 
     if (replyInput) {
+      replyInput.addEventListener('focus', function () {
+        document.body.classList.add('of-kb-lock');
+        setTimeout(syncKeyboardViewport, 60);
+        setTimeout(syncKeyboardViewport, 280);
+      });
+      replyInput.addEventListener('blur', function () {
+        setTimeout(syncKeyboardViewport, 80);
+      });
       replyInput.addEventListener('keydown', function (e) {
         if (e.key === 'Enter' && !e.isComposing) {
           e.preventDefault();
@@ -1091,6 +1207,8 @@
     if (appEl.classList.contains('active')) {
       state.threads = loadThreads();
       renderList();
+    } else {
+      document.body.classList.remove('of-kb-lock');
     }
   });
   observer.observe(appEl, { attributes: true, attributeFilter: ['class'] });
