@@ -249,9 +249,10 @@
             '</div>' +
           '</div>' +
           '<div class="of-post-brand">' +
-            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' +
-              '<path d="M19 12a7 7 0 1 0-2.05 4.95"/>' +
-              '<path d="M15.5 12a3.5 3.5 0 1 1-3.5-3.5c2 0 3.5 1.4 3.5 3.5v1.2a2.3 2.3 0 0 0 4.5.5"/>' +
+            '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">' +
+              '<path d="M14.8 11.2c0 2.1-1.2 3.3-3 3.3-1.5 0-2.6-.9-2.6-2.2 0-1.4 1.2-2.3 2.9-2.3 1.1 0 2 .3 2.7.8"/>' +
+              '<path d="M14.8 10.8c0-2.2-1.1-3.5-3-3.5-1.3 0-2.2.5-2.8 1.2"/>' +
+              '<path d="M14.8 10.8c0 2.4 1 3.5 2.3 3.5 1.5 0 2.4-1.5 2.4-4 0-4.2-3.1-7.1-7.5-7.1-4.7 0-8.2 3.6-8.2 8.8s3.5 8.8 8.4 8.8c3 0 5.3-1.1 6.8-3"/>' +
             '</svg>' +
             '<span>threads</span>' +
           '</div>' +
@@ -481,10 +482,10 @@
                 '<span class="of-reply-hint">添加回复...</span>' +
               '</div>' +
               '<div class="of-reply-icons">' +
-                '<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-4.5-4.5a1.5 1.5 0 0 0-2.1 0L6 19"/></svg>' +
-                '<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3H6a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3V9l-6-6z"/><path d="M15 3v6h6"/><circle cx="9.5" cy="12.5" r="0.9" fill="currentColor"/><circle cx="14.5" cy="12.5" r="0.9" fill="currentColor"/><path d="M9.5 16a3.5 3.5 0 0 0 5 0"/></svg>' +
-                '<svg width="23" height="21" viewBox="0 0 26 22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2" width="23" height="18" rx="4"/><text x="13" y="14.5" text-anchor="middle" font-size="9" font-weight="800" fill="currentColor" stroke="none">GIF</text></svg>' +
-                '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>' +
+                '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="8.5" cy="8.5" r="1.4" fill="currentColor" stroke="none"/><path d="M3.5 16.5l4.2-3.5a2.2 2.2 0 0 1 2.8.1l1.8 1.6a2 2 0 0 0 2.6.1l2.1-1.7a2.2 2.2 0 0 1 2.8 0l1.2 1"/></svg>' +
+                '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 3H8a5 5 0 0 0-5 5v8a5 5 0 0 0 5 5h8a5 5 0 0 0 5-5V9.5a2 2 0 0 0-.6-1.4l-4.5-4.5a2 2 0 0 0-1.4-.6z"/><path d="M14.5 3.2V7a2.5 2.5 0 0 0 2.5 2.5h3.8"/><circle cx="9" cy="12" r="1.15" fill="currentColor" stroke="none"/><circle cx="13.5" cy="12" r="1.15" fill="currentColor" stroke="none"/><path d="M8.8 15.3c.8 1 2 1.4 3.2 1.1.7-.2 1.3-.6 1.7-1.1"/></svg>' +
+                '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><text x="12" y="15.2" text-anchor="middle" font-size="8.4" font-weight="900" letter-spacing="-0.4" fill="currentColor" stroke="none" transform="translate(12,12) scale(0.86,1.16) translate(-12,-12)">GIF</text></svg>' +
+                '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="14 4 20 4 20 10"/><polyline points="10 20 4 20 4 14"/><line x1="20" y1="4" x2="4" y2="20"/></svg>' +
               '</div>' +
             '</div>' +
           '</div>' +
