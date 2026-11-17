@@ -26,14 +26,11 @@
   function formatDeviceTime(ts) {
     var d = ts ? new Date(ts) : new Date();
     if (isNaN(d.getTime())) d = new Date();
-    var now = new Date();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
     var hh = String(d.getHours()).padStart(2, '0');
     var mm = String(d.getMinutes()).padStart(2, '0');
-    var sameDay = d.getFullYear() === now.getFullYear() &&
-      d.getMonth() === now.getMonth() &&
-      d.getDate() === now.getDate();
-    if (sameDay) return hh + ':' + mm;
-    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + hh + ':' + mm;
+    return m + '-' + day + ' ' + hh + ':' + mm;
   }
 
   function loadThreads() {
@@ -329,8 +326,9 @@
             '</div>' +
             '<div class="of-cmt-right-tools">' +
               '<button class="of-cmt-tool-btn" data-edit-msg="' + idx + '" type="button" aria-label="编辑">' +
-                '<svg width="14.5" height="14.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-                  '<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>' +
+                '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">' +
+                  '<path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>' +
+                  '<path d="M14 6l4 4"/>' +
                 '</svg>' +
               '</button>' +
               '<button class="of-cmt-tool-btn" data-more-msg="' + idx + '" type="button" aria-label="删除">' +
