@@ -169,6 +169,314 @@ window.applyHomeScreenIcon = function (url) {
   });
 })();
 
+(function initHomeDragSort() {
+  var LAYOUT_KEY = 'phone_home_layout_v1';
+  var pagesEl = document.getElementById('homePages');
+  var homeEl = document.getElementById('home');
+  var dockEl = document.querySelector('.dock');
+  if (!pagesEl || !homeEl || !dockEl) return;
+
+  var grids = pagesEl.querySelectorAll('.home-page .grid');
+  if (grids.length < 2) return;
+
+  var APP_NAMES = {
+    api: 'API',
+    books: '图书',
+    music: '音乐',
+    archive: '档案',
+    presets: '预设',
+    lorebook: '世界书',
+    memory: '记忆',
+    takeout: '小团外卖',
+    converter: '转换器',
+    offline: '线下',
+    beautify: '美化',
+    photos: '照片',
+    appstore: 'App Store',
+    games: '游戏',
+    shopping: '购物',
+    chat: 'Chat',
+    netflix: 'Netflix',
+    settings: '设置',
+    appearance: '外观',
+    imessage: 'iMessage'
+  };
+
+  if (!document.getElementById('phone-drag-style')) {
+    var st = document.createElement('style');
+    st.id = 'phone-drag-style';
+    st.textContent =
+      '.home-pages.is-dragging-lock { overflow-x: hidden !important; }' +
+      '.app.is-drag-hidden { opacity: 0.2; transform: scale(0.92); transition: transform 0.18s cubic-bezier(0.32,0.72,0,1), opacity 0.18s ease; }' +
+      '.app-drag-ghost { position: fixed; z-index: 9999; pointer-events: none; transform: scale(1.14); filter: drop-shadow(0 14px 24px rgba(0,0,0,0.26)); transition: transform 0.18s cubic-bezier(0.32,0.72,0,1); }' +
+      '.dock .app-name { display: none; }';
+    document.head.appendChild(st);
+  }
+
+  function syncAppNameVisibility(appEl) {
+    var id = appEl.getAttribute('data-app');
+    var inDock = !!appEl.closest('.dock');
+    var nameEl = appEl.querySelector('.app-name');
+    if (inDock) {
+      if (nameEl) nameEl.style.display = 'none';
+    } else {
+      if (!nameEl && APP_NAMES[id]) {
+        nameEl = document.createElement('div');
+        nameEl.className = 'app-name';
+        nameEl.textContent = APP_NAMES[id];
+        appEl.appendChild(nameEl);
+      }
+      if (nameEl) nameEl.style.display = '';
+    }
+  }
+
+  function getContainers() {
+    return [grids[0], grids[1], dockEl];
+  }
+
+  function saveLayout() {
+    try {
+      var data = {
+        page0: Array.from(grids[0].querySelectorAll('.app[data-app]')).map(function (el) { return el.getAttribute('data-app'); }),
+        page1: Array.from(grids[1].querySelectorAll('.app[data-app]')).map(function (el) { return el.getAttribute('data-app'); }),
+        dock: Array.from(dockEl.querySelectorAll('.app[data-app]')).map(function (el) { return el.getAttribute('data-app'); })
+      };
+      localStorage.setItem(LAYOUT_KEY, JSON.stringify(data));
+    } catch (e) {}
+  }
+
+  function applySavedLayout() {
+    var raw = '';
+    try {
+      raw = localStorage.getItem(LAYOUT_KEY) || '';
+    } catch (e) {}
+    if (!raw) return;
+
+    var data = null;
+    try {
+      data = JSON.parse(raw);
+    } catch (e) {
+      return;
+    }
+    if (!data || !Array.isArray(data.page0) || !Array.isArray(data.page1) || !Array.isArray(data.dock)) return;
+
+    var allMap = {};
+    homeEl.querySelectorAll('.app[data-app]').forEach(function (el) {
+      allMap[el.getAttribute('data-app')] = el;
+    });
+
+    var used = {};
+    function placeList(list, target) {
+      list.forEach(function (id) {
+        var el = allMap[id];
+        if (el && !used[id]) {
+          used[id] = true;
+          target.appendChild(el);
+          syncAppNameVisibility(el);
+        }
+      });
+    }
+
+    placeList(data.page0, grids[0]);
+    placeList(data.page1, grids[1]);
+    placeList(data.dock, dockEl);
+
+    Object.keys(allMap).forEach(function (id) {
+      if (!used[id]) {
+        grids[1].appendChild(allMap[id]);
+        syncAppNameVisibility(allMap[id]);
+      }
+    });
+  }
+
+  applySavedLayout();
+
+  var holdTimer = null;
+  var edgeTimer = null;
+  var dragEl = null;
+  var ghostEl = null;
+  var startX = 0;
+  var startY = 0;
+  var offsetX = 0;
+  var offsetY = 0;
+  var suppressClick = false;
+  var currentEdge = 0;
+
+  function clearTimers() {
+    if (holdTimer) {
+      clearTimeout(holdTimer);
+      holdTimer = null;
+    }
+    if (edgeTimer) {
+      clearTimeout(edgeTimer);
+      edgeTimer = null;
+    }
+    currentEdge = 0;
+  }
+
+  function currentPageGrid() {
+    var w = pagesEl.clientWidth || 1;
+    var idx = Math.round(pagesEl.scrollLeft / w);
+    return idx === 1 ? grids[1] : grids[0];
+  }
+
+  function startDrag(appEl, touchX, touchY) {
+    dragEl = appEl;
+    suppressClick = true;
+
+    var rect = appEl.getBoundingClientRect();
+    offsetX = touchX - rect.left;
+    offsetY = touchY - rect.top;
+
+    ghostEl = appEl.cloneNode(true);
+    ghostEl.className = 'app app-drag-ghost';
+    ghostEl.style.width = rect.width + 'px';
+    ghostEl.style.left = rect.left + 'px';
+    ghostEl.style.top = rect.top + 'px';
+    document.body.appendChild(ghostEl);
+
+    appEl.classList.add('is-drag-hidden');
+    pagesEl.classList.add('is-dragging-lock');
+
+    if (navigator.vibrate) {
+      try { navigator.vibrate(15); } catch (e) {}
+    }
+  }
+
+  function checkEdgeFlip(x) {
+    var phoneRect = phone ? phone.getBoundingClientRect() : { left: 0, right: window.innerWidth };
+    var edge = 0;
+    if (x < phoneRect.left + 32) edge = -1;
+    else if (x > phoneRect.right - 32) edge = 1;
+
+    if (edge === currentEdge) return;
+    currentEdge = edge;
+    if (edgeTimer) {
+      clearTimeout(edgeTimer);
+      edgeTimer = null;
+    }
+    if (edge !== 0) {
+      edgeTimer = setTimeout(function () {
+        if (!dragEl) return;
+        var w = pagesEl.clientWidth || 0;
+        var targetLeft = edge > 0 ? w : 0;
+        pagesEl.scrollTo({ left: targetLeft, behavior: 'smooth' });
+        var targetGrid = edge > 0 ? grids[1] : grids[0];
+        if (dragEl.parentElement !== targetGrid) {
+          targetGrid.appendChild(dragEl);
+          syncAppNameVisibility(dragEl);
+        }
+        currentEdge = 0;
+      }, 420);
+    }
+  }
+
+  function moveDrag(x, y) {
+    if (!dragEl || !ghostEl) return;
+    ghostEl.style.left = (x - offsetX) + 'px';
+    ghostEl.style.top = (y - offsetY) + 'px';
+
+    checkEdgeFlip(x);
+
+    var dockRect = dockEl.getBoundingClientRect();
+    var inDockArea = y >= dockRect.top - 12 && y <= dockRect.bottom + 20;
+    var targetContainer = inDockArea ? dockEl : currentPageGrid();
+
+    if (inDockArea && dragEl.parentElement !== dockEl && dockEl.querySelectorAll('.app[data-app]').length >= 4) {
+      targetContainer = currentPageGrid();
+    }
+
+    if (dragEl.parentElement !== targetContainer) {
+      targetContainer.appendChild(dragEl);
+      syncAppNameVisibility(dragEl);
+    }
+
+    var items = Array.from(targetContainer.querySelectorAll('.app[data-app]')).filter(function (el) {
+      return el !== dragEl;
+    });
+
+    var closest = null;
+    var minDist = Infinity;
+    for (var i = 0; i < items.length; i++) {
+      var r = items[i].getBoundingClientRect();
+      var cx = r.left + r.width / 2;
+      var cy = r.top + r.height / 2;
+      var d = Math.hypot(x - cx, y - cy);
+      if (d < minDist) {
+        minDist = d;
+        closest = items[i];
+      }
+    }
+
+    if (closest && minDist < 48) {
+      var cr = closest.getBoundingClientRect();
+      var before = x < (cr.left + cr.width / 2);
+      if (before) {
+        if (closest.previousElementSibling !== dragEl) {
+          targetContainer.insertBefore(dragEl, closest);
+        }
+      } else {
+        if (closest.nextElementSibling !== dragEl) {
+          targetContainer.insertBefore(dragEl, closest.nextElementSibling);
+        }
+      }
+    }
+  }
+
+  function endDrag() {
+    clearTimers();
+    if (dragEl) {
+      dragEl.classList.remove('is-drag-hidden');
+      syncAppNameVisibility(dragEl);
+      dragEl = null;
+      saveLayout();
+    }
+    if (ghostEl) {
+      ghostEl.remove();
+      ghostEl = null;
+    }
+    pagesEl.classList.remove('is-dragging-lock');
+    setTimeout(function () {
+      suppressClick = false;
+    }, 120);
+  }
+
+  homeEl.addEventListener('touchstart', function (e) {
+    if (e.touches.length !== 1) return;
+    var appEl = e.target.closest('.app[data-app]');
+    if (!appEl) return;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    clearTimers();
+    holdTimer = setTimeout(function () {
+      startDrag(appEl, startX, startY);
+    }, 360);
+  }, { passive: true });
+
+  homeEl.addEventListener('touchmove', function (e) {
+    if (!dragEl) {
+      if (holdTimer && e.touches.length === 1) {
+        var dx = Math.abs(e.touches[0].clientX - startX);
+        var dy = Math.abs(e.touches[0].clientY - startY);
+        if (dx > 8 || dy > 8) clearTimers();
+      }
+      return;
+    }
+    if (e.cancelable) e.preventDefault();
+    moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: false });
+
+  homeEl.addEventListener('touchend', endDrag);
+  homeEl.addEventListener('touchcancel', endDrag);
+
+  homeEl.addEventListener('click', function (e) {
+    if (suppressClick) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+  }, true);
+})();
+
 document.addEventListener('click', function (e) {
   var appBtn = e.target.closest('.app[data-app]');
   if (appBtn) {
