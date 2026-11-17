@@ -1,5 +1,5 @@
 /* =========================================================
-   Chat 一起听（全局常驻：持续动态红线 + 标准随机图标 + 长按删除防误触）
+   Chat 一起听（全局常驻：切歌歌词自动刷新归位 + 持续动态红线 + 黑胶小球）
    ========================================================= */
 (function () {
   var DEFAULT_API = 'https://api-enhanced-ashen-one-33.vercel.app';
@@ -42,6 +42,7 @@
     defaultSongs: [],
     currentIndex: -1,
     currentSong: null,
+    songToken: 0,
     lyrics: [],
     activeLyricIdx: -1,
     playModeIdx: 0,
@@ -511,7 +512,7 @@
       '<div class="ctl-mini-orb-close"><svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></div>';
     container.appendChild(orb);
 
-    /* 3. 全局全屏一起听房间（含持续动态红线） */
+    /* 3. 全局全屏一起听房间 */
     var room = document.createElement('div');
     room.id = 'ctlRoom';
     room.className = 'ctl-room';
@@ -687,7 +688,6 @@
           '<path d="M11 10l1.5-1.5V15"/>' +
         '</svg>';
     } else if (mode === 'shuffle') {
-      /* 标准 🔀 样式：两条平滑交叉曲线 + 右侧双箭头 */
       els.modeBtn.innerHTML =
         '<svg viewBox="0 0 24 24">' +
           '<path d="M3 7h4c2.4 0 3.8 2.4 5 5s2.6 5 5 5h4"/>' +
@@ -780,6 +780,7 @@
     state.orbHidden = false;
     state.isPlaying = false;
     state.elapsedSec = 0;
+    state.songToken += 1;
     clearInterval(state.timerId);
     state.timerId = null;
     if (state.audio) {
@@ -838,16 +839,17 @@
     if (!lrcStr) return [];
     var lines = lrcStr.split('\n');
     var out = [];
-    var re = /\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\]/g;
+    var re = /\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?\]/g;
     for (var i = 0; i < lines.length; i++) {
       var raw = lines[i];
-      var text = raw.replace(/\[\d{2}:\d{2}(?:\.\d{2,3})?\]/g, '').trim();
+      var text = raw.replace(/\[\d{1,3}:\d{2}(?:[.:]\d{1,3})?\]/g, '').trim();
       var match;
       re.lastIndex = 0;
       while ((match = re.exec(raw)) !== null) {
         var m = parseInt(match[1], 10);
         var s = parseInt(match[2], 10);
-        var ms = match[3] ? parseInt(match[3].padEnd(3, '0'), 10) : 0;
+        var msStr = match[3] ? (match[3] + '00').slice(0, 3) : '0';
+        var ms = parseInt(msStr, 10);
         var t = m * 60 + s + ms / 1000;
         if (text) out.push({ time: t, text: text });
       }
@@ -856,10 +858,11 @@
     return out;
   }
 
-  function renderLyricsDOM() {
+  function renderLyricsDOM(loadingHint) {
     if (!els.lyrics) return;
+    els.lyrics.scrollTop = 0;
     if (!state.lyrics.length) {
-      els.lyrics.innerHTML = '<div class="ctl-lrc-empty">暂无歌词</div>';
+      els.lyrics.innerHTML = '<div class="ctl-lrc-empty">' + (loadingHint ? '正在加载歌词…' : '暂无歌词') + '</div>';
       return;
     }
     var html = '';
@@ -892,10 +895,13 @@
     syncFloatText();
   }
 
-  function loadSongAndPlay(song, sendCard) {
+  function loadSongAndPlay(song, sendCard, keepViewState) {
     if (!song) return;
     song.cover = toHttps(song.cover || '');
     saveSongCache(song);
+    state.songToken += 1;
+    var reqToken = state.songToken;
+
     state.active = true;
     state.orbHidden = false;
     state.currentSong = song;
@@ -924,7 +930,7 @@
     }
 
     syncFloatText();
-    renderLyricsDOM();
+    renderLyricsDOM(true);
     if (!state.timerId) {
       state.elapsedSec = 0;
       if (els.timer) els.timer.textContent = '一起听 · 00:00';
@@ -936,12 +942,20 @@
       sendListenCardViaNativeChat(song);
     }
 
-    openRoom();
+    if (!keepViewState) {
+      openRoom();
+    }
 
     var audio = ensureAudio();
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+    } catch (e) {}
+
     fetch(buildApiUrl('/song/url/v1?id=' + encodeURIComponent(song.id) + '&level=standard'))
       .then(function (r) { return r.json(); })
       .then(function (d) {
+        if (reqToken !== state.songToken) return;
         var rawUrl = d && d.data && d.data[0] && d.data[0].url;
         var url = toHttps(rawUrl);
         if (!url) {
@@ -952,21 +966,25 @@
         audio.play().catch(function () {});
       })
       .catch(function () {
-        showToast('获取音源失败');
+        if (reqToken === state.songToken) showToast('获取音源失败');
       });
 
     fetch(buildApiUrl('/lyric?id=' + encodeURIComponent(song.id)))
       .then(function (r) { return r.json(); })
       .then(function (d) {
+        if (reqToken !== state.songToken) return;
         var lrc = d && d.lrc && d.lrc.lyric;
         state.lyrics = parseLrc(lrc);
-        renderLyricsDOM();
+        renderLyricsDOM(false);
+        syncLyricsByTime(audio.currentTime || 0);
         syncFloatText();
       })
-      .catch(function () {});
+      .catch(function () {
+        if (reqToken === state.songToken) renderLyricsDOM(false);
+      });
   }
 
-  function playNext(fromEnded) {
+  function playNext(fromEnded, keepViewState) {
     if (!state.playlist.length) return;
     var mode = PLAY_MODES[state.playModeIdx] || 'list';
     if (fromEnded && mode === 'single') {
@@ -985,7 +1003,7 @@
       nextIdx = (state.currentIndex + 1) % state.playlist.length;
     }
     state.currentIndex = nextIdx;
-    loadSongAndPlay(state.playlist[nextIdx], false);
+    loadSongAndPlay(state.playlist[nextIdx], false, keepViewState);
   }
 
   function playPrev() {
@@ -1000,7 +1018,7 @@
       prevIdx = (state.currentIndex - 1 + state.playlist.length) % state.playlist.length;
     }
     state.currentIndex = prevIdx;
-    loadSongAndPlay(state.playlist[prevIdx], false);
+    loadSongAndPlay(state.playlist[prevIdx], false, false);
   }
 
   function renderSongPickerList(songs) {
@@ -1036,7 +1054,7 @@
         state.currentIndex = idx;
         var shouldSendCard = !state.invitedInSession;
         closeSongModal();
-        loadSongAndPlay(chosen, shouldSendCard);
+        loadSongAndPlay(chosen, shouldSendCard, false);
       });
     });
   }
@@ -1265,7 +1283,7 @@
 
     els.floatNextBtn.addEventListener('click', function (e) {
       e.stopPropagation();
-      playNext(false);
+      playNext(false, true);
     });
 
     els.floatToOrbBtn.addEventListener('click', function (e) {
@@ -1275,7 +1293,7 @@
     });
 
     els.playBtn.addEventListener('click', togglePlay);
-    els.nextBtn.addEventListener('click', function () { playNext(false); });
+    els.nextBtn.addEventListener('click', function () { playNext(false, false); });
     els.prevBtn.addEventListener('click', playPrev);
 
     els.modeBtn.addEventListener('click', function () {
