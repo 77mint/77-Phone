@@ -1,8 +1,9 @@
-/* apps/offline.js - 线下 App 首页与 Threads 1:1 房间 */
+/* apps/offline.js - 线下 App 首页与 Threads 剧情流房间 */
 (function () {
   'use strict';
 
   var STORAGE_KEY = 'offline_threads_v1';
+  var MSGS_PREFIX = 'offline_msgs_v1_';
   var appEl = document.getElementById('app-offline');
   if (!appEl) return;
 
@@ -10,8 +11,34 @@
     activeTab: 'messages',
     keyword: '',
     threads: [],
-    currentThreadId: null
+    currentThreadId: null,
+    isGenerating: false
   };
+
+  var toastTimer = null;
+
+  var THREADS_LOGO_SVG =
+    '<svg width="12" height="12" viewBox="0 0 192 192" fill="currentColor" stroke="currentColor" stroke-width="4" stroke-linejoin="round">' +
+      '<path d="M141.537 88.9883C140.71 88.5919 139.87 88.2104 139.019 87.8451C137.537 60.5382 122.616 44.905 97.5619 44.745C97.4484 44.7443 97.3355 44.7443 97.222 44.7443C82.2364 44.7443 69.7731 51.1409 62.102 62.7807L75.881 72.2328C81.6116 63.5383 90.6052 61.6848 97.2286 61.6848C97.3051 61.6848 97.3819 61.6848 97.4576 61.6855C105.707 61.7381 111.932 64.1366 115.961 68.814C118.893 72.2193 120.854 76.925 121.825 82.8638C114.511 81.6207 106.601 81.2385 98.145 81.7233C74.3247 83.0954 59.0111 96.9879 60.0396 116.292C60.5615 126.084 65.4397 134.508 73.775 140.011C80.8224 144.663 89.899 146.938 99.3323 146.423C111.79 145.74 121.563 140.987 128.381 132.296C133.559 125.696 136.834 117.143 138.28 106.366C144.217 109.949 148.617 114.664 151.047 120.332C155.179 129.967 155.42 145.8 142.501 158.708C131.182 170.016 117.576 174.908 97.0135 175.059C74.2042 174.89 56.9538 167.575 45.7381 153.317C35.2355 139.966 29.8077 120.682 29.6052 96C29.8077 71.3178 35.2355 52.0336 45.7381 38.6827C56.9538 24.4249 74.2039 17.11 97.0132 16.9405C119.988 17.1113 137.539 24.4614 149.184 38.788C154.894 45.8136 159.199 54.6488 162.037 64.9503L178.184 60.6422C174.744 47.9622 169.331 37.0357 161.965 27.974C147.036 9.60668 125.202 0.195145 97.0695 0H96.9569C68.8816 0.19447 47.2921 9.6418 32.7883 28.0793C19.8819 44.4864 13.2244 67.3157 13.0007 95.9325L13 96L13.0007 96.0675C13.2244 124.684 19.8819 147.514 32.7883 163.921C47.2921 182.358 68.8816 191.806 96.9569 192H97.0695C122.03 191.827 139.624 185.292 154.118 170.811C173.081 151.866 172.51 128.119 166.26 113.541C161.776 103.087 153.227 94.5962 141.537 88.9883ZM98.4405 129.507C88.0005 130.095 77.1544 125.409 76.6196 115.372C76.2232 107.93 81.9158 99.626 99.0812 98.6368C101.047 98.5234 102.976 98.468 104.871 98.468C111.106 98.468 116.939 99.0737 122.242 100.233C120.264 124.935 108.662 128.946 98.4405 129.507Z"/>' +
+    '</svg>';
+
+  var THREADS_ICON_ONLY_SVG =
+    '<svg width="14" height="14" viewBox="0 0 192 192" fill="currentColor" stroke="currentColor" stroke-width="4" stroke-linejoin="round">' +
+      '<path d="M141.537 88.9883C140.71 88.5919 139.87 88.2104 139.019 87.8451C137.537 60.5382 122.616 44.905 97.5619 44.745C97.4484 44.7443 97.3355 44.7443 97.222 44.7443C82.2364 44.7443 69.7731 51.1409 62.102 62.7807L75.881 72.2328C81.6116 63.5383 90.6052 61.6848 97.2286 61.6848C97.3051 61.6848 97.3819 61.6848 97.4576 61.6855C105.707 61.7381 111.932 64.1366 115.961 68.814C118.893 72.2193 120.854 76.925 121.825 82.8638C114.511 81.6207 106.601 81.2385 98.145 81.7233C74.3247 83.0954 59.0111 96.9879 60.0396 116.292C60.5615 126.084 65.4397 134.508 73.775 140.011C80.8224 144.663 89.899 146.938 99.3323 146.423C111.79 145.74 121.563 140.987 128.381 132.296C133.559 125.696 136.834 117.143 138.28 106.366C144.217 109.949 148.617 114.664 151.047 120.332C155.179 129.967 155.42 145.8 142.501 158.708C131.182 170.016 117.576 174.908 97.0135 175.059C74.2042 174.89 56.9538 167.575 45.7381 153.317C35.2355 139.966 29.8077 120.682 29.6052 96C29.8077 71.3178 35.2355 52.0336 45.7381 38.6827C56.9538 24.4249 74.2039 17.11 97.0132 16.9405C119.988 17.1113 137.539 24.4614 149.184 38.788C154.894 45.8136 159.199 54.6488 162.037 64.9503L178.184 60.6422C174.744 47.9622 169.331 37.0357 161.965 27.974C147.036 9.60668 125.202 0.195145 97.0695 0H96.9569C68.8816 0.19447 47.2921 9.6418 32.7883 28.0793C19.8819 44.4864 13.2244 67.3157 13.0007 95.9325L13 96L13.0007 96.0675C13.2244 124.684 19.8819 147.514 32.7883 163.921C47.2921 182.358 68.8816 191.806 96.9569 192H97.0695C122.03 191.827 139.624 185.292 154.118 170.811C173.081 151.866 172.51 128.119 166.26 113.541C161.776 103.087 153.227 94.5962 141.537 88.9883ZM98.4405 129.507C88.0005 130.095 77.1544 125.409 76.6196 115.372C76.2232 107.93 81.9158 99.626 99.0812 98.6368C101.047 98.5234 102.976 98.468 104.871 98.468C111.106 98.468 116.939 99.0737 122.242 100.233C120.264 124.935 108.662 128.946 98.4405 129.507Z"/>' +
+    '</svg>';
+
+  function formatDeviceTime(ts) {
+    var d = ts ? new Date(ts) : new Date();
+    if (isNaN(d.getTime())) d = new Date();
+    var now = new Date();
+    var hh = String(d.getHours()).padStart(2, '0');
+    var mm = String(d.getMinutes()).padStart(2, '0');
+    var sameDay = d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate();
+    if (sameDay) return hh + ':' + mm;
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + hh + ':' + mm;
+  }
 
   function loadThreads() {
     try {
@@ -30,6 +57,25 @@
     } catch (e) {}
   }
 
+  function loadMessages(threadId) {
+    if (!threadId) return [];
+    try {
+      var raw = localStorage.getItem(MSGS_PREFIX + threadId);
+      if (!raw) return [];
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveMessages(threadId, msgs) {
+    if (!threadId) return;
+    try {
+      localStorage.setItem(MSGS_PREFIX + threadId, JSON.stringify(msgs));
+    } catch (e) {}
+  }
+
   function escapeHtml(str) {
     return String(str == null ? '' : str)
       .replace(/&/g, '&amp;')
@@ -37,6 +83,29 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  function formatParagraphsHtml(text) {
+    var lines = String(text || '').split(/\n+/);
+    var out = [];
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (line) {
+        out.push('<p>' + escapeHtml(line) + '</p>');
+      }
+    }
+    return out.join('');
+  }
+
+  function showToast(text) {
+    var toastEl = document.getElementById('ofToast');
+    if (!toastEl) return;
+    toastEl.textContent = text;
+    toastEl.classList.add('is-show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      toastEl.classList.remove('is-show');
+    }, 1800);
   }
 
   function bindPress(el, onTap) {
@@ -136,7 +205,8 @@
     return ch && ch.avatar ? ch.avatar : '';
   }
 
-  function resolveBio(thread) {
+  function resolveBio(thread, msgSignature) {
+    if (msgSignature) return String(msgSignature).trim();
     var ch = getArchiveChar(thread.charId);
     var bio = '';
     if (ch) {
@@ -146,6 +216,126 @@
       bio = thread.bio;
     }
     return String(bio || '').trim();
+  }
+
+  function getActionIconsHtml(liked, likeCount, commentCount, repostCount, shareCount, heartBtnAttr) {
+    var heartSvg = liked
+      ? '<svg width="18.5" height="18.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 20.4c-.4 0-.7-.1-1-.4C6.6 16.5 3.3 13.4 3.3 9.2c0-2.8 2.1-5 4.8-5 1.6 0 3 .8 3.9 2 .9-1.2 2.3-2 3.9-2 2.7 0 4.8 2.2 4.8 5 0 4.2-3.3 7.3-7.7 10.8-.3.3-.6.4-1 .4z"/></svg>'
+      : '<svg width="18.5" height="18.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.2c-.3 0-.6-.1-.8-.3C7 16.5 3.6 13.4 3.6 9.3c0-2.7 2-4.8 4.6-4.8 1.6 0 3 .8 3.8 2 .8-1.2 2.2-2 3.8-2 2.6 0 4.6 2.1 4.6 4.8 0 4.1-3.4 7.2-7.6 10.6-.2.2-.5.3-.8.3z"/></svg>';
+
+    return (
+      '<button class="of-act-btn' + (liked ? ' is-liked' : '') + '"' + (heartBtnAttr || '') + ' type="button">' +
+        heartSvg +
+        (likeCount !== '' && likeCount != null ? '<span>' + likeCount + '</span>' : '') +
+      '</button>' +
+      '<button class="of-act-btn" type="button">' +
+        '<svg width="18.5" height="18.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M12 3.8c-4.7 0-8.4 3.5-8.4 8 0 4.5 3.7 8.1 8.4 8.1 1.5 0 2.9-.4 4.1-1l3.1.9c.4.1.8-.3.7-.7l-.9-3c.8-1.2 1.3-2.7 1.3-4.3 0-4.5-3.7-8-8.3-8z"/>' +
+        '</svg>' +
+        (commentCount !== '' && commentCount != null ? '<span>' + commentCount + '</span>' : '') +
+      '</button>' +
+      '<button class="of-act-btn" type="button">' +
+        '<svg width="18.5" height="18.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M5.5 9.5C6.8 6.4 9.5 4.8 12.7 4.8c3.1 0 5.5 1.5 6.8 4.1"/>' +
+          '<path d="M4.5 6.2l.8 3.5 3.4-.8"/>' +
+          '<path d="M18.5 14.5c-1.3 3.1-4 4.7-7.2 4.7-3.1 0-5.5-1.5-6.8-4.1"/>' +
+          '<path d="M19.5 17.8l-.8-3.5-3.4.8"/>' +
+        '</svg>' +
+        (repostCount !== '' && repostCount != null ? '<span>' + repostCount + '</span>' : '') +
+      '</button>' +
+      '<button class="of-act-btn" type="button">' +
+        '<svg width="18.5" height="18.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M20.2 11.2L5.8 4.8c-.9-.4-1.8.5-1.4 1.4l1.9 4.9c.2.5.2 1.2 0 1.7l-1.9 4.9c-.4.9.5 1.8 1.4 1.4l14.4-6.4c.7-.3.7-1.2 0-1.5z"/>' +
+          '<line x1="6.4" y1="12" x2="12.8" y2="12"/>' +
+        '</svg>' +
+        (shareCount !== '' && shareCount != null ? '<span>' + shareCount + '</span>' : '') +
+      '</button>'
+    );
+  }
+
+  function renderCharBlockHtml(thread, msgData, idx) {
+    var ch = getArchiveChar(thread.charId);
+    var name = (ch && ch.name) || thread.name || '未命名';
+    var avatarUrl = resolveAvatar(thread.charId, thread.avatar);
+    var avatarHtml = avatarUrl
+      ? '<img src="' + escapeHtml(avatarUrl) + '" alt="" decoding="async">'
+      : escapeHtml(name.slice(0, 1));
+
+    var ts = msgData ? msgData.createdAt : thread.createdAt;
+    var timeText = formatDeviceTime(ts);
+    var bio = resolveBio(thread, msgData && msgData.signature);
+    var bioHtml = bio
+      ? '<div class="of-post-bio">' + escapeHtml(bio) + '</div>'
+      : '<div class="of-post-bio is-empty">暂无签文</div>';
+
+    var liked = msgData ? !!msgData.liked : !!thread.liked;
+    var likes = msgData
+      ? (typeof msgData.likes === 'number' ? msgData.likes : 1314)
+      : (typeof thread.likes === 'number' ? thread.likes : 1314);
+
+    var heartAttr = msgData ? ' data-like-msg="' + idx + '"' : ' id="ofLikeBtn"';
+    var storyHtml = msgData && msgData.content
+      ? '<div class="of-story-body">' + formatParagraphsHtml(msgData.content) + '</div>'
+      : '<div class="of-story-waiting">点右下角 GIF 即可生成剧情</div>';
+
+    return (
+      '<section class="of-char-block">' +
+        '<div class="of-post">' +
+          '<div class="of-post-top">' +
+            '<div class="of-post-author">' +
+              '<div class="of-post-avatar">' + avatarHtml + '</div>' +
+              '<div class="of-post-name-row">' +
+                '<div class="of-post-name">' + escapeHtml(name) + '</div>' +
+                '<div class="of-post-time">' + escapeHtml(timeText) + '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="of-post-brand">' +
+              THREADS_LOGO_SVG +
+              '<span>threads</span>' +
+            '</div>' +
+          '</div>' +
+          bioHtml +
+          '<div class="of-post-actions">' +
+            getActionIconsHtml(liked, likes, 520, 28, 335, heartAttr) +
+          '</div>' +
+        '</div>' +
+        '<div class="of-sort-bar">' +
+          '<div class="of-sort-left">' +
+            '<span>最相关</span>' +
+            '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>' +
+          '</div>' +
+          '<div class="of-sort-right">' +
+            '<span>查看动态</span>' +
+            '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>' +
+          '</div>' +
+        '</div>' +
+        storyHtml +
+      '</section>'
+    );
+  }
+
+  function renderUserCommentHtml(msgData, idx) {
+    var timeText = formatDeviceTime(msgData.createdAt);
+    var liked = !!msgData.liked;
+    var likeVal = typeof msgData.likes === 'number' && msgData.likes > 0 ? msgData.likes : '';
+    return (
+      '<div class="of-user-comment">' +
+        '<div class="of-cmt-avatar">我</div>' +
+        '<div class="of-cmt-main">' +
+          '<div class="of-cmt-top">' +
+            '<div class="of-cmt-meta">' +
+              '<span class="of-cmt-name">我</span>' +
+              '<span class="of-cmt-time">' + escapeHtml(timeText) + '</span>' +
+            '</div>' +
+            '<span class="of-cmt-brand">' + THREADS_ICON_ONLY_SVG + '</span>' +
+          '</div>' +
+          '<div class="of-cmt-text">' + escapeHtml(msgData.content || '') + '</div>' +
+          '<div class="of-cmt-actions">' +
+            getActionIconsHtml(liked, likeVal, '', '', '', ' data-like-msg="' + idx + '"') +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
   }
 
   function getDisplayThreads() {
@@ -176,7 +366,7 @@
     var html = items.map(function (item) {
       var name = item.name || '未命名';
       var preview = item.preview || '';
-      var time = item.time || '';
+      var time = item.createdAt ? formatDeviceTime(item.createdAt) : (item.time || '');
       var avatarUrl = resolveAvatar(item.charId, item.avatar);
       var avatarHtml = avatarUrl
         ? '<img src="' + escapeHtml(avatarUrl) + '" alt="" decoding="async">'
@@ -215,113 +405,99 @@
     }
   }
 
-  function renderRoom(thread) {
+  function scrollRoomToBottom(smooth) {
+    var bodyEl = document.getElementById('ofRoomScroll');
+    if (!bodyEl) return;
+    bodyEl.scrollTo({
+      top: bodyEl.scrollHeight,
+      behavior: smooth ? 'smooth' : 'auto'
+    });
+  }
+
+  function renderRoom(thread, scrollToEnd) {
     var bodyEl = document.getElementById('ofRoomScroll');
     if (!bodyEl || !thread) return;
 
-    var ch = getArchiveChar(thread.charId);
-    var name = (ch && ch.name) || thread.name || '未命名';
-    var timeText = thread.time || '12小时';
-    var avatarUrl = resolveAvatar(thread.charId, thread.avatar);
-    var avatarHtml = avatarUrl
-      ? '<img src="' + escapeHtml(avatarUrl) + '" alt="" decoding="async">'
-      : escapeHtml(name.slice(0, 1));
+    var msgs = loadMessages(thread.id);
+    var html = '';
 
-    var bio = resolveBio(thread);
-    var bioHtml = bio
-      ? '<div class="of-post-bio">' + escapeHtml(bio) + '</div>'
-      : '<div class="of-post-bio is-empty">暂无签名</div>';
+    if (!msgs.length) {
+      html = renderCharBlockHtml(thread, null, -1);
+    } else {
+      for (var i = 0; i < msgs.length; i++) {
+        var m = msgs[i];
+        if (m.role === 'user') {
+          html += renderUserCommentHtml(m, i);
+        } else {
+          html += renderCharBlockHtml(thread, m, i);
+        }
+      }
+    }
 
-    var likeCount = typeof thread.likes === 'number' ? thread.likes : 1314;
-    var likedClass = thread.liked ? ' is-liked' : '';
-    var heartSvg = thread.liked
-      ? '<svg width="18.5" height="18.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 20.4c-.4 0-.7-.1-1-.4C6.6 16.5 3.3 13.4 3.3 9.2c0-2.8 2.1-5 4.8-5 1.6 0 3 .8 3.9 2 .9-1.2 2.3-2 3.9-2 2.7 0 4.8 2.2 4.8 5 0 4.2-3.3 7.3-7.7 10.8-.3.3-.6.4-1 .4z"/></svg>'
-      : '<svg width="18.5" height="18.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.2c-.3 0-.6-.1-.8-.3C7 16.5 3.6 13.4 3.6 9.3c0-2.7 2-4.8 4.6-4.8 1.6 0 3 .8 3.8 2 .8-1.2 2.2-2 3.8-2 2.6 0 4.6 2.1 4.6 4.8 0 4.1-3.4 7.2-7.6 10.6-.2.2-.5.3-.8.3z"/></svg>';
+    if (state.isGenerating) {
+      var ch = getArchiveChar(thread.charId);
+      var cname = (ch && ch.name) || thread.name || '对方';
+      html +=
+        '<div class="of-typing-bar">' +
+          '<span>' + escapeHtml(cname) + ' 正在书写</span>' +
+          '<span class="of-typing-dots"><span></span><span></span><span></span></span>' +
+        '</div>';
+    }
 
-    bodyEl.innerHTML =
-      '<div class="of-post">' +
-        '<div class="of-post-top">' +
-          '<div class="of-post-author">' +
-            '<div class="of-post-avatar">' + avatarHtml + '</div>' +
-            '<div class="of-post-name-row">' +
-              '<div class="of-post-name">' + escapeHtml(name) + '</div>' +
-              '<div class="of-post-time">' + escapeHtml(timeText) + '</div>' +
-            '</div>' +
-          '</div>' +
-          '<div class="of-post-brand">' +
-            '<svg width="12" height="12" viewBox="0 0 192 192" fill="currentColor" stroke="currentColor" stroke-width="4" stroke-linejoin="round">' +
-              '<path d="M141.537 88.9883C140.71 88.5919 139.87 88.2104 139.019 87.8451C137.537 60.5382 122.616 44.905 97.5619 44.745C97.4484 44.7443 97.3355 44.7443 97.222 44.7443C82.2364 44.7443 69.7731 51.1409 62.102 62.7807L75.881 72.2328C81.6116 63.5383 90.6052 61.6848 97.2286 61.6848C97.3051 61.6848 97.3819 61.6848 97.4576 61.6855C105.707 61.7381 111.932 64.1366 115.961 68.814C118.893 72.2193 120.854 76.925 121.825 82.8638C114.511 81.6207 106.601 81.2385 98.145 81.7233C74.3247 83.0954 59.0111 96.9879 60.0396 116.292C60.5615 126.084 65.4397 134.508 73.775 140.011C80.8224 144.663 89.899 146.938 99.3323 146.423C111.79 145.74 121.563 140.987 128.381 132.296C133.559 125.696 136.834 117.143 138.28 106.366C144.217 109.949 148.617 114.664 151.047 120.332C155.179 129.967 155.42 145.8 142.501 158.708C131.182 170.016 117.576 174.908 97.0135 175.059C74.2042 174.89 56.9538 167.575 45.7381 153.317C35.2355 139.966 29.8077 120.682 29.6052 96C29.8077 71.3178 35.2355 52.0336 45.7381 38.6827C56.9538 24.4249 74.2039 17.11 97.0132 16.9405C119.988 17.1113 137.539 24.4614 149.184 38.788C154.894 45.8136 159.199 54.6488 162.037 64.9503L178.184 60.6422C174.744 47.9622 169.331 37.0357 161.965 27.974C147.036 9.60668 125.202 0.195145 97.0695 0H96.9569C68.8816 0.19447 47.2921 9.6418 32.7883 28.0793C19.8819 44.4864 13.2244 67.3157 13.0007 95.9325L13 96L13.0007 96.0675C13.2244 124.684 19.8819 147.514 32.7883 163.921C47.2921 182.358 68.8816 191.806 96.9569 192H97.0695C122.03 191.827 139.624 185.292 154.118 170.811C173.081 151.866 172.51 128.119 166.26 113.541C161.776 103.087 153.227 94.5962 141.537 88.9883ZM98.4405 129.507C88.0005 130.095 77.1544 125.409 76.6196 115.372C76.2232 107.93 81.9158 99.626 99.0812 98.6368C101.047 98.5234 102.976 98.468 104.871 98.468C111.106 98.468 116.939 99.0737 122.242 100.233C120.264 124.935 108.662 128.946 98.4405 129.507Z"/>' +
-            '</svg>' +
-            '<span>threads</span>' +
-          '</div>' +
-        '</div>' +
-        bioHtml +
-        '<div class="of-post-actions">' +
-          '<button class="of-act-btn' + likedClass + '" id="ofLikeBtn" type="button">' +
-            heartSvg +
-            '<span>' + likeCount + '</span>' +
-          '</button>' +
-          '<button class="of-act-btn" type="button">' +
-            '<svg width="18.5" height="18.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">' +
-              '<path d="M12 3.8c-4.7 0-8.4 3.5-8.4 8 0 4.5 3.7 8.1 8.4 8.1 1.5 0 2.9-.4 4.1-1l3.1.9c.4.1.8-.3.7-.7l-.9-3c.8-1.2 1.3-2.7 1.3-4.3 0-4.5-3.7-8-8.3-8z"/>' +
-            '</svg>' +
-            '<span>520</span>' +
-          '</button>' +
-          '<button class="of-act-btn" type="button">' +
-            '<svg width="18.5" height="18.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">' +
-              '<path d="M5.5 9.5C6.8 6.4 9.5 4.8 12.7 4.8c3.1 0 5.5 1.5 6.8 4.1"/>' +
-              '<path d="M4.5 6.2l.8 3.5 3.4-.8"/>' +
-              '<path d="M18.5 14.5c-1.3 3.1-4 4.7-7.2 4.7-3.1 0-5.5-1.5-6.8-4.1"/>' +
-              '<path d="M19.5 17.8l-.8-3.5-3.4.8"/>' +
-            '</svg>' +
-            '<span>28</span>' +
-          '</button>' +
-          '<button class="of-act-btn" type="button">' +
-            '<svg width="18.5" height="18.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">' +
-              '<path d="M20.2 11.2L5.8 4.8c-.9-.4-1.8.5-1.4 1.4l1.9 4.9c.2.5.2 1.2 0 1.7l-1.9 4.9c-.4.9.5 1.8 1.4 1.4l14.4-6.4c.7-.3.7-1.2 0-1.5z"/>' +
-              '<line x1="6.4" y1="12" x2="12.8" y2="12"/>' +
-            '</svg>' +
-            '<span>335</span>' +
-          '</button>' +
-        '</div>' +
-      '</div>' +
-      '<div class="of-sort-bar">' +
-        '<div class="of-sort-left">' +
-          '<span>最相关</span>' +
-          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>' +
-        '</div>' +
-        '<div class="of-sort-right">' +
-          '<span>查看动态</span>' +
-          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>' +
-        '</div>' +
-      '</div>' +
-      '<div class="of-room-placeholder"></div>';
+    bodyEl.innerHTML = html;
 
-    var likeBtn = document.getElementById('ofLikeBtn');
-    bindPress(likeBtn, function () {
-      thread.liked = !thread.liked;
-      thread.likes = (typeof thread.likes === 'number' ? thread.likes : 1314) + (thread.liked ? 1 : -1);
-      saveThreads();
-      renderRoom(thread);
-    });
+    var singleLikeBtn = document.getElementById('ofLikeBtn');
+    if (singleLikeBtn) {
+      bindPress(singleLikeBtn, function () {
+        thread.liked = !thread.liked;
+        thread.likes = (typeof thread.likes === 'number' ? thread.likes : 1314) + (thread.liked ? 1 : -1);
+        saveThreads();
+        renderRoom(thread, false);
+      });
+    }
 
-    var otherBtns = bodyEl.querySelectorAll('.of-act-btn:not(#ofLikeBtn)');
-    for (var i = 0; i < otherBtns.length; i++) {
-      bindPress(otherBtns[i]);
+    var msgLikeBtns = bodyEl.querySelectorAll('[data-like-msg]');
+    for (var j = 0; j < msgLikeBtns.length; j++) {
+      (function (btn) {
+        bindPress(btn, function () {
+          var idx = parseInt(btn.getAttribute('data-like-msg'), 10);
+          var list = loadMessages(thread.id);
+          var item = list[idx];
+          if (!item) return;
+          item.liked = !item.liked;
+          if (item.role === 'user') {
+            item.likes = item.liked ? ((item.likes || 0) + 1) : Math.max(0, (item.likes || 1) - 1);
+          } else {
+            item.likes = (typeof item.likes === 'number' ? item.likes : 1314) + (item.liked ? 1 : -1);
+          }
+          saveMessages(thread.id, list);
+          renderRoom(thread, false);
+        });
+      })(msgLikeBtns[j]);
+    }
+
+    var otherBtns = bodyEl.querySelectorAll('.of-act-btn:not(#ofLikeBtn):not([data-like-msg])');
+    for (var k = 0; k < otherBtns.length; k++) {
+      bindPress(otherBtns[k]);
+    }
+
+    if (scrollToEnd) {
+      scrollRoomToBottom(true);
     }
   }
 
-  function openRoom(threadId) {
-    var target = null;
+  function findThread(threadId) {
     for (var i = 0; i < state.threads.length; i++) {
-      if (state.threads[i].id === threadId) {
-        target = state.threads[i];
-        break;
-      }
+      if (state.threads[i].id === threadId) return state.threads[i];
     }
+    return null;
+  }
+
+  function openRoom(threadId) {
+    var target = findThread(threadId);
     if (!target) return;
     state.currentThreadId = threadId;
-    renderRoom(target);
+    renderRoom(target, false);
     var roomEl = document.getElementById('ofRoom');
     if (roomEl) {
       roomEl.classList.add('is-open');
@@ -329,11 +505,258 @@
   }
 
   function closeRoom() {
+    var input = document.getElementById('ofReplyInput');
+    if (input) input.blur();
     var roomEl = document.getElementById('ofRoom');
     if (roomEl) {
       roomEl.classList.remove('is-open');
+      roomEl.style.bottom = '';
+      roomEl.style.height = '';
     }
     state.currentThreadId = null;
+  }
+
+  function sendUserComment(text) {
+    var content = String(text || '').trim();
+    if (!content || !state.currentThreadId) return;
+    var thread = findThread(state.currentThreadId);
+    if (!thread) return;
+
+    var msgs = loadMessages(thread.id);
+    var now = Date.now();
+    msgs.push({
+      id: 'om_' + now + '_' + Math.random().toString(36).slice(2, 6),
+      role: 'user',
+      content: content,
+      createdAt: now,
+      likes: 0,
+      liked: false
+    });
+    saveMessages(thread.id, msgs);
+
+    thread.preview = content;
+    thread.createdAt = now;
+    saveThreads();
+    renderList();
+    renderRoom(thread, true);
+  }
+
+  function parseReplyWithSignature(rawText, fallbackSig) {
+    var text = String(rawText || '').trim();
+    var sig = fallbackSig || '';
+    var body = text;
+
+    var sigMatch = text.match(/\[签文\]([\s\S]*?)\[\/签文\]/);
+    if (sigMatch && sigMatch[1]) {
+      sig = sigMatch[1].trim();
+      body = body.replace(sigMatch[0], '').trim();
+    }
+    var bodyMatch = body.match(/\[正文\]([\s\S]*?)\[\/正文\]/);
+    if (bodyMatch && bodyMatch[1]) {
+      body = bodyMatch[1].trim();
+    }
+    if (!body) body = text;
+    return { signature: sig, content: body };
+  }
+
+  function buildCharSystemPrompt(thread, msgs) {
+    var ch = getArchiveChar(thread.charId);
+    var parts = [];
+    if (ch) {
+      parts.push('角色名：' + (ch.name || thread.name || ''));
+      if (ch.personality) parts.push('性格：' + ch.personality);
+      if (ch.desc || ch.bio || ch.intro) parts.push('背景：' + (ch.desc || ch.bio || ch.intro));
+      if (ch.signature) parts.push('默认签名：' + ch.signature);
+    }
+
+    if (window.PhonePresets && typeof window.PhonePresets.getActivePreset === 'function') {
+      try {
+        var preset = window.PhonePresets.getActivePreset();
+        if (preset && preset.prompt) {
+          parts.push(preset.prompt);
+        }
+      } catch (e) {}
+    }
+
+    if (window.PhoneLorebook && typeof window.PhoneLorebook.matchContext === 'function') {
+      try {
+        var recentText = msgs.slice(-4).map(function (m) { return m.content || ''; }).join('\n');
+        var lore = window.PhoneLorebook.matchContext(recentText, thread.charId);
+        if (lore) {
+          parts.push('相关设定：\n' + (typeof lore === 'string' ? lore : JSON.stringify(lore)));
+        }
+      } catch (e) {}
+    }
+
+    if (window.PhoneMemory && typeof window.PhoneMemory.search === 'function') {
+      try {
+        var lastUser = '';
+        for (var i = msgs.length - 1; i >= 0; i--) {
+          if (msgs[i].role === 'user') {
+            lastUser = msgs[i].content;
+            break;
+          }
+        }
+        var mems = window.PhoneMemory.search(lastUser || (ch && ch.name) || '', 4);
+        if (Array.isArray(mems) && mems.length) {
+          parts.push('相关记忆：\n' + mems.map(function (m) { return m.content || m.text || m; }).join('\n'));
+        }
+      } catch (e) {}
+    }
+
+    parts.push(
+      '现在是「线下」长文剧情模式（Threads 串文界面）。请以第一或第三人称沉浸式描写当下线下互动的长段正文剧情。\n' +
+      '请严格按以下格式输出（只输出一次，不要多余解释）：\n' +
+      '[签文]一句贴合此刻心境或状态的短签文[/签文]\n' +
+      '[正文]\n' +
+      '这里写细腻、有画面感的线下长段正文剧情。\n' +
+      '[/正文]'
+    );
+
+    return parts.join('\n\n');
+  }
+
+  function triggerCharReply() {
+    if (state.isGenerating || !state.currentThreadId) return;
+    var thread = findThread(state.currentThreadId);
+    if (!thread) return;
+
+    if (!window.PhoneAPI || typeof window.PhoneAPI.getConfig !== 'function') {
+      showToast('请先在 API App 配置接口');
+      return;
+    }
+
+    var cfg = window.PhoneAPI.getConfig() || {};
+    var baseUrl = String(cfg.url || cfg.baseUrl || cfg.endpoint || '').trim().replace(/\/+$/, '');
+    var apiKey = String(cfg.key || cfg.apiKey || '').trim();
+    var model = String(cfg.model || '').trim();
+
+    if (!baseUrl || !apiKey || !model) {
+      showToast('请先在 API App 填好接口与模型');
+      return;
+    }
+
+    var endpoint = /\/chat\/completions$/i.test(baseUrl)
+      ? baseUrl
+      : (/\/v1$/i.test(baseUrl) ? baseUrl + '/chat/completions' : baseUrl + '/v1/chat/completions');
+
+    var msgs = loadMessages(thread.id);
+    var systemPrompt = buildCharSystemPrompt(thread, msgs);
+    var apiMsgs = [{ role: 'system', content: systemPrompt }];
+    var recent = msgs.slice(-12);
+    for (var i = 0; i < recent.length; i++) {
+      apiMsgs.push({
+        role: recent[i].role === 'user' ? 'user' : 'assistant',
+        content: recent[i].content || ''
+      });
+    }
+    if (apiMsgs.length === 1) {
+      apiMsgs.push({ role: 'user', content: '请开始一段线下相遇的开场剧情。' });
+    }
+
+    state.isGenerating = true;
+    var gifBtn = document.getElementById('ofGifBtn');
+    if (gifBtn) gifBtn.classList.add('is-loading');
+    renderRoom(thread, true);
+
+    var reqStart = Date.now();
+    fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + apiKey
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: apiMsgs,
+        temperature: typeof cfg.temperature === 'number' ? cfg.temperature : 0.85
+      })
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        var raw = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+        if (!raw) throw new Error('返回内容为空');
+        var ch = getArchiveChar(thread.charId);
+        var parsed = parseReplyWithSignature(raw, (ch && ch.signature) || thread.bio || '');
+        var now = Date.now();
+        var latestMsgs = loadMessages(thread.id);
+        latestMsgs.push({
+          id: 'om_' + now + '_' + Math.random().toString(36).slice(2, 6),
+          role: 'assistant',
+          signature: parsed.signature,
+          content: parsed.content,
+          createdAt: now,
+          likes: 1314,
+          liked: false
+        });
+        saveMessages(thread.id, latestMsgs);
+
+        thread.bio = parsed.signature || thread.bio;
+        thread.preview = parsed.content.replace(/\s+/g, ' ').slice(0, 36);
+        thread.createdAt = now;
+        saveThreads();
+        renderList();
+
+        if (typeof window.PhoneAPI.addLog === 'function') {
+          try {
+            window.PhoneAPI.addLog({
+              app: 'offline',
+              model: model,
+              duration: Date.now() - reqStart,
+              status: 'ok'
+            });
+          } catch (e) {}
+        }
+      })
+      .catch(function (err) {
+        showToast('生成失败：' + (err && err.message ? err.message : '请检查 API'));
+        if (typeof window.PhoneAPI.addLog === 'function') {
+          try {
+            window.PhoneAPI.addLog({
+              app: 'offline',
+              model: model,
+              duration: Date.now() - reqStart,
+              status: 'error',
+              error: err && err.message ? err.message : 'error'
+            });
+          } catch (e) {}
+        }
+      })
+      .finally(function () {
+        state.isGenerating = false;
+        if (gifBtn) gifBtn.classList.remove('is-loading');
+        if (state.currentThreadId === thread.id) {
+          renderRoom(thread, true);
+        }
+      });
+  }
+
+  function openExpandModal() {
+    var mask = document.getElementById('ofExpandMask');
+    var sheet = document.getElementById('ofExpandSheet');
+    var area = document.getElementById('ofExpandTextarea');
+    var inlineInput = document.getElementById('ofReplyInput');
+    if (!mask || !sheet || !area) return;
+    if (inlineInput) {
+      area.value = inlineInput.value || '';
+    }
+    mask.classList.add('is-open');
+    sheet.classList.add('is-open');
+    setTimeout(function () {
+      area.focus();
+    }, 200);
+  }
+
+  function closeExpandModal() {
+    var mask = document.getElementById('ofExpandMask');
+    var sheet = document.getElementById('ofExpandSheet');
+    var area = document.getElementById('ofExpandTextarea');
+    if (area) area.blur();
+    if (mask) mask.classList.remove('is-open');
+    if (sheet) sheet.classList.remove('is-open');
   }
 
   function openCharPicker() {
@@ -401,14 +824,15 @@
     var ch = getArchiveChar(charId);
     if (!ch) return;
     var bio = ch.signature || ch.bio || ch.intro || ch.desc || '';
+    var now = Date.now();
     var newThread = {
-      id: 'of_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      id: 'of_' + now + '_' + Math.random().toString(36).slice(2, 6),
       charId: ch.id,
       name: ch.name || '未命名',
       avatar: resolveAvatar(ch.id, ch.avatar),
       bio: bio,
       preview: bio || '点击进入线下',
-      time: '刚刚',
+      createdAt: now,
       likes: 1314,
       liked: false
     };
@@ -416,6 +840,28 @@
     saveThreads();
     renderList();
     openRoom(newThread.id);
+  }
+
+  function setupKeyboardViewport() {
+    if (!window.visualViewport) return;
+    var vv = window.visualViewport;
+    function syncViewport() {
+      var roomEl = document.getElementById('ofRoom');
+      if (!roomEl || !roomEl.classList.contains('is-open')) return;
+      if (window.innerHeight - vv.height > 80) {
+        window.scrollTo(0, 0);
+        var rect = appEl.getBoundingClientRect();
+        var scale = rect.height > 0 && appEl.offsetHeight > 0 ? rect.height / appEl.offsetHeight : 1;
+        var h = (vv.height - Math.max(0, rect.top)) / scale;
+        roomEl.style.bottom = 'auto';
+        roomEl.style.height = Math.max(240, Math.round(h)) + 'px';
+        scrollRoomToBottom(false);
+      } else {
+        roomEl.style.bottom = '';
+        roomEl.style.height = '';
+      }
+    }
+    vv.addEventListener('resize', syncViewport);
   }
 
   function renderApp() {
@@ -487,34 +933,52 @@
             '<div class="of-reply-pill">' +
               '<div class="of-reply-left">' +
                 '<div class="of-reply-avatar">我</div>' +
-                '<span class="of-reply-hint">添加回复...</span>' +
+                '<input class="of-reply-input" id="ofReplyInput" type="text" enterkeyhint="send" placeholder="添加回复..." autocomplete="off">' +
               '</div>' +
               '<div class="of-reply-icons">' +
-                '<svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">' +
-                  '<rect x="3" y="3" width="18" height="18" rx="5"/>' +
-                  '<circle cx="8.3" cy="8.5" r="1.35" fill="currentColor" stroke="none"/>' +
-                  '<path d="M3.2 15.8c1.8-1.5 4.2-1.5 6 0 2.5-3.4 6.8-4.5 11.6-2.4"/>' +
-                '</svg>' +
-                '<svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">' +
-                  '<path d="M13.2 3H8a5 5 0 0 0-5 5v8a5 5 0 0 0 5 5h8a5 5 0 0 0 5-5v-5.2L13.2 3z"/>' +
-                  '<path d="M13 3.2V8a3 3 0 0 0 3 3h4.8"/>' +
-                  '<circle cx="8.6" cy="11.2" r="1.35" fill="currentColor" stroke="none"/>' +
-                  '<path d="M8.5 15c1.3 1.7 4.5 1.7 5.8 0"/>' +
-                '</svg>' +
-                '<svg width="23" height="23" viewBox="0 0 24 24" fill="none">' +
-                  '<rect x="2.5" y="2.5" width="19" height="19" rx="5" stroke="currentColor" stroke-width="2.2"/>' +
-                  '<path d="M9.6 10.2C9.6 8.8 8.8 8 7.5 8C6.2 8 5.5 8.9 5.5 10.4V13.6C5.5 15.1 6.2 16 7.5 16C8.8 16 9.6 15.1 9.6 13.7V11.8H7.5V13.1H8.2V13.7C8.2 14.3 8 14.7 7.5 14.7C7.1 14.7 6.9 14.3 6.9 13.6V10.4C6.9 9.7 7.1 9.3 7.5 9.3C7.9 9.3 8.1 9.6 8.2 10.2H9.6Z" fill="currentColor"/>' +
-                  '<rect x="11.1" y="8" width="1.5" height="8" rx="0.6" fill="currentColor"/>' +
-                  '<path d="M14.2 8H18V9.4H15.7V11.3H17.6V12.7H15.7V16H14.2V8Z" fill="currentColor"/>' +
-                '</svg>' +
-                '<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round">' +
-                  '<polyline points="14 3.8 20.2 3.8 20.2 10"/>' +
-                  '<polyline points="10 20.2 3.8 20.2 3.8 14"/>' +
-                  '<line x1="20.2" y1="3.8" x2="3.8" y2="20.2"/>' +
-                '</svg>' +
+                '<button class="of-reply-icon-btn" id="ofDecoImgBtn" type="button" aria-label="图片">' +
+                  '<svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">' +
+                    '<rect x="3" y="3" width="18" height="18" rx="5"/>' +
+                    '<circle cx="8.3" cy="8.5" r="1.35" fill="currentColor" stroke="none"/>' +
+                    '<path d="M3.2 15.8c1.8-1.5 4.2-1.5 6 0 2.5-3.4 6.8-4.5 11.6-2.4"/>' +
+                  '</svg>' +
+                '</button>' +
+                '<button class="of-reply-icon-btn" id="ofDecoStickerBtn" type="button" aria-label="贴纸">' +
+                  '<svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">' +
+                    '<path d="M13.2 3H8a5 5 0 0 0-5 5v8a5 5 0 0 0 5 5h8a5 5 0 0 0 5-5v-5.2L13.2 3z"/>' +
+                    '<path d="M13 3.2V8a3 3 0 0 0 3 3h4.8"/>' +
+                    '<circle cx="8.6" cy="11.2" r="1.35" fill="currentColor" stroke="none"/>' +
+                    '<path d="M8.5 15c1.3 1.7 4.5 1.7 5.8 0"/>' +
+                  '</svg>' +
+                '</button>' +
+                '<button class="of-reply-icon-btn" id="ofGifBtn" type="button" aria-label="触发对方回复">' +
+                  '<svg width="23" height="23" viewBox="0 0 24 24" fill="none">' +
+                    '<rect x="2.5" y="2.5" width="19" height="19" rx="5" stroke="currentColor" stroke-width="2.2"/>' +
+                    '<path d="M9.6 10.2C9.6 8.8 8.8 8 7.5 8C6.2 8 5.5 8.9 5.5 10.4V13.6C5.5 15.1 6.2 16 7.5 16C8.8 16 9.6 15.1 9.6 13.7V11.8H7.5V13.1H8.2V13.7C8.2 14.3 8 14.7 7.5 14.7C7.1 14.7 6.9 14.3 6.9 13.6V10.4C6.9 9.7 7.1 9.3 7.5 9.3C7.9 9.3 8.1 9.6 8.2 10.2H9.6Z" fill="currentColor"/>' +
+                    '<rect x="11.1" y="8" width="1.5" height="8" rx="0.6" fill="currentColor"/>' +
+                    '<path d="M14.2 8H18V9.4H15.7V11.3H17.6V12.7H15.7V16H14.2V8Z" fill="currentColor"/>' +
+                  '</svg>' +
+                '</button>' +
+                '<button class="of-reply-icon-btn" id="ofExpandBtn" type="button" aria-label="展开输入">' +
+                  '<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round">' +
+                    '<polyline points="14 3.8 20.2 3.8 20.2 10"/>' +
+                    '<polyline points="10 20.2 3.8 20.2 3.8 14"/>' +
+                    '<line x1="20.2" y1="3.8" x2="3.8" y2="20.2"/>' +
+                  '</svg>' +
+                '</button>' +
               '</div>' +
             '</div>' +
           '</div>' +
+        '</div>' +
+
+        '<div class="of-expand-mask" id="ofExpandMask"></div>' +
+        '<div class="of-expand-sheet" id="ofExpandSheet">' +
+          '<div class="of-expand-header">' +
+            '<button class="of-expand-cancel" id="ofExpandCancel" type="button">取消</button>' +
+            '<span class="of-expand-title">回复剧情</span>' +
+            '<button class="of-expand-send" id="ofExpandSend" type="button">发送</button>' +
+          '</div>' +
+          '<textarea class="of-expand-textarea" id="ofExpandTextarea" placeholder="写下你的台词或行动..."></textarea>' +
         '</div>' +
 
         '<div class="of-sheet-mask" id="ofSheetMask"></div>' +
@@ -525,6 +989,8 @@
           '</div>' +
           '<div class="of-sheet-body" id="ofSheetBody"></div>' +
         '</div>' +
+
+        '<div class="of-toast" id="ofToast"></div>' +
       '</div>';
 
     var backBtn = document.getElementById('ofBackBtn');
@@ -534,6 +1000,15 @@
     var tabMessages = document.getElementById('ofTabMessages');
     var roomBackBtn = document.getElementById('ofRoomBackBtn');
     var roomMoreBtn = document.getElementById('ofRoomMoreBtn');
+    var replyInput = document.getElementById('ofReplyInput');
+    var decoImgBtn = document.getElementById('ofDecoImgBtn');
+    var decoStickerBtn = document.getElementById('ofDecoStickerBtn');
+    var gifBtn = document.getElementById('ofGifBtn');
+    var expandBtn = document.getElementById('ofExpandBtn');
+    var expandMask = document.getElementById('ofExpandMask');
+    var expandCancel = document.getElementById('ofExpandCancel');
+    var expandSend = document.getElementById('ofExpandSend');
+    var expandArea = document.getElementById('ofExpandTextarea');
     var sheetMask = document.getElementById('ofSheetMask');
     var sheetClose = document.getElementById('ofSheetClose');
 
@@ -541,10 +1016,40 @@
     bindPress(composeBtn, openCharPicker);
     bindPress(roomBackBtn, closeRoom);
     bindPress(roomMoreBtn);
+    bindPress(decoImgBtn);
+    bindPress(decoStickerBtn);
+    bindPress(gifBtn, triggerCharReply);
+    bindPress(expandBtn, openExpandModal);
+    bindPress(expandCancel, closeExpandModal);
     bindPress(sheetClose, closeCharPicker);
+
+    bindPress(expandSend, function () {
+      if (!expandArea) return;
+      var text = expandArea.value;
+      if (!String(text || '').trim()) return;
+      if (replyInput) replyInput.value = '';
+      closeExpandModal();
+      sendUserComment(text);
+    });
+
+    if (expandMask) {
+      expandMask.addEventListener('click', closeExpandModal);
+    }
 
     if (sheetMask) {
       sheetMask.addEventListener('click', closeCharPicker);
+    }
+
+    if (replyInput) {
+      replyInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.isComposing) {
+          e.preventDefault();
+          var val = replyInput.value;
+          if (!String(val || '').trim()) return;
+          replyInput.value = '';
+          sendUserComment(val);
+        }
+      });
     }
 
     bindPress(tabMessages, function () {
@@ -579,6 +1084,7 @@
   function init() {
     state.threads = loadThreads();
     renderApp();
+    setupKeyboardViewport();
   }
 
   var observer = new MutationObserver(function () {
@@ -591,12 +1097,8 @@
 
   window.addEventListener('phone-archive-updated', function () {
     if (state.currentThreadId) {
-      for (var i = 0; i < state.threads.length; i++) {
-        if (state.threads[i].id === state.currentThreadId) {
-          renderRoom(state.threads[i]);
-          break;
-        }
-      }
+      var thread = findThread(state.currentThreadId);
+      if (thread) renderRoom(thread, false);
     }
   });
 
