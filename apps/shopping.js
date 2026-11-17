@@ -149,9 +149,11 @@
       window.goHome();
       return;
     }
-    appEl.classList.remove('active', 'open', 'show');
+    appEl.className = 'app-screen';
     var homeEl = document.getElementById('home');
-    if (homeEl) homeEl.classList.remove('hidden');
+    if (homeEl) {
+      homeEl.classList.remove('hidden');
+    }
   }
 
   function findGood(id) {
@@ -663,8 +665,8 @@
       '<div class="sp-app">' +
         '<header class="sp-header">' +
           '<div class="sp-header-left">' +
-            '<button class="sp-back-btn" id="spBackBtn" type="button" aria-label="返回">' +
-              '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>' +
+            '<button class="sp-circle-btn sp-back-btn" id="spBackBtn" type="button" aria-label="返回">' +
+              '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>' +
             '</button>' +
             '<h1 class="sp-title" id="spTitle">购物</h1>' +
           '</div>' +
@@ -813,7 +815,7 @@
   }
 
   var observer = new MutationObserver(function () {
-    if (appEl.classList.contains('active')) {
+    if (appEl.className !== 'app-screen') {
       state.goods = loadJson(GOODS_KEY);
       state.cart = loadJson(CART_KEY);
       state.orders = loadJson(ORDERS_KEY);
