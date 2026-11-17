@@ -235,8 +235,8 @@
     var likeCount = typeof thread.likes === 'number' ? thread.likes : 1314;
     var likedClass = thread.liked ? ' is-liked' : '';
     var heartSvg = thread.liked
-      ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>'
-      : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
+      ? '<svg width="18.5" height="18.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 20.4c-.4 0-.7-.1-1-.4C6.6 16.5 3.3 13.4 3.3 9.2c0-2.8 2.1-5 4.8-5 1.6 0 3 .8 3.9 2 .9-1.2 2.3-2 3.9-2 2.7 0 4.8 2.2 4.8 5 0 4.2-3.3 7.3-7.7 10.8-.3.3-.6.4-1 .4z"/></svg>'
+      : '<svg width="18.5" height="18.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.2c-.3 0-.6-.1-.8-.3C7 16.5 3.6 13.4 3.6 9.3c0-2.7 2-4.8 4.6-4.8 1.6 0 3 .8 3.8 2 .8-1.2 2.2-2 3.8-2 2.6 0 4.6 2.1 4.6 4.8 0 4.1-3.4 7.2-7.6 10.6-.2.2-.5.3-.8.3z"/></svg>';
 
     bodyEl.innerHTML =
       '<div class="of-post">' +
@@ -262,24 +262,24 @@
             '<span>' + likeCount + '</span>' +
           '</button>' +
           '<button class="of-act-btn" type="button">' +
-            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
-              '<path d="M3 11.5a8.5 8.5 0 0 0 .9 3.8 8.5 8.5 0 0 0 7.6 4.7 8.4 8.4 0 0 0 3.8-.9L21 21l-1.9-5.7a8.4 8.4 0 0 0 .9-3.8 8.5 8.5 0 0 0-4.7-7.6 8.4 8.4 0 0 0-3.8-.9h-.5a8.5 8.5 0 0 0-8 8v.5z"/>' +
+            '<svg width="18.5" height="18.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">' +
+              '<path d="M12 3.8c-4.7 0-8.4 3.5-8.4 8 0 4.5 3.7 8.1 8.4 8.1 1.5 0 2.9-.4 4.1-1l3.1.9c.4.1.8-.3.7-.7l-.9-3c.8-1.2 1.3-2.7 1.3-4.3 0-4.5-3.7-8-8.3-8z"/>' +
             '</svg>' +
             '<span>520</span>' +
           '</button>' +
           '<button class="of-act-btn" type="button">' +
-            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
-              '<path d="M4.5 9.5A8 8 0 0 1 18.5 7"/>' +
-              '<polyline points="4 4.5 4 9.5 9 9.5"/>' +
-              '<path d="M19.5 14.5A8 8 0 0 1 5.5 17"/>' +
-              '<polyline points="20 19.5 20 14.5 15 14.5"/>' +
+            '<svg width="18.5" height="18.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">' +
+              '<path d="M5.5 9.5C6.8 6.4 9.5 4.8 12.7 4.8c3.1 0 5.5 1.5 6.8 4.1"/>' +
+              '<path d="M4.5 6.2l.8 3.5 3.4-.8"/>' +
+              '<path d="M18.5 14.5c-1.3 3.1-4 4.7-7.2 4.7-3.1 0-5.5-1.5-6.8-4.1"/>' +
+              '<path d="M19.5 17.8l-.8-3.5-3.4.8"/>' +
             '</svg>' +
             '<span>28</span>' +
           '</button>' +
           '<button class="of-act-btn" type="button">' +
-            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
-              '<path d="M4.4 4.6l16.2 6.8a.7.7 0 0 1 0 1.2L4.4 19.4a.7.7 0 0 1-.9-.8L5.3 12 3.5 5.4a.7.7 0 0 1 .9-.8z"/>' +
-              '<line x1="5.3" y1="12" x2="20.6" y2="12"/>' +
+            '<svg width="18.5" height="18.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">' +
+              '<path d="M20.2 11.2L5.8 4.8c-.9-.4-1.8.5-1.4 1.4l1.9 4.9c.2.5.2 1.2 0 1.7l-1.9 4.9c-.4.9.5 1.8 1.4 1.4l14.4-6.4c.7-.3.7-1.2 0-1.5z"/>' +
+              '<line x1="6.4" y1="12" x2="12.8" y2="12"/>' +
             '</svg>' +
             '<span>335</span>' +
           '</button>' +
