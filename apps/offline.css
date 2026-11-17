@@ -425,9 +425,8 @@ body.of-kb-lock {
   background: #ffffff;
 }
 
-.of-char-block + .of-char-block,
-.of-user-comment + .of-char-block {
-  border-top: 1px solid #f0f0f2;
+.of-char-block + .of-char-block {
+  border-top: 1px solid #ececee;
   padding-top: 4px;
 }
 
@@ -609,14 +608,19 @@ body.of-kb-lock {
   text-align: center;
 }
 
-/* 我发送的：像评论一样的一条一条 */
+/* 我发送的：像评论一样的一条一条，上下都有线与剧情正文明确区分 */
 .of-user-comment {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 12px 15px;
-  border-top: 1px solid #f0f0f2;
+  padding: 13px 15px 12px;
+  border-top: 1px solid #ececee;
+  border-bottom: 1px solid #ececee;
   background: #ffffff;
+}
+
+.of-user-comment + .of-user-comment {
+  border-top: none;
 }
 
 .of-cmt-avatar {
@@ -689,7 +693,7 @@ body.of-kb-lock {
   padding: 0;
   border: none;
   background: transparent;
-  color: #8e8e93;
+  color: #9e9ea4;
   border-radius: 50%;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -722,7 +726,6 @@ body.of-kb-lock {
 /* 生成中呼吸提示 */
 .of-typing-bar {
   padding: 14px 16px 18px;
-  border-top: 1px solid #f0f0f2;
   display: flex;
   align-items: center;
   gap: 8px;
