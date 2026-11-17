@@ -207,25 +207,27 @@ window.applyHomeScreenIcon = function (url) {
     st.id = 'phone-drag-style';
     st.textContent =
       '@keyframes phoneJiggleA {' +
-        '0% { transform: rotate(-1.6deg) translateY(0px); }' +
-        '50% { transform: rotate(1.6deg) translateY(-0.6px); }' +
-        '100% { transform: rotate(-1.6deg) translateY(0px); }' +
+        '0% { transform: rotate(-1.5deg) translateY(0px); }' +
+        '50% { transform: rotate(1.5deg) translateY(-0.5px); }' +
+        '100% { transform: rotate(-1.5deg) translateY(0px); }' +
       '}' +
       '@keyframes phoneJiggleB {' +
-        '0% { transform: rotate(1.5deg) translateY(-0.5px); }' +
-        '50% { transform: rotate(-1.5deg) translateY(0.5px); }' +
-        '100% { transform: rotate(1.5deg) translateY(-0.5px); }' +
+        '0% { transform: rotate(1.4deg) translateY(-0.5px); }' +
+        '50% { transform: rotate(-1.4deg) translateY(0.5px); }' +
+        '100% { transform: rotate(1.4deg) translateY(-0.5px); }' +
       '}' +
+      '.home-pages { transition: padding-top 0.28s cubic-bezier(0.32,0.72,0,1); }' +
+      '.home.is-editing .home-pages { padding-top: 26px; }' +
       '.home-pages.is-dragging-lock { overflow-x: hidden !important; }' +
       '.home .app { position: relative; transition: transform 0.2s cubic-bezier(0.32,0.72,0,1); }' +
       '.home.is-editing .app:nth-child(odd) { animation: phoneJiggleA 0.28s infinite ease-in-out; }' +
       '.home.is-editing .app:nth-child(even) { animation: phoneJiggleB 0.3s infinite ease-in-out -0.12s; }' +
       '.home.is-editing .app.is-drag-hidden { animation: none !important; opacity: 0.18; transform: scale(0.92); }' +
       '.app-minus-badge {' +
-        'position: absolute; top: -6px; left: -6px; z-index: 6;' +
-        'width: 22px; height: 22px; border-radius: 50%; border: none; padding: 0;' +
-        'background: rgba(235, 235, 240, 0.92); color: #1c1c1e;' +
-        'box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255,255,255,0.9);' +
+        'position: absolute; top: -5px; left: -5px; z-index: 6;' +
+        'width: 20px; height: 20px; border-radius: 50%; border: none; padding: 0;' +
+        'background: rgba(255, 255, 255, 0.92); color: #6e6e73;' +
+        'box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14);' +
         'display: flex; align-items: center; justify-content: center;' +
         'opacity: 0; pointer-events: none; transform: scale(0.4);' +
         'transition: transform 0.22s cubic-bezier(0.32,0.72,0,1), opacity 0.2s ease;' +
@@ -233,43 +235,43 @@ window.applyHomeScreenIcon = function (url) {
       '.home.is-editing .app-minus-badge { opacity: 1; pointer-events: auto; transform: scale(1); }' +
       '.app-minus-badge.is-pressed { transform: scale(0.82) !important; }' +
       '.home-edit-bar {' +
-        'position: absolute; top: calc(env(safe-area-inset-top, 0px) + 6px); left: 16px; right: 16px;' +
-        'z-index: 35; display: flex; align-items: center; justify-content: space-between;' +
-        'opacity: 0; pointer-events: none; transform: translateY(-10px) scale(0.96);' +
+        'position: absolute; top: calc(env(safe-area-inset-top, 0px) + 4px); left: 16px; right: 16px;' +
+        'z-index: 40; display: flex; align-items: center; justify-content: space-between;' +
+        'opacity: 0; pointer-events: none; transform: translateY(-8px) scale(0.95);' +
         'transition: transform 0.26s cubic-bezier(0.32,0.72,0,1), opacity 0.22s ease;' +
       '}' +
       '.home.is-editing .home-edit-bar { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); }' +
       '.home-edit-pill {' +
-        'height: 32px; min-width: 62px; padding: 0 14px; border-radius: 999px;' +
+        'width: 54px; height: 26px; padding: 0; border-radius: 999px;' +
         'border: 1px solid rgba(255,255,255,0.85);' +
-        'background: linear-gradient(180deg, rgba(255,255,255,0.52) 0%, rgba(255,255,255,0.28) 100%);' +
-        'box-shadow: 0 4px 14px rgba(0,0,0,0.1), inset 0 1px 1px rgba(255,255,255,0.9);' +
-        'color: #111111; font-family: inherit; font-size: 13.5px; font-weight: 600;' +
-        'display: inline-flex; align-items: center; justify-content: center; gap: 4px;' +
+        'background: linear-gradient(135deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0.24) 100%);' +
+        'box-shadow: 0 3px 10px rgba(0,0,0,0.12), inset 0 1px 1px rgba(255,255,255,0.85);' +
+        'color: #ffffff; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.22));' +
+        'display: inline-flex; align-items: center; justify-content: center;' +
         'cursor: pointer; transition: transform 0.2s cubic-bezier(0.32,0.72,0,1), opacity 0.2s ease;' +
       '}' +
-      '.home-edit-pill.is-pressed { transform: scale(0.9); opacity: 0.78; }' +
+      '.home-edit-pill.is-pressed { transform: scale(0.88); opacity: 0.78; }' +
       '.home-edit-menu {' +
-        'position: absolute; top: calc(env(safe-area-inset-top, 0px) + 46px); left: 16px; width: 224px;' +
-        'z-index: 38; border-radius: 22px; overflow: hidden;' +
+        'position: absolute; top: calc(env(safe-area-inset-top, 0px) + 36px); left: 16px; width: 216px;' +
+        'z-index: 42; border-radius: 22px; overflow: hidden;' +
         'border: 1px solid rgba(255,255,255,0.88);' +
-        'background: linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(245,245,248,0.82) 100%);' +
+        'background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(245,245,248,0.88) 100%);' +
         'box-shadow: 0 16px 36px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.95);' +
         'transform-origin: top left; transform: scale(0.84); opacity: 0; pointer-events: none;' +
         'transition: transform 0.26s cubic-bezier(0.32,0.72,0,1), opacity 0.22s ease;' +
       '}' +
       '.home-edit-menu.is-open { transform: scale(1); opacity: 1; pointer-events: auto; }' +
       '.home-edit-menu-item {' +
-        'width: 100%; height: 46px; padding: 0 16px; border: none;' +
+        'width: 100%; height: 45px; padding: 0 16px; border: none;' +
         'border-bottom: 1px solid rgba(0,0,0,0.06); background: transparent;' +
-        'color: #111111; font-family: inherit; font-size: 15px; font-weight: 500;' +
+        'color: #111111; font-family: inherit; font-size: 14.5px; font-weight: 500;' +
         'display: flex; align-items: center; gap: 12px; cursor: pointer;' +
         'transition: background-color 0.16s ease;' +
       '}' +
       '.home-edit-menu-item:last-child { border-bottom: none; }' +
       '.home-edit-menu-item.is-pressed { background: rgba(0,0,0,0.06); }' +
       '.home-toast {' +
-        'position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 52px);' +
+        'position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 46px);' +
         'transform: translateX(-50%) translateY(-8px) scale(0.95);' +
         'padding: 8px 16px; border-radius: 999px; background: rgba(17,17,17,0.88); color: #ffffff;' +
         'font-size: 13px; font-weight: 500; z-index: 9999; opacity: 0; pointer-events: none;' +
@@ -284,9 +286,13 @@ window.applyHomeScreenIcon = function (url) {
   var editBar = document.createElement('div');
   editBar.className = 'home-edit-bar';
   editBar.innerHTML =
-    '<button class="home-edit-pill" id="homeEditLeftBtn" type="button">编辑</button>' +
+    '<button class="home-edit-pill" id="homeEditLeftBtn" type="button" aria-label="自定义">' +
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">' +
+        '<path d="M19.8 2.6a1.9 1.9 0 0 1 1.6 3.1l-7.2 7.2-3.1-3.1 7.2-7.2c.4-.4.9-.6 1.5 0zM9.9 11l3.1 3.1c-.4 1.6-1.4 3-2.9 3.9-1.7 1-3.7 1.1-5.6.9-.4 0-.7-.5-.4-.9.7-.9 1.2-2 1.2-3.1 0-1.9 1.7-3.6 4.6-3.9z"/>' +
+      '</svg>' +
+    '</button>' +
     '<button class="home-edit-pill" id="homeEditDoneBtn" type="button" aria-label="完成">' +
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
     '</button>';
   homeEl.appendChild(editBar);
 
@@ -326,11 +332,53 @@ window.applyHomeScreenIcon = function (url) {
     }, 1600);
   }
 
-  function bindBtnPress(el) {
+  function bindBtnTap(el, onTap) {
     if (!el) return;
-    el.addEventListener('touchstart', function () { el.classList.add('is-pressed'); }, { passive: true });
-    el.addEventListener('touchend', function () { el.classList.remove('is-pressed'); }, { passive: true });
-    el.addEventListener('touchcancel', function () { el.classList.remove('is-pressed'); }, { passive: true });
+    var sx = 0;
+    var sy = 0;
+    var moved = false;
+    var handledTouch = false;
+
+    el.addEventListener('touchstart', function (e) {
+      moved = false;
+      handledTouch = false;
+      if (e.touches && e.touches[0]) {
+        sx = e.touches[0].clientX;
+        sy = e.touches[0].clientY;
+      }
+      el.classList.add('is-pressed');
+    }, { passive: true });
+
+    el.addEventListener('touchmove', function (e) {
+      if (!e.touches || !e.touches[0]) return;
+      if (Math.abs(e.touches[0].clientX - sx) > 8 || Math.abs(e.touches[0].clientY - sy) > 8) {
+        moved = true;
+        el.classList.remove('is-pressed');
+      }
+    }, { passive: true });
+
+    el.addEventListener('touchend', function (e) {
+      el.classList.remove('is-pressed');
+      if (!moved && typeof onTap === 'function') {
+        handledTouch = true;
+        e.preventDefault();
+        e.stopPropagation();
+        onTap(e);
+      }
+    }, { passive: false });
+
+    el.addEventListener('touchcancel', function () {
+      el.classList.remove('is-pressed');
+    }, { passive: true });
+
+    el.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (handledTouch) {
+        handledTouch = false;
+        return;
+      }
+      if (typeof onTap === 'function') onTap(e);
+    });
   }
 
   function ensureMinusBadges() {
@@ -340,11 +388,8 @@ window.applyHomeScreenIcon = function (url) {
       btn.type = 'button';
       btn.className = 'app-minus-badge';
       btn.setAttribute('aria-label', '移除');
-      btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-      bindBtnPress(btn);
-      btn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        e.preventDefault();
+      btn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+      bindBtnTap(btn, function () {
         var name = APP_NAMES[appEl.getAttribute('data-app')] || '应用';
         showHomeToast('「' + name + '」暂不支持移除');
       });
@@ -457,23 +502,17 @@ window.applyHomeScreenIcon = function (url) {
 
   var leftEditBtn = document.getElementById('homeEditLeftBtn');
   var doneEditBtn = document.getElementById('homeEditDoneBtn');
-  bindBtnPress(leftEditBtn);
-  bindBtnPress(doneEditBtn);
 
-  leftEditBtn.addEventListener('click', function (e) {
-    e.stopPropagation();
+  bindBtnTap(leftEditBtn, function () {
     editMenu.classList.toggle('is-open');
   });
 
-  doneEditBtn.addEventListener('click', function (e) {
-    e.stopPropagation();
+  bindBtnTap(doneEditBtn, function () {
     exitEditMode();
   });
 
   editMenu.querySelectorAll('.home-edit-menu-item').forEach(function (btn) {
-    bindBtnPress(btn);
-    btn.addEventListener('click', function (e) {
-      e.stopPropagation();
+    bindBtnTap(btn, function () {
       var act = btn.getAttribute('data-edit-act');
       editMenu.classList.remove('is-open');
       if (act === 'widget') {
