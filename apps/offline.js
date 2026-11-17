@@ -1,4 +1,4 @@
-/* apps/offline.js - 线下 App 首页与 Threads 风格房间 */
+/* apps/offline.js - 线下 App 首页与 Threads 1:1 房间 */
 (function () {
   'use strict';
 
@@ -221,6 +221,7 @@
 
     var ch = getArchiveChar(thread.charId);
     var name = (ch && ch.name) || thread.name || '未命名';
+    var timeText = thread.time || '12小时';
     var avatarUrl = resolveAvatar(thread.charId, thread.avatar);
     var avatarHtml = avatarUrl
       ? '<img src="' + escapeHtml(avatarUrl) + '" alt="" decoding="async">'
@@ -234,18 +235,21 @@
     var likeCount = typeof thread.likes === 'number' ? thread.likes : 1314;
     var likedClass = thread.liked ? ' is-liked' : '';
     var heartSvg = thread.liked
-      ? '<svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>'
-      : '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
+      ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>'
+      : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
 
     bodyEl.innerHTML =
       '<div class="of-post">' +
         '<div class="of-post-top">' +
           '<div class="of-post-author">' +
             '<div class="of-post-avatar">' + avatarHtml + '</div>' +
-            '<div class="of-post-name">' + escapeHtml(name) + '</div>' +
+            '<div class="of-post-name-row">' +
+              '<div class="of-post-name">' + escapeHtml(name) + '</div>' +
+              '<div class="of-post-time">' + escapeHtml(timeText) + '</div>' +
+            '</div>' +
           '</div>' +
           '<div class="of-post-brand">' +
-            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' +
               '<path d="M19 12a7 7 0 1 0-2.05 4.95"/>' +
               '<path d="M15.5 12a3.5 3.5 0 1 1-3.5-3.5c2 0 3.5 1.4 3.5 3.5v1.2a2.3 2.3 0 0 0 4.5.5"/>' +
             '</svg>' +
@@ -259,15 +263,15 @@
             '<span>' + likeCount + '</span>' +
           '</button>' +
           '<button class="of-act-btn" type="button">' +
-            '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>' +
             '<span>520</span>' +
           '</button>' +
           '<button class="of-act-btn" type="button">' +
-            '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>' +
             '<span>28</span>' +
           '</button>' +
           '<button class="of-act-btn" type="button">' +
-            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>' +
+            '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>' +
             '<span>335</span>' +
           '</button>' +
         '</div>' +
@@ -275,11 +279,11 @@
       '<div class="of-sort-bar">' +
         '<div class="of-sort-left">' +
           '<span>最相关</span>' +
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>' +
+          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>' +
         '</div>' +
         '<div class="of-sort-right">' +
           '<span>查看动态</span>' +
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>' +
+          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>' +
         '</div>' +
       '</div>' +
       '<div class="of-room-placeholder"></div>';
@@ -452,8 +456,8 @@
 
         '<div class="of-room" id="ofRoom">' +
           '<header class="of-room-header">' +
-            '<button class="of-room-icon-btn" id="ofRoomBackBtn" type="button" aria-label="返回">' +
-              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">' +
+            '<button class="of-room-circle-btn" id="ofRoomBackBtn" type="button" aria-label="返回">' +
+              '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">' +
                 '<polyline points="15 18 9 12 15 6"></polyline>' +
               '</svg>' +
             '</button>' +
@@ -461,11 +465,11 @@
               '<div class="of-room-title">Threads</div>' +
               '<div class="of-room-views">11.2万次浏览</div>' +
             '</div>' +
-            '<button class="of-room-icon-btn" id="ofRoomMoreBtn" type="button" aria-label="更多">' +
-              '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">' +
-                '<circle cx="5" cy="12" r="1.8"></circle>' +
-                '<circle cx="12" cy="12" r="1.8"></circle>' +
-                '<circle cx="19" cy="12" r="1.8"></circle>' +
+            '<button class="of-room-circle-btn" id="ofRoomMoreBtn" type="button" aria-label="更多">' +
+              '<svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor">' +
+                '<circle cx="5" cy="12" r="1.75"></circle>' +
+                '<circle cx="12" cy="12" r="1.75"></circle>' +
+                '<circle cx="19" cy="12" r="1.75"></circle>' +
               '</svg>' +
             '</button>' +
           '</header>' +
@@ -477,10 +481,10 @@
                 '<span class="of-reply-hint">添加回复...</span>' +
               '</div>' +
               '<div class="of-reply-icons">' +
-                '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' +
-                '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><circle cx="10" cy="13" r="1"/><circle cx="14" cy="13" r="1"/><path d="M9.5 16.5a3.5 3.5 0 0 0 5 0"/></svg>' +
-                '<svg width="21" height="19" viewBox="0 0 26 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="2" width="24" height="16" rx="3"/><text x="13" y="13.5" text-anchor="middle" font-size="8.5" font-weight="700" fill="currentColor" stroke="none">GIF</text></svg>' +
-                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>' +
+                '<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-4.5-4.5a1.5 1.5 0 0 0-2.1 0L6 19"/></svg>' +
+                '<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3H6a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3V9l-6-6z"/><path d="M15 3v6h6"/><circle cx="9.5" cy="12.5" r="0.9" fill="currentColor"/><circle cx="14.5" cy="12.5" r="0.9" fill="currentColor"/><path d="M9.5 16a3.5 3.5 0 0 0 5 0"/></svg>' +
+                '<svg width="23" height="21" viewBox="0 0 26 22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2" width="23" height="18" rx="4"/><text x="13" y="14.5" text-anchor="middle" font-size="9" font-weight="800" fill="currentColor" stroke="none">GIF</text></svg>' +
+                '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>' +
               '</div>' +
             '</div>' +
           '</div>' +
