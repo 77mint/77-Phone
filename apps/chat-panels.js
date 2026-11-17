@@ -124,16 +124,17 @@
 
   function renderFolderSvg(uidStr) {
     return `
-      <svg class="pr-folder-svg" viewBox="0 0 88 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg class="pr-folder-svg" viewBox="0 0 100 82" fill="none" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <linearGradient id="fg_${uidStr}" x1="44" y1="12" x2="44" y2="68" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="#76CAFF"/>
-            <stop offset="100%" stop-color="#53B2F4"/>
+          <linearGradient id="fg_${uidStr}" x1="50" y1="23" x2="50" y2="76" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#6AC6FA"/>
+            <stop offset="100%" stop-color="#41ABF1"/>
           </linearGradient>
         </defs>
-        <path d="M4 11C4 6.58172 7.58172 3 12 3H29.5C31.9 3 34.18 4.08 35.7 5.94L39.6 10.7C40.36 11.63 41.5 12.17 42.7 12.17H76C80.4183 12.17 84 15.7517 84 20.17V58C84 62.9706 79.9706 67 75 67H13C8.02944 67 4 62.9706 4 58V11Z" fill="#46A4E6"/>
-        <rect x="4" y="13" width="80" height="54" rx="9.5" fill="url(#fg_${uidStr})"/>
-        <path d="M13.5 13.5H74.5C79.4706 13.5 83.5 17.5294 83.5 22.5V23.5C83.5 18.5294 79.4706 14.5 74.5 14.5H13.5C8.52944 14.5 4.5 18.5294 4.5 23.5V22.5C4.5 17.5294 8.52944 13.5 13.5 13.5Z" fill="#A6DBFF" fill-opacity="0.55"/>
+        <path d="M6 12C6 7.58172 9.58172 4 14 4H32.2C34.75 4 37.16 5.15 38.75 7.12L42.2 11.4C43.1 12.5 44.44 13.14 45.85 13.14H86C90.4183 13.14 94 16.7217 94 21.14V68C94 72.4183 90.4183 76 86 76H14C9.58172 76 6 72.4183 6 68V12Z" fill="#3D9EE5"/>
+        <rect x="9.5" y="17.5" width="81" height="16" rx="4.5" fill="#FFFFFF"/>
+        <rect x="6" y="23.5" width="88" height="52.5" rx="8.5" fill="url(#fg_${uidStr})"/>
+        <path d="M14.5 24H85.5C90.1944 24 94 27.8056 94 32.5V33.4C94 28.7056 90.1944 24.9 85.5 24.9H14.5C9.80558 24.9 6 28.7056 6 33.4V32.5C6 27.8056 9.80558 24 14.5 24Z" fill="#9FD8FC" fill-opacity="0.6"/>
       </svg>
     `;
   }
@@ -165,7 +166,7 @@
             <span class="pr-search-icon">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             </span>
-            <input class="pr-search-input" id="prSearchInput" type="search" placeholder="搜索预设文件夹..." autocomplete="off" />
+            <input class="pr-search-input" id="prSearchInput" type="search" placeholder="搜索" autocomplete="off" />
           </div>
         </div>
 
@@ -457,22 +458,15 @@
 
     container.innerHTML = `<div class="pr-file-grid">${list.map((p, idx) => {
       const isActive = p.id === activeForScene;
-      const enabledCount = (p.entries || []).filter(e => e.enabled).length;
       const totalCount = (p.entries || []).length;
-      const tokens = calcPresetTokens(p);
       const subText = isActive
-        ? `当前启用 · ${enabledCount}/${totalCount} 项`
-        : `${enabledCount}/${totalCount} 项 · ${tokens} tok`;
+        ? `当前启用 · ${totalCount} 项`
+        : `${totalCount} 项`;
 
       return `
         <div class="pr-folder-item" data-id="${escapeHtml(p.id)}">
           <div class="pr-folder-icon-wrap">
             ${renderFolderSvg(p.id.replace(/[^a-zA-Z0-9]/g, '') + '_' + idx)}
-            ${isActive ? `
-              <div class="pr-folder-badge" title="当前启用">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              </div>
-            ` : ''}
           </div>
           <div class="pr-folder-name">${escapeHtml(p.name || '未命名预设')}</div>
           <div class="pr-folder-sub ${isActive ? 'is-active-text' : ''}">${escapeHtml(subText)}</div>
