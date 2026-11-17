@@ -169,7 +169,7 @@ window.applyHomeScreenIcon = function (url) {
   });
 })();
 
-(function initHomeDragSort() {
+(function initHomeJiggleAndDrag() {
   var LAYOUT_KEY = 'phone_home_layout_v1';
   var pagesEl = document.getElementById('homePages');
   var homeEl = document.getElementById('home');
@@ -206,11 +206,150 @@ window.applyHomeScreenIcon = function (url) {
     var st = document.createElement('style');
     st.id = 'phone-drag-style';
     st.textContent =
+      '@keyframes phoneJiggleA {' +
+        '0% { transform: rotate(-1.6deg) translateY(0px); }' +
+        '50% { transform: rotate(1.6deg) translateY(-0.6px); }' +
+        '100% { transform: rotate(-1.6deg) translateY(0px); }' +
+      '}' +
+      '@keyframes phoneJiggleB {' +
+        '0% { transform: rotate(1.5deg) translateY(-0.5px); }' +
+        '50% { transform: rotate(-1.5deg) translateY(0.5px); }' +
+        '100% { transform: rotate(1.5deg) translateY(-0.5px); }' +
+      '}' +
       '.home-pages.is-dragging-lock { overflow-x: hidden !important; }' +
-      '.app.is-drag-hidden { opacity: 0.2; transform: scale(0.92); transition: transform 0.18s cubic-bezier(0.32,0.72,0,1), opacity 0.18s ease; }' +
+      '.home .app { position: relative; transition: transform 0.2s cubic-bezier(0.32,0.72,0,1); }' +
+      '.home.is-editing .app:nth-child(odd) { animation: phoneJiggleA 0.28s infinite ease-in-out; }' +
+      '.home.is-editing .app:nth-child(even) { animation: phoneJiggleB 0.3s infinite ease-in-out -0.12s; }' +
+      '.home.is-editing .app.is-drag-hidden { animation: none !important; opacity: 0.18; transform: scale(0.92); }' +
+      '.app-minus-badge {' +
+        'position: absolute; top: -6px; left: -6px; z-index: 6;' +
+        'width: 22px; height: 22px; border-radius: 50%; border: none; padding: 0;' +
+        'background: rgba(235, 235, 240, 0.92); color: #1c1c1e;' +
+        'box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255,255,255,0.9);' +
+        'display: flex; align-items: center; justify-content: center;' +
+        'opacity: 0; pointer-events: none; transform: scale(0.4);' +
+        'transition: transform 0.22s cubic-bezier(0.32,0.72,0,1), opacity 0.2s ease;' +
+      '}' +
+      '.home.is-editing .app-minus-badge { opacity: 1; pointer-events: auto; transform: scale(1); }' +
+      '.app-minus-badge.is-pressed { transform: scale(0.82) !important; }' +
+      '.home-edit-bar {' +
+        'position: absolute; top: calc(env(safe-area-inset-top, 0px) + 6px); left: 16px; right: 16px;' +
+        'z-index: 35; display: flex; align-items: center; justify-content: space-between;' +
+        'opacity: 0; pointer-events: none; transform: translateY(-10px) scale(0.96);' +
+        'transition: transform 0.26s cubic-bezier(0.32,0.72,0,1), opacity 0.22s ease;' +
+      '}' +
+      '.home.is-editing .home-edit-bar { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); }' +
+      '.home-edit-pill {' +
+        'height: 32px; min-width: 62px; padding: 0 14px; border-radius: 999px;' +
+        'border: 1px solid rgba(255,255,255,0.85);' +
+        'background: linear-gradient(180deg, rgba(255,255,255,0.52) 0%, rgba(255,255,255,0.28) 100%);' +
+        'box-shadow: 0 4px 14px rgba(0,0,0,0.1), inset 0 1px 1px rgba(255,255,255,0.9);' +
+        'color: #111111; font-family: inherit; font-size: 13.5px; font-weight: 600;' +
+        'display: inline-flex; align-items: center; justify-content: center; gap: 4px;' +
+        'cursor: pointer; transition: transform 0.2s cubic-bezier(0.32,0.72,0,1), opacity 0.2s ease;' +
+      '}' +
+      '.home-edit-pill.is-pressed { transform: scale(0.9); opacity: 0.78; }' +
+      '.home-edit-menu {' +
+        'position: absolute; top: calc(env(safe-area-inset-top, 0px) + 46px); left: 16px; width: 224px;' +
+        'z-index: 38; border-radius: 22px; overflow: hidden;' +
+        'border: 1px solid rgba(255,255,255,0.88);' +
+        'background: linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(245,245,248,0.82) 100%);' +
+        'box-shadow: 0 16px 36px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.95);' +
+        'transform-origin: top left; transform: scale(0.84); opacity: 0; pointer-events: none;' +
+        'transition: transform 0.26s cubic-bezier(0.32,0.72,0,1), opacity 0.22s ease;' +
+      '}' +
+      '.home-edit-menu.is-open { transform: scale(1); opacity: 1; pointer-events: auto; }' +
+      '.home-edit-menu-item {' +
+        'width: 100%; height: 46px; padding: 0 16px; border: none;' +
+        'border-bottom: 1px solid rgba(0,0,0,0.06); background: transparent;' +
+        'color: #111111; font-family: inherit; font-size: 15px; font-weight: 500;' +
+        'display: flex; align-items: center; gap: 12px; cursor: pointer;' +
+        'transition: background-color 0.16s ease;' +
+      '}' +
+      '.home-edit-menu-item:last-child { border-bottom: none; }' +
+      '.home-edit-menu-item.is-pressed { background: rgba(0,0,0,0.06); }' +
+      '.home-toast {' +
+        'position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 52px);' +
+        'transform: translateX(-50%) translateY(-8px) scale(0.95);' +
+        'padding: 8px 16px; border-radius: 999px; background: rgba(17,17,17,0.88); color: #ffffff;' +
+        'font-size: 13px; font-weight: 500; z-index: 9999; opacity: 0; pointer-events: none;' +
+        'transition: transform 0.24s cubic-bezier(0.32,0.72,0,1), opacity 0.24s ease;' +
+      '}' +
+      '.home-toast.is-show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }' +
       '.app-drag-ghost { position: fixed; z-index: 9999; pointer-events: none; transform: scale(1.14); filter: drop-shadow(0 14px 24px rgba(0,0,0,0.26)); transition: transform 0.18s cubic-bezier(0.32,0.72,0,1); }' +
       '.dock .app-name { display: none; }';
     document.head.appendChild(st);
+  }
+
+  var editBar = document.createElement('div');
+  editBar.className = 'home-edit-bar';
+  editBar.innerHTML =
+    '<button class="home-edit-pill" id="homeEditLeftBtn" type="button">编辑</button>' +
+    '<button class="home-edit-pill" id="homeEditDoneBtn" type="button" aria-label="完成">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
+    '</button>';
+  homeEl.appendChild(editBar);
+
+  var editMenu = document.createElement('div');
+  editMenu.className = 'home-edit-menu';
+  editMenu.id = 'homeEditMenu';
+  editMenu.innerHTML =
+    '<button class="home-edit-menu-item" data-edit-act="widget" type="button">' +
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>' +
+      '<span>添加小组件</span>' +
+    '</button>' +
+    '<button class="home-edit-menu-item" data-edit-act="custom" type="button">' +
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="3"/><line x1="9" y1="18" x2="15" y2="18"/></svg>' +
+      '<span>自定义</span>' +
+    '</button>' +
+    '<button class="home-edit-menu-item" data-edit-act="wallpaper" type="button">' +
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M17.66 17.66l1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M4.93 19.07l1.41-1.41"/><path d="M17.66 6.34l1.41-1.41"/></svg>' +
+      '<span>编辑墙纸</span>' +
+    '</button>' +
+    '<button class="home-edit-menu-item" data-edit-act="pages" type="button">' +
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="11" height="16" rx="2"/><path d="M19 8v10a2 2 0 0 1-2 2H9"/></svg>' +
+      '<span>编辑页面</span>' +
+    '</button>';
+  homeEl.appendChild(editMenu);
+
+  var toastEl = document.createElement('div');
+  toastEl.className = 'home-toast';
+  document.body.appendChild(toastEl);
+  var toastTimer = null;
+
+  function showHomeToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('is-show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      toastEl.classList.remove('is-show');
+    }, 1600);
+  }
+
+  function bindBtnPress(el) {
+    if (!el) return;
+    el.addEventListener('touchstart', function () { el.classList.add('is-pressed'); }, { passive: true });
+    el.addEventListener('touchend', function () { el.classList.remove('is-pressed'); }, { passive: true });
+    el.addEventListener('touchcancel', function () { el.classList.remove('is-pressed'); }, { passive: true });
+  }
+
+  function ensureMinusBadges() {
+    homeEl.querySelectorAll('.app[data-app]').forEach(function (appEl) {
+      if (appEl.querySelector('.app-minus-badge')) return;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'app-minus-badge';
+      btn.setAttribute('aria-label', '移除');
+      btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+      bindBtnPress(btn);
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        e.preventDefault();
+        var name = APP_NAMES[appEl.getAttribute('data-app')] || '应用';
+        showHomeToast('「' + name + '」暂不支持移除');
+      });
+      appEl.appendChild(btn);
+    });
   }
 
   function syncAppNameVisibility(appEl) {
@@ -228,10 +367,6 @@ window.applyHomeScreenIcon = function (url) {
       }
       if (nameEl) nameEl.style.display = '';
     }
-  }
-
-  function getContainers() {
-    return [grids[0], grids[1], dockEl];
   }
 
   function saveLayout() {
@@ -290,10 +425,13 @@ window.applyHomeScreenIcon = function (url) {
   }
 
   applySavedLayout();
+  ensureMinusBadges();
 
+  var isEditing = false;
   var holdTimer = null;
   var edgeTimer = null;
   var dragEl = null;
+  var pendingDragEl = null;
   var ghostEl = null;
   var startX = 0;
   var startY = 0;
@@ -301,6 +439,56 @@ window.applyHomeScreenIcon = function (url) {
   var offsetY = 0;
   var suppressClick = false;
   var currentEdge = 0;
+
+  function enterEditMode() {
+    if (isEditing) return;
+    isEditing = true;
+    homeEl.classList.add('is-editing');
+    if (navigator.vibrate) {
+      try { navigator.vibrate(15); } catch (e) {}
+    }
+  }
+
+  function exitEditMode() {
+    isEditing = false;
+    editMenu.classList.remove('is-open');
+    homeEl.classList.remove('is-editing');
+  }
+
+  var leftEditBtn = document.getElementById('homeEditLeftBtn');
+  var doneEditBtn = document.getElementById('homeEditDoneBtn');
+  bindBtnPress(leftEditBtn);
+  bindBtnPress(doneEditBtn);
+
+  leftEditBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    editMenu.classList.toggle('is-open');
+  });
+
+  doneEditBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    exitEditMode();
+  });
+
+  editMenu.querySelectorAll('.home-edit-menu-item').forEach(function (btn) {
+    bindBtnPress(btn);
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var act = btn.getAttribute('data-edit-act');
+      editMenu.classList.remove('is-open');
+      if (act === 'widget') {
+        showHomeToast('小组件功能敬请期待');
+      } else if (act === 'custom' || act === 'wallpaper') {
+        exitEditMode();
+        var appScreen = document.getElementById('app-appearance');
+        if (appScreen && appScreen.children.length > 0) {
+          appScreen.classList.add('open');
+        }
+      } else if (act === 'pages') {
+        showHomeToast('当前共 2 页桌面');
+      }
+    });
+  });
 
   function clearTimers() {
     if (holdTimer) {
@@ -337,10 +525,6 @@ window.applyHomeScreenIcon = function (url) {
 
     appEl.classList.add('is-drag-hidden');
     pagesEl.classList.add('is-dragging-lock');
-
-    if (navigator.vibrate) {
-      try { navigator.vibrate(15); } catch (e) {}
-    }
   }
 
   function checkEdgeFlip(x) {
@@ -425,6 +609,7 @@ window.applyHomeScreenIcon = function (url) {
 
   function endDrag() {
     clearTimers();
+    pendingDragEl = null;
     if (dragEl) {
       dragEl.classList.remove('is-drag-hidden');
       syncAppNameVisibility(dragEl);
@@ -443,17 +628,39 @@ window.applyHomeScreenIcon = function (url) {
 
   homeEl.addEventListener('touchstart', function (e) {
     if (e.touches.length !== 1) return;
+    if (e.target.closest('.home-edit-bar') || e.target.closest('.home-edit-menu') || e.target.closest('.app-minus-badge')) {
+      return;
+    }
+    editMenu.classList.remove('is-open');
+
     var appEl = e.target.closest('.app[data-app]');
-    if (!appEl) return;
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
-    clearTimers();
-    holdTimer = setTimeout(function () {
-      startDrag(appEl, startX, startY);
-    }, 360);
+
+    if (isEditing && appEl) {
+      pendingDragEl = appEl;
+      return;
+    }
+
+    if (!isEditing && appEl) {
+      clearTimers();
+      holdTimer = setTimeout(function () {
+        enterEditMode();
+        startDrag(appEl, startX, startY);
+      }, 360);
+    }
   }, { passive: true });
 
   homeEl.addEventListener('touchmove', function (e) {
+    if (pendingDragEl && !dragEl && e.touches.length === 1) {
+      var dx1 = Math.abs(e.touches[0].clientX - startX);
+      var dy1 = Math.abs(e.touches[0].clientY - startY);
+      if (dx1 > 6 || dy1 > 6) {
+        startDrag(pendingDragEl, e.touches[0].clientX, e.touches[0].clientY);
+        pendingDragEl = null;
+      }
+    }
+
     if (!dragEl) {
       if (holdTimer && e.touches.length === 1) {
         var dx = Math.abs(e.touches[0].clientX - startX);
@@ -473,6 +680,18 @@ window.applyHomeScreenIcon = function (url) {
     if (suppressClick) {
       e.stopPropagation();
       e.preventDefault();
+      return;
+    }
+    if (isEditing) {
+      if (e.target.closest('.home-edit-bar') || e.target.closest('.home-edit-menu') || e.target.closest('.app-minus-badge')) {
+        return;
+      }
+      if (!e.target.closest('.app[data-app]')) {
+        exitEditMode();
+      } else {
+        e.stopPropagation();
+        e.preventDefault();
+      }
     }
   }, true);
 })();
