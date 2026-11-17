@@ -398,7 +398,7 @@
 }
 
 .of-post {
-  padding: 8px 16px 6px;
+  padding: 8px 16px 12px;
 }
 
 .of-post-top {
@@ -463,10 +463,11 @@
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 2.5px;
   color: #111111;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 11.5px;
+  font-weight: 800;
+  font-style: italic;
   letter-spacing: -0.03em;
 }
 
@@ -514,13 +515,13 @@
   color: #ff2d55;
 }
 
-/* 原图仅在下方有一条细分割线，上方无线 */
+/* 原图仅在「最相关 / 查看动态」上方有一条极细浅灰线，下方无线 */
 .of-sort-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid #ececee;
+  padding: 13px 16px 10px;
+  border-top: 1px solid #ececee;
 }
 
 .of-sort-left {
@@ -559,7 +560,7 @@
   height: 46px;
   padding: 0 14px 0 9px;
   border-radius: 23px;
-  background: #f2f2f4;
+  background: #ebebed;
 }
 
 .of-reply-left {
@@ -575,7 +576,7 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #e2e2e6;
+  background: #dcdce0;
   color: #55555a;
   font-size: 12px;
   font-weight: 700;
