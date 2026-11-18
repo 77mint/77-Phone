@@ -545,10 +545,11 @@
       showToast('请先在 API App 配置接口');
       return;
     }
-    var cfg = window.PhoneAPI.getConfig() || {};
-    var baseUrl = String(cfg.url || cfg.baseUrl || cfg.endpoint || '').trim().replace(/\/+$/, '');
-    var apiKey = String(cfg.key || cfg.apiKey || '').trim();
-    var model = String(cfg.model || '').trim();
+    var llmCfg = window.PhoneAPI.getConfig('llm') || {};
+    var slot = llmCfg.primary || llmCfg;
+    var baseUrl = String(slot.url || slot.baseUrl || slot.endpoint || '').trim().replace(/\/+$/, '');
+    var apiKey = String(slot.key || slot.apiKey || '').trim();
+    var model = String(slot.model || '').trim();
     if (!baseUrl || !apiKey || !model) {
       showToast('请先在 API App 填好接口与模型');
       return;
@@ -564,7 +565,6 @@
       btn.textContent = '找货中...';
     }
 
-    var reqStart = Date.now();
     fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -580,7 +580,7 @@
           },
           { role: 'user', content: '关键词：' + kw }
         ],
-        temperature: 0.8
+        temperature: typeof llmCfg.temperature === 'number' ? llmCfg.temperature : 0.8
       })
     })
       .then(function (res) {
@@ -609,12 +609,28 @@
         showToast('已上架新商品');
         if (typeof window.PhoneAPI.addLog === 'function') {
           try {
-            window.PhoneAPI.addLog({ app: 'shopping', model: model, duration: Date.now() - reqStart, status: 'ok' });
+            window.PhoneAPI.addLog({
+              module: 'SHOPPING',
+              source: 'AI 帮找（' + model + '）',
+              ok: true,
+              rawError: '生成 ' + list.length + ' 件商品'
+            });
           } catch (e) {}
         }
       })
       .catch(function (err) {
-        showToast('上架失败：' + (err && err.message ? err.message : '请检查 API'));
+        var errMsg = err && err.message ? err.message : '请检查 API';
+        showToast('上架失败：' + errMsg);
+        if (typeof window.PhoneAPI.addLog === 'function') {
+          try {
+            window.PhoneAPI.addLog({
+              module: 'SHOPPING',
+              source: 'AI 帮找（' + model + '）',
+              ok: false,
+              rawError: errMsg
+            });
+          } catch (e) {}
+        }
       })
       .finally(function () {
         state.isSearchingAI = false;
