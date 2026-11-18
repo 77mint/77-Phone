@@ -266,10 +266,12 @@
   root.innerHTML =
     '<div class="api-shell" id="apiShell">' +
       '<div class="api-header">' +
-        '<div class="app-back" data-close-app>' +
-          '<svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>' +
+        '<div class="api-header-left">' +
+          '<div class="app-back" data-close-app>' +
+            '<svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>' +
+          '</div>' +
+          '<div class="api-header-title" id="apiHeaderTitle">API配置</div>' +
         '</div>' +
-        '<div class="api-header-title">API调用日志</div>' +
         '<div class="api-clear-top" id="apiClearLogsBtn">清空</div>' +
       '</div>' +
       '<div class="api-body">' +
@@ -338,7 +340,7 @@
     var bodyHtml =
       '<div class="api-preset-save-row" style="padding-top:10px;">' +
         '<div class="api-input-box" style="flex:1;">' +
-          '<input type="text" class="api-input" id="apiBundleName" placeholder="配置组名称（如：聚梦主力）">' +
+          '<input type="text" class="api-input" id="apiBundleName" placeholder="输入配置组名称">' +
         '</div>' +
         '<div class="api-mini-action" id="apiSavePresetBtn" style="padding:10px 14px;border-radius:14px;">保存当前</div>' +
       '</div>' +
@@ -943,6 +945,7 @@
   // 底栏切换（配置 / 日志）
   var shellEl = document.getElementById('apiShell');
   var bottomBar = document.getElementById('apiBottomBar');
+  var headerTitleEl = document.getElementById('apiHeaderTitle');
   root.querySelectorAll('.api-tab').forEach(function (tab) {
     tab.addEventListener('click', function () {
       var target = tab.getAttribute('data-api-tab');
@@ -951,6 +954,7 @@
       tab.classList.add('active');
       bottomBar.classList.toggle('is-logs', isLogs);
       shellEl.classList.toggle('is-subtab', isLogs);
+      if (headerTitleEl) headerTitleEl.textContent = isLogs ? 'API调用日志' : 'API配置';
       document.getElementById('apiPanelConfig').classList.toggle('active', !isLogs);
       document.getElementById('apiPanelLogs').classList.toggle('active', isLogs);
       if (isLogs) renderLogsTab();
