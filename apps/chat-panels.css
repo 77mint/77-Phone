@@ -1,512 +1,370 @@
-/* ===== 预设 App (Presets) ===== */
-#app-presets {
-  background: #f2f2f7;
-  color: #111111;
-  font-family: var(--app-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif);
-  font-size: var(--app-font-size, 15px);
+/* =========================================================
+   Chat 输入扩展面板、图片气泡 & 转账模块（仿微信默认皮肤）
+   ========================================================= */
+#app-chat {
+  --ctp-drawer-bg: #f7f7f7;
+  --ctp-tile-bg: #ffffff;
+  --ctp-tile-color: #333333;
+  --ctp-tile-label: #666666;
+  --ctp-img-radius: 8px;
+  --ctp-pill-bg: #e5e5ea;
+  --ctp-pill-color: #333333;
+  --ctp-accent: #07c160;
+  --ctp-transfer-pending: #fa9d3b;
+  --ctp-transfer-faded: #f7ce9d;
 }
 
-#app-presets * {
-  box-sizing: border-box;
+/* 底部加号抽屉（平滑推起输入栏） */
+.ctp-drawer {
+  height: 0;
+  overflow: hidden;
+  background: var(--ctp-drawer-bg);
+  border-top: 0 solid rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+  transition: height 0.26s cubic-bezier(0.32, 0.72, 0, 1), border-top-width 0.2s ease;
+}
+
+.ctp-drawer.open {
+  height: calc(228px + env(safe-area-inset-bottom));
+  border-top-width: 0.5px;
+}
+
+.ctp-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px 12px;
+  padding: 22px 20px calc(16px + env(safe-area-inset-bottom));
+}
+
+.ctp-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  background: transparent;
+  border: none;
+  padding: 0;
   -webkit-tap-highlight-color: transparent;
 }
 
-.pr-wrap {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background: #f2f2f7;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-/* 顶部栏 */
-.pr-topbar {
+.ctp-item-icon {
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  background: var(--ctp-tile-bg);
+  color: var(--ctp-tile-color);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 12px;
-  background: #f2f2f7;
-  flex-shrink: 0;
-  gap: 10px;
+  justify-content: center;
+  transition: transform 0.12s cubic-bezier(0.32, 0.72, 0, 1), background 0.12s ease;
 }
 
-.pr-topbar-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  flex: 1;
-}
-
-.pr-title {
-  font-size: calc(var(--app-font-size, 15px) + 7px);
-  font-weight: 700;
-  letter-spacing: -0.3px;
-  color: #111111;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.pr-topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.pr-pill-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 34px;
-  padding: 0 13px;
-  border-radius: 999px;
-  border: none;
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  color: #111111;
-  font-size: calc(var(--app-font-size, 15px) - 2px);
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease;
-}
-
-.pr-pill-btn.is-pressed {
+.ctp-item.is-pressed .ctp-item-icon,
+.ctp-item:active .ctp-item-icon {
   transform: scale(0.92);
-  opacity: 0.78;
+  background: #e5e5ea;
 }
 
-.pr-pill-btn.is-dark {
-  background: #1c1c1e;
-  color: #ffffff;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14);
+.ctp-item-label {
+  font-size: 12px;
+  color: var(--ctp-tile-label);
+  line-height: 1.2;
 }
 
-.pr-icon-btn {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  color: #111111;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease;
+/* 单张图片气泡（无绿底框，仿 IMG_1788） */
+#app-chat .ct-msg-bubble.ctp-img-bubble {
+  background: transparent !important;
+  padding: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  max-width: 240px;
 }
 
-.pr-icon-btn.is-pressed {
-  transform: scale(0.88);
-  opacity: 0.72;
+#app-chat .ct-msg-bubble.ctp-img-bubble::before,
+#app-chat .ct-msg-bubble.ctp-img-bubble::after {
+  display: none !important;
 }
 
-/* 搜索框（文件风格） */
-.pr-search-wrap {
-  padding: 0 16px 10px;
-  flex-shrink: 0;
-  background: #f2f2f7;
-}
-
-.pr-search-wrap.is-hidden {
-  display: none;
-}
-
-.pr-search-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 12px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.03);
-}
-
-.pr-search-icon {
-  color: #8e8e93;
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.pr-search-input {
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  border: none;
-  outline: none;
-  background: transparent;
-  font-family: inherit;
-  font-size: 14px;
-  color: #111111;
-  -webkit-appearance: none;
-}
-
-.pr-search-input::placeholder {
-  color: #8e8e93;
-}
-
-/* 主滚动区 */
-.pr-scroll {
-  flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding: 4px 14px calc(98px + env(safe-area-inset-bottom, 0px));
-}
-
-.pr-detail .pr-scroll {
-  padding: 4px 16px calc(36px + env(safe-area-inset-bottom, 0px));
-}
-
-/* 空状态 */
-.pr-empty {
-  margin-top: 64px;
-  padding: 36px 24px;
-  background: #ffffff;
-  border-radius: 24px;
-  text-align: center;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
-}
-
-.pr-empty-icon {
-  width: 48px;
-  height: 48px;
-  margin: 0 auto 14px;
-  border-radius: 16px;
-  background: #f2f2f7;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #6e6e73;
-}
-
-.pr-empty-title {
-  font-size: calc(var(--app-font-size, 15px) + 1px);
-  font-weight: 600;
-  color: #111111;
-  margin-bottom: 6px;
-}
-
-.pr-empty-desc {
-  font-size: calc(var(--app-font-size, 15px) - 2px);
-  color: #8e8e93;
-  line-height: 1.5;
-}
-
-/* ================= P3 文件风格三列文件夹网格 ================= */
-.pr-file-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px 8px;
-  padding: 4px 0 12px;
-}
-
-.pr-folder-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 6px 4px 8px;
-  border-radius: 16px;
-  cursor: pointer;
-  transition: transform 0.24s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.2s ease, opacity 0.2s ease;
-}
-
-.pr-folder-item.is-pressed {
-  transform: scale(0.91);
-  background: rgba(0, 0, 0, 0.04);
-}
-
-.pr-folder-item.is-holding {
-  transform: scale(1.05);
-}
-
-.pr-folder-icon-wrap {
-  position: relative;
-  width: 96px;
-  height: 78px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 5px;
-}
-
-.pr-folder-svg {
-  width: 94px;
-  height: 76px;
+.ctp-single-img {
   display: block;
-  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.1));
+  max-width: 176px;
+  max-height: 230px;
+  width: auto;
+  height: auto;
+  border-radius: var(--ctp-img-radius);
+  object-fit: cover;
+  background: #e5e5ea;
 }
 
-.pr-folder-name {
-  width: 100%;
-  padding: 0 2px;
-  font-size: 13.5px;
-  font-weight: 600;
-  line-height: 1.28;
-  color: #111111;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  word-break: break-word;
+/* 多图合并叠卡（仿 IMG_1790） */
+.ctp-bundle-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
-.pr-folder-sub {
-  margin-top: 2px;
-  font-size: 11.5px;
-  line-height: 1.25;
-  color: #8e8e93;
+.ctp-expand-pill {
+  border: none;
+  border-radius: 999px;
+  background: var(--ctp-pill-bg);
+  color: var(--ctp-pill-color);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 12px;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  transition: transform 0.12s ease, opacity 0.12s ease;
 }
 
-.pr-folder-sub.is-active-text {
-  color: #2b92e4;
-  font-weight: 600;
+.ctp-expand-pill.is-pressed,
+.ctp-expand-pill:active {
+  transform: scale(0.94);
+  opacity: 0.65;
 }
 
-/* 详情页 */
-.pr-detail {
+.ctp-stack {
+  position: relative;
+  width: 142px;
+  height: 186px;
+  margin-right: 12px;
+}
+
+.ctp-stack-card {
   position: absolute;
   inset: 0;
-  background: #f2f2f7;
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  transform: translateX(100%);
-  pointer-events: none;
-  transition: transform 0.34s cubic-bezier(0.32, 0.72, 0, 1);
+  border-radius: var(--ctp-img-radius);
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  border: 0.5px solid rgba(0, 0, 0, 0.08);
 }
 
-.pr-detail.is-open {
+.ctp-stack-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ctp-stack-card.layer-2 {
+  transform: translate(12px, 3px) rotate(4deg);
+  z-index: 1;
+  opacity: 0.92;
+}
+
+.ctp-stack-card.layer-1 {
+  transform: translate(6px, 1.5px) rotate(2deg);
+  z-index: 2;
+  opacity: 0.96;
+}
+
+.ctp-stack-card.layer-0 {
+  transform: translate(0, 0) rotate(0deg);
+  z-index: 3;
+}
+
+/* 展开后：一张一张竖排 */
+.ctp-expanded-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.ct-msg-row:not(.me) .ctp-expanded-wrap {
+  align-items: flex-start;
+}
+
+.ctp-expanded-first {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.ctp-expanded-img {
+  display: block;
+  max-width: 176px;
+  max-height: 230px;
+  width: auto;
+  height: auto;
+  border-radius: var(--ctp-img-radius);
+  object-fit: cover;
+  background: #e5e5ea;
+}
+
+/* 转账气泡卡片（彻底去掉原绿色小三角，使用专属同步变色尾巴） */
+#app-chat .ct-msg-bubble.ctp-transfer-bubble {
+  width: 232px;
+  max-width: 232px;
+  background: var(--ctp-transfer-pending) !important;
+  color: #ffffff;
+  border-radius: 6px;
+  padding: 13px 14px 8px;
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.12s cubic-bezier(0.32, 0.72, 0, 1), filter 0.12s ease;
+}
+
+#app-chat .ct-msg-bubble.ctp-transfer-bubble.is-pressed {
+  transform: scale(0.975);
+  filter: brightness(0.95);
+}
+
+#app-chat .ct-msg-bubble.ctp-transfer-bubble.is-faded {
+  background: var(--ctp-transfer-faded) !important;
+}
+
+#app-chat .ct-msg-bubble.ctp-transfer-bubble::before,
+#app-chat .ct-msg-bubble.ctp-transfer-bubble::after {
+  display: none !important;
+  content: none !important;
+}
+
+.ctp-tr-tail {
+  position: absolute;
+  top: 14px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  pointer-events: none;
+}
+
+.ct-msg-row.me .ctp-tr-tail {
+  right: -5px;
+  border-width: 5px 0 5px 6px;
+  border-color: transparent transparent transparent var(--ctp-transfer-pending);
+}
+
+.ct-msg-row.me .ctp-transfer-bubble.is-faded .ctp-tr-tail {
+  border-color: transparent transparent transparent var(--ctp-transfer-faded);
+}
+
+.ct-msg-row:not(.me) .ctp-tr-tail {
+  left: -5px;
+  border-width: 5px 6px 5px 0;
+  border-color: transparent var(--ctp-transfer-pending) transparent transparent;
+}
+
+.ct-msg-row:not(.me) .ctp-transfer-bubble.is-faded .ctp-tr-tail {
+  border-color: transparent var(--ctp-transfer-faded) transparent transparent;
+}
+
+.ctp-tr-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ctp-tr-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1.8px solid #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #ffffff;
+}
+
+.ctp-tr-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.ctp-tr-amt {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  line-height: 1.25;
+}
+
+.ctp-tr-status {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.92);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ctp-tr-foot {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.88);
+  line-height: 1.2;
+}
+
+/* 转账系统提示条 */
+.ctp-sys-tip {
+  text-align: center;
+  font-size: 12px;
+  color: #8e8e93;
+  padding: 6px 16px 10px;
+  line-height: 1.4;
+}
+
+/* 转账输入页（严格复刻 IMG_1792） */
+.ctp-tr-page {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  background: #ededed;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+  visibility: hidden;
+  transform: translateX(100%);
+  pointer-events: none;
+  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1), visibility 0.28s ease;
+}
+
+.ctp-tr-page.open {
+  visibility: visible;
   transform: translateX(0);
   pointer-events: auto;
 }
 
-.pr-detail-name-input {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  background: transparent;
-  font-family: inherit;
-  font-size: calc(var(--app-font-size, 15px) + 5px);
-  font-weight: 700;
-  color: #111111;
-  outline: none;
-  padding: 4px 0;
-  user-select: text;
-  -webkit-user-select: text;
-}
-
-/* 卡片通用 */
-.pr-card {
-  background: #ffffff;
-  border-radius: 22px;
-  padding: 16px;
-  margin-bottom: 12px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
-}
-
-.pr-row-between {
+.ctp-tr-nav {
+  height: 44px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.pr-section-label {
-  font-size: calc(var(--app-font-size, 15px) - 3px);
-  font-weight: 600;
-  color: #8e8e93;
-  margin-bottom: 8px;
-}
-
-/* 整套预设 Token 展示 */
-.pr-token-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 11px 14px;
-  background: #f2f2f7;
-  border-radius: 14px;
-  margin: 12px 0;
-}
-
-.pr-token-label {
-  font-size: calc(var(--app-font-size, 15px) - 2px);
-  font-weight: 600;
-  color: #6e6e73;
-}
-
-.pr-token-big {
-  font-size: calc(var(--app-font-size, 15px) + 4px);
-  font-weight: 700;
-  color: #111111;
-  font-variant-numeric: tabular-nums;
-}
-
-/* 参数网格 */
-.pr-param-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.pr-param-box {
-  background: #f2f2f7;
-  border-radius: 14px;
-  padding: 10px 12px;
-}
-
-.pr-param-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: #8e8e93;
-  margin-bottom: 4px;
-}
-
-.pr-param-input {
-  width: 100%;
-  border: none;
-  background: transparent;
-  font-family: inherit;
-  font-size: var(--app-font-size, 15px);
-  font-weight: 600;
-  color: #111111;
-  outline: none;
-  font-variant-numeric: tabular-nums;
-}
-
-/* 开关 */
-.pr-switch {
-  position: relative;
-  width: 48px;
-  height: 28px;
-  border-radius: 999px;
-  background: #e5e5ea;
-  border: none;
-  cursor: pointer;
-  transition: background 0.2s ease;
+  padding: 0 12px;
   flex-shrink: 0;
-  padding: 0;
 }
 
-.pr-switch.is-on {
-  background: #1c1c1e;
-}
-
-.pr-switch::after {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
-  transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.pr-switch.is-on::after {
-  transform: translateX(20px);
-}
-
-/* 添加词条按钮 */
-.pr-add-entry-btn {
-  width: 100%;
-  height: 46px;
-  border-radius: 18px;
+.ctp-tr-back {
+  width: 36px;
+  height: 36px;
+  background: transparent;
   border: none;
-  background: #ffffff;
   color: #111111;
-  font-size: var(--app-font-size, 15px);
-  font-weight: 600;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
-  cursor: pointer;
-  margin-bottom: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+  padding: 0;
 }
 
-.pr-add-entry-btn.is-pressed {
-  transform: scale(0.97);
+.ctp-tr-back:active {
+  opacity: 0.55;
 }
 
-/* 词条手风琴卡片 */
-.pr-entry-card {
-  background: #ffffff;
-  border-radius: 20px;
-  margin-bottom: 10px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
-  overflow: hidden;
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.pr-entry-card.is-dragging {
-  transform: scale(1.025);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.14);
-  z-index: 5;
-  position: relative;
-  opacity: 0.96;
-}
-
-.pr-entry-head {
+.ctp-tr-peer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 13px 14px;
-  gap: 8px;
-  cursor: pointer;
+  padding: 10px 24px 20px;
+  gap: 12px;
+  flex-shrink: 0;
 }
 
-.pr-entry-head-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.ctp-tr-peer-text {
   min-width: 0;
   flex: 1;
 }
 
-.pr-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #c7c7cc;
-  flex-shrink: 0;
-}
-
-.pr-dot.is-on {
-  background: #34c759;
-}
-
-.pr-dot.is-marker {
-  background: #1c1c1e;
-}
-
-.pr-entry-title {
+.ctp-tr-peer-name {
+  font-size: 16px;
   font-weight: 600;
   color: #111111;
   white-space: nowrap;
@@ -514,364 +372,1022 @@
   text-overflow: ellipsis;
 }
 
-.pr-role-tag {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 7px;
-  border-radius: 6px;
-  background: #f2f2f7;
-  color: #6e6e73;
-  flex-shrink: 0;
-}
-
-.pr-entry-tok {
-  font-size: 11px;
-  font-weight: 600;
+.ctp-tr-peer-id {
+  font-size: 13px;
   color: #8e8e93;
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.pr-entry-head-right {
+.ctp-tr-peer-av {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  background: #d8d8dc;
+  color: #111111;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 600;
+  overflow: hidden;
   flex-shrink: 0;
 }
 
-.pr-lock-badge {
-  display: inline-flex;
+.ctp-tr-peer-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ctp-tr-card {
+  flex: 1;
+  background: #ffffff;
+  border-radius: 14px 14px 0 0;
+  padding: 22px 24px 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.ctp-tr-card-label {
+  font-size: 14px;
+  color: #111111;
+  font-weight: 500;
+}
+
+.ctp-tr-amt-row {
+  display: flex;
+  align-items: center;
+  margin-top: 18px;
+  padding-bottom: 12px;
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.08);
+  min-height: 58px;
+}
+
+.ctp-tr-yen {
+  font-size: 30px;
+  font-weight: 600;
+  color: #111111;
+  margin-right: 8px;
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+.ctp-tr-val {
+  font-size: 44px;
+  font-weight: 600;
+  color: #111111;
+  line-height: 1.05;
+  letter-spacing: -0.5px;
+}
+
+.ctp-tr-cursor {
+  width: 2px;
+  height: 40px;
+  background: var(--ctp-accent);
+  margin-left: 3px;
+  border-radius: 1px;
+  animation: ctpBlink 1.05s infinite;
+}
+
+@keyframes ctpBlink {
+  0%, 48% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.ctp-tr-note-btn {
+  align-self: flex-start;
+  margin-top: 14px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  color: #576b95;
+}
+
+.ctp-tr-note-btn.has-note {
+  color: #8e8e93;
+}
+
+.ctp-tr-note-btn.has-note span {
+  color: #576b95;
+  margin-left: 8px;
+}
+
+/* 微信 4x4 数字键盘（高响应触摸手感） */
+.ctp-keypad {
+  background: #f7f7f7;
+  padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, 52px);
+  gap: 6px;
+  flex-shrink: 0;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.ctp-key {
+  background: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 23px;
+  font-weight: 500;
+  color: #111111;
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 8px;
-  background: #f2f2f7;
-  color: #1c1c1e;
-  flex-shrink: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+  transition: background 0.06s ease, transform 0.06s ease;
 }
 
-.pr-entry-body {
-  padding: 0 14px 14px;
-  border-top: 1px solid #f2f2f7;
-  user-select: text;
-  -webkit-user-select: text;
+.ctp-key.is-pressed {
+  background: #d8d9de;
+  transform: scale(0.95);
 }
 
-.pr-field {
-  margin-top: 12px;
+.ctp-key-zero {
+  grid-column: 1 / 3;
 }
 
-.pr-input,
-.pr-textarea {
-  width: 100%;
-  border: none;
-  background: #f2f2f7;
-  border-radius: 14px;
-  padding: 11px 13px;
-  font-family: inherit;
-  font-size: calc(var(--app-font-size, 15px) - 1px);
-  color: #111111;
-  outline: none;
-}
-
-.pr-input:disabled,
-.pr-textarea:disabled {
-  opacity: 0.65;
-  color: #6e6e73;
-}
-
-.pr-textarea {
-  min-height: 110px;
-  resize: vertical;
-  line-height: 1.5;
-}
-
-.pr-seg {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-}
-
-.pr-seg.is-5 {
-  grid-template-columns: repeat(2, 1fr);
-}
-
-.pr-seg-btn {
-  border: none;
-  border-radius: 12px;
-  padding: 8px 6px;
-  background: #f2f2f7;
-  color: #3a3a3c;
-  font-size: calc(var(--app-font-size, 15px) - 3px);
+.ctp-key-submit {
+  grid-column: 4;
+  grid-row: 2 / 5;
+  background: var(--ctp-accent);
+  color: #ffffff;
+  font-size: 17px;
   font-weight: 600;
-  cursor: pointer;
-  text-align: center;
 }
 
-.pr-seg-btn.is-active {
-  background: #1c1c1e;
+.ctp-key-submit.disabled {
+  background: #a3e4bf;
+  box-shadow: none;
+}
+
+.ctp-key-submit.is-pressed:not(.disabled) {
+  background: #06ad56;
+  transform: scale(0.96);
+}
+
+/* P1 居中微信支付加载 HUD（仿 IMG_1797） */
+.ctp-pay-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 78;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.18s ease, visibility 0.18s ease;
+}
+
+.ctp-pay-hud.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.ctp-pay-hud-box {
+  width: 122px;
+  height: 122px;
+  border-radius: 12px;
+  background: rgba(76, 76, 76, 0.94);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transform: scale(0.92);
+  transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ctp-pay-hud.open .ctp-pay-hud-box {
+  transform: scale(1);
+}
+
+.ctp-pay-hud-txt {
+  font-size: 14px;
+  font-weight: 500;
   color: #ffffff;
 }
 
-.pr-seg-btn:disabled {
-  opacity: 0.55;
-  cursor: default;
+.ctp-pay-dots {
+  display: flex;
+  gap: 5px;
 }
 
-.pr-entry-footer {
+.ctp-pay-dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+  animation: ctpDot 0.9s infinite;
+}
+
+.ctp-pay-dots span:nth-child(2) { animation-delay: 0.2s; }
+.ctp-pay-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes ctpDot {
+  0%, 80%, 100% { background: rgba(255, 255, 255, 0.4); }
+  40% { background: #ffffff; }
+}
+
+/* 微信支付主底部抽屉（默认密码版 IMG_1802，可切面容版 IMG_1801） */
+.ctp-wxpay-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 68;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.24s ease, visibility 0.24s ease;
+}
+
+.ctp-wxpay-mask.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.ctp-wxpay-sheet {
+  background: #ffffff;
+  border-radius: 16px 16px 0 0;
+  overflow: hidden;
+  transform: translateY(100%);
+  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ctp-wxpay-mask.open .ctp-wxpay-sheet {
+  transform: translateY(0);
+}
+
+.ctp-wxpay-top {
+  padding: 18px 22px 18px;
+}
+
+.ctp-wxpay-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 12px;
-  gap: 8px;
+  margin-bottom: 18px;
 }
 
-.pr-lock-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  border: none;
-  background: #f2f2f7;
-  color: #1c1c1e;
-  border-radius: 10px;
-  padding: 6px 10px;
-  font-size: calc(var(--app-font-size, 15px) - 3px);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.pr-lock-btn.is-locked {
-  background: #1c1c1e;
-  color: #ffffff;
-}
-
-.pr-del-btn {
-  border: none;
+.ctp-wxpay-x {
+  width: 28px;
+  height: 28px;
   background: transparent;
-  color: #ff3b30;
-  font-size: calc(var(--app-font-size, 15px) - 2px);
-  font-weight: 600;
-  cursor: pointer;
-  padding: 4px 2px;
-}
-
-/* 底部导航栏（线上 / 线下，保留原有风格） */
-.pr-bottom-bar {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  border: none;
+  color: #111111;
+  font-size: 22px;
+  line-height: 1;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.85), rgba(242, 242, 247, 0.68));
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  z-index: 10;
+  justify-content: flex-start;
+  padding: 0;
 }
 
-.pr-tab-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 40px;
-  padding: 0 20px;
-  border-radius: 999px;
-  border: none;
+.ctp-wxpay-mode-btn {
   background: transparent;
-  color: #6e6e73;
-  font-size: calc(var(--app-font-size, 15px) - 1px);
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+  border: none;
+  color: #576b95;
+  font-size: 14px;
+  padding: 4px 0;
 }
 
-.pr-tab-btn.is-active {
-  background: #1c1c1e;
+.ctp-wxpay-to {
+  text-align: center;
+  font-size: 15px;
+  color: #111111;
+}
+
+.ctp-wxpay-amt {
+  text-align: center;
+  font-size: 36px;
+  font-weight: 700;
+  color: #111111;
+  margin: 10px 0 22px;
+  letter-spacing: -0.5px;
+}
+
+.ctp-wxpay-divider {
+  height: 0.5px;
+  background: rgba(0, 0, 0, 0.08);
+  margin-bottom: 14px;
+}
+
+.ctp-wxpay-method-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #8e8e93;
+  margin-bottom: 10px;
+}
+
+.ctp-wxpay-change {
+  background: transparent;
+  border: none;
+  color: #8e8e93;
+  font-size: 13px;
+  padding: 2px 0;
+}
+
+.ctp-wxpay-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fdf6e3;
+  border-radius: 8px;
+  padding: 13px 14px;
+  transition: transform 0.1s ease, filter 0.1s ease;
+}
+
+.ctp-wxpay-card.is-pressed {
+  transform: scale(0.98);
+  filter: brightness(0.97);
+}
+
+.ctp-wxpay-card-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  color: #111111;
+}
+
+.ctp-wxpay-face-area {
+  padding: 28px 22px calc(38px + env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: center;
+}
+
+.ctp-wxpay-face-btn {
+  width: 184px;
+  height: 44px;
+  border: none;
+  border-radius: 6px;
+  background: var(--ctp-accent);
   color: #ffffff;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16);
+  font-size: 16px;
+  font-weight: 600;
+  transition: transform 0.1s ease, background 0.1s ease;
 }
 
-.pr-tab-btn.is-pressed {
-  transform: scale(0.92);
+.ctp-wxpay-face-btn.is-pressed {
+  background: #06ad56;
+  transform: scale(0.96);
 }
 
-/* 弹窗（带平滑缩放淡入） */
-.pr-modal-mask {
+/* 密码模式：6 个独立圆角灰框 + 白底细线分隔键盘（仿 IMG_1802） */
+.ctp-wxpay-pwd-area {
+  display: none;
+}
+
+.ctp-wxpay-sheet.is-pwd .ctp-wxpay-face-area {
+  display: none;
+}
+
+.ctp-wxpay-sheet.is-pwd .ctp-wxpay-pwd-area {
+  display: block;
+}
+
+.ctp-pwd-boxes {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 22px 22px;
+}
+
+.ctp-pwd-cell {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  background: #f2f2f7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ctp-pwd-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #111111;
+  animation: ctpDotPop 0.13s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes ctpDotPop {
+  from { transform: scale(0.3); opacity: 0.4; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.ctp-pwd-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  background: #e5e5ea;
+  gap: 0.5px;
+  border-top: 0.5px solid #e5e5ea;
+  padding-bottom: env(safe-area-inset-bottom);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.ctp-pwd-key {
+  height: 54px;
+  background: #ffffff;
+  border: none;
+  font-size: 22px;
+  font-weight: 500;
+  color: #111111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.06s ease;
+}
+
+.ctp-pwd-key.is-pressed {
+  background: #dfe1e6;
+}
+
+.ctp-pwd-key.is-muted {
+  background: #e5e5ea;
+}
+
+.ctp-pwd-key.is-muted.is-pressed {
+  background: #d1d3d9;
+}
+
+/* 选择付款方式抽屉（仿 IMG_1798） */
+.ctp-pay-mask {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  z-index: 40;
+  z-index: 72;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.24s ease, visibility 0.24s ease;
+}
+
+.ctp-pay-mask.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.ctp-pay-sheet {
+  background: #ffffff;
+  border-radius: 16px 16px 0 0;
+  padding: 14px 18px calc(22px + env(safe-area-inset-bottom));
+  transform: translateY(100%);
+  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ctp-pay-mask.open .ctp-pay-sheet {
+  transform: translateY(0);
+}
+
+.ctp-pay-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 14px;
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.08);
+}
+
+.ctp-pay-close {
+  position: absolute;
+  left: 0;
+  top: 2px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #f2f2f7;
+  border: none;
+  color: #333333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.ctp-pay-title-wrap {
+  text-align: center;
+}
+
+.ctp-pay-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111111;
+}
+
+.ctp-pay-sub {
+  font-size: 12px;
+  color: #8e8e93;
+  margin-top: 3px;
+}
+
+.ctp-pay-combo {
+  position: absolute;
+  right: 0;
+  top: 6px;
+  font-size: 14px;
+  color: #576b95;
+}
+
+.ctp-pay-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 4px;
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.06);
+  gap: 12px;
+}
+
+.ctp-pay-row:active {
+  background: #f7f7f7;
+}
+
+.ctp-pay-row-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ctp-pay-coin {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #f7b500;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ctp-pay-card-ico {
+  width: 24px;
+  height: 24px;
+  color: #2d8cf0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ctp-pay-name {
+  font-size: 15px;
+  color: #111111;
+}
+
+.ctp-pay-desc {
+  font-size: 12px;
+  color: #8e8e93;
+  margin-top: 2px;
+}
+
+.ctp-pay-tick {
+  color: var(--ctp-accent);
+  flex-shrink: 0;
+}
+
+.ctp-pay-sec-label {
+  font-size: 12px;
+  color: #8e8e93;
+  padding: 12px 4px 4px;
+}
+
+.ctp-pay-legal {
+  margin-top: 18px;
+  text-align: center;
+  font-size: 11px;
+  color: #aeaeb2;
+}
+
+/* 转账完成页（支付成功） */
+.ctp-done-page {
+  position: absolute;
+  inset: 0;
+  z-index: 76;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: calc(env(safe-area-inset-top) + 64px) 24px calc(44px + env(safe-area-inset-bottom));
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.24s ease, visibility 0.24s ease;
+}
+
+.ctp-done-page.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.ctp-done-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ctp-accent);
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 36px;
+}
+
+.ctp-done-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--ctp-accent);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ctp-done-to {
+  font-size: 15px;
+  color: #111111;
+  margin-bottom: 10px;
+}
+
+.ctp-done-amt {
+  font-size: 40px;
+  font-weight: 700;
+  color: #111111;
+  margin-bottom: 28px;
+}
+
+.ctp-done-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 4px;
+  border-top: 0.5px solid rgba(0, 0, 0, 0.08);
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.08);
+  font-size: 14px;
+  color: #8e8e93;
+}
+
+.ctp-done-row span:last-child {
+  color: #111111;
+}
+
+.ctp-done-btn {
+  margin-top: auto;
+  width: 176px;
+  height: 44px;
+  border: none;
+  border-radius: 6px;
+  background: #f2f2f7;
+  color: var(--ctp-accent);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.ctp-done-btn:active {
+  background: #e5e5ea;
+}
+
+/* 转账详情页 */
+.ctp-tr-detail {
+  position: absolute;
+  inset: 0;
+  z-index: 62;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+  visibility: hidden;
+  transform: translateX(100%);
+  pointer-events: none;
+  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1), visibility 0.28s ease;
+}
+
+.ctp-tr-detail.open {
+  visibility: visible;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.ctp-tr-detail-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 44px 24px calc(36px + env(safe-area-inset-bottom));
+}
+
+.ctp-tr-detail-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--ctp-transfer-pending);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.ctp-tr-detail-icon.done {
+  background: var(--ctp-accent);
+}
+
+.ctp-tr-detail-icon.faded {
+  background: #c7c7cc;
+}
+
+.ctp-tr-detail-state {
+  font-size: 16px;
+  color: #111111;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.ctp-tr-detail-amt {
+  font-size: 40px;
+  font-weight: 600;
+  color: #111111;
+  margin-bottom: 10px;
+}
+
+.ctp-tr-detail-note {
+  font-size: 14px;
+  color: #8e8e93;
+  margin-bottom: 24px;
+}
+
+.ctp-tr-detail-actions {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.ctp-tr-detail-btn {
+  width: 196px;
+  height: 44px;
+  border: none;
+  border-radius: 8px;
+  background: var(--ctp-accent);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.ctp-tr-detail-btn:active {
+  opacity: 0.82;
+}
+
+.ctp-tr-detail-link {
+  background: transparent;
+  border: none;
+  font-size: 13px;
+  color: #576b95;
+  padding: 4px;
+}
+
+.ctp-tr-detail-time {
+  margin-top: 14px;
+  font-size: 12px;
+  color: #aeaeb2;
+}
+
+/* 转账说明小弹窗（微信风） */
+.ctp-note-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+  background: rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  transition: opacity 0.26s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: opacity 0.2s ease, visibility 0.2s ease;
 }
 
-.pr-modal-mask.is-open {
+.ctp-note-mask.open {
   opacity: 1;
+  visibility: visible;
   pointer-events: auto;
 }
 
-.pr-modal {
+.ctp-note-box {
   width: 100%;
-  max-width: 340px;
+  max-width: 310px;
   background: #ffffff;
-  border-radius: 26px;
-  padding: 20px;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
-  transform: scale(0.92);
-  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  border-radius: 12px;
+  overflow: hidden;
+  transform: scale(0.94);
+  transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-.pr-modal-mask.is-open .pr-modal {
+.ctp-note-mask.open .ctp-note-box {
   transform: scale(1);
 }
 
-.pr-modal-head {
+.ctp-note-head {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111111;
+  padding: 18px 18px 10px;
+}
+
+.ctp-note-inp-wrap {
+  padding: 4px 18px 18px;
+}
+
+.ctp-note-inp {
+  width: 100%;
+  height: 38px;
+  border-radius: 8px;
+  border: none;
+  outline: none;
+  background: #f2f2f7;
+  padding: 0 12px;
+  font-family: inherit;
+  font-size: 15px;
+  color: #111111;
+}
+
+.ctp-note-btns {
+  display: flex;
+  border-top: 0.5px solid rgba(0, 0, 0, 0.1);
+}
+
+.ctp-note-btn {
+  flex: 1;
+  height: 46px;
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  color: #111111;
+}
+
+.ctp-note-btn + .ctp-note-btn {
+  border-left: 0.5px solid rgba(0, 0, 0, 0.1);
+  color: #576b95;
+  font-weight: 600;
+}
+
+/* 多图发送确认底部栏（仿 IMG_1789） */
+.ctp-multi-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 65;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.22s ease, visibility 0.22s ease;
+}
+
+.ctp-multi-mask.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.ctp-multi-sheet {
+  background: #1c1c1e;
+  color: #ffffff;
+  border-radius: 16px 16px 0 0;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  transform: translateY(100%);
+  transition: transform 0.26s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ctp-multi-mask.open .ctp-multi-sheet {
+  transform: translateY(0);
+}
+
+.ctp-multi-thumbs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 14px;
+}
+
+.ctp-multi-thumb {
+  width: 68px;
+  height: 68px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #2c2c2e;
+}
+
+.ctp-multi-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 2px 16px;
+  font-size: 15px;
+  color: #ffffff;
+}
+
+.ctp-multi-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid #8e8e93;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.ctp-multi-check.on {
+  background: var(--ctp-accent);
+  border-color: var(--ctp-accent);
+}
+
+.ctp-multi-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
 }
 
-.pr-modal-title {
-  font-size: calc(var(--app-font-size, 15px) + 2px);
-  font-weight: 700;
-  color: #111111;
-}
-
-.pr-modal-submit {
-  width: 100%;
-  height: 46px;
-  border-radius: 15px;
+.ctp-multi-cancel {
+  background: transparent;
   border: none;
-  background: #1c1c1e;
+  color: #e5e5ea;
+  font-size: 15px;
+  padding: 8px 4px;
+}
+
+.ctp-multi-send {
+  border: none;
+  border-radius: 6px;
+  background: var(--ctp-accent);
   color: #ffffff;
-  font-size: var(--app-font-size, 15px);
-  font-weight: 600;
-  margin-top: 14px;
-  cursor: pointer;
-  transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+  font-size: 15px;
+  font-weight: 500;
+  padding: 8px 18px;
 }
 
-.pr-modal-submit.is-pressed {
-  transform: scale(0.96);
-}
-
-/* 长按文件夹上下文菜单 */
-.pr-ctx-mask {
+/* 全屏大图预览 */
+.ctp-lightbox {
   position: absolute;
   inset: 0;
-  z-index: 45;
-  background: rgba(0, 0, 0, 0.24);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.24s cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.pr-ctx-mask.is-open {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.pr-ctx-sheet {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-  z-index: 46;
+  z-index: 80;
+  background: rgba(0, 0, 0, 0.96);
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  transform: translateY(24px) scale(0.96);
+  align-items: center;
+  justify-content: center;
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: opacity 0.22s ease, visibility 0.22s ease;
 }
 
-.pr-ctx-sheet.is-open {
-  transform: translateY(0) scale(1);
+.ctp-lightbox.open {
   opacity: 1;
+  visibility: visible;
   pointer-events: auto;
 }
 
-.pr-ctx-card {
-  background: rgba(255, 255, 255, 0.96);
-  border-radius: 20px;
-  overflow: hidden;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
-}
-
-.pr-ctx-header {
-  padding: 13px 16px;
-  border-bottom: 1px solid #f0f0f2;
-  text-align: center;
-}
-
-.pr-ctx-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #111111;
-}
-
-.pr-ctx-sub {
-  margin-top: 2px;
-  font-size: 11.5px;
-  color: #8e8e93;
-}
-
-.pr-ctx-btn {
-  width: 100%;
-  height: 48px;
-  border: none;
-  border-bottom: 1px solid #f2f2f7;
-  background: transparent;
-  font-family: inherit;
-  font-size: 15.5px;
-  font-weight: 500;
-  color: #111111;
-  cursor: pointer;
-  transition: background-color 0.16s ease;
-}
-
-.pr-ctx-btn:last-child {
-  border-bottom: none;
-}
-
-.pr-ctx-btn.is-pressed {
-  background: #f2f2f7;
-}
-
-.pr-ctx-btn.is-danger {
-  color: #ff3b30;
-}
-
-.pr-ctx-cancel {
-  width: 100%;
-  height: 48px;
-  border: none;
-  border-radius: 18px;
-  background: #ffffff;
-  font-family: inherit;
-  font-size: 15.5px;
-  font-weight: 700;
-  color: #111111;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
-  cursor: pointer;
-  transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.pr-ctx-cancel.is-pressed {
-  transform: scale(0.97);
+.ctp-lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
 }
