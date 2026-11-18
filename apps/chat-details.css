@@ -1,0 +1,418 @@
+/* apps/chat-details.css - 聊天详情页样式（全局 #f2f2f7 + 纯白卡片 + 全局字号联动） */
+
+.ct-details-view {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: #f2f2f7;
+  color: #111111;
+  font-family: var(--app-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif);
+  font-size: var(--app-font-size, 15px);
+  transform: translateX(100%);
+  pointer-events: none;
+  transition: transform 0.34s cubic-bezier(0.32, 0.72, 0, 1);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.ct-details-view.is-open {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.ct-details-topbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 10px;
+  background: #f2f2f7;
+  gap: 10px;
+}
+
+.ct-details-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ct-details-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  color: #111111;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.2s ease;
+}
+
+.ct-details-back.is-pressed {
+  transform: scale(0.9);
+  background: #e9e9ee;
+}
+
+.ct-details-title {
+  margin: 0;
+  font-size: calc(var(--app-font-size, 15px) + 7px);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.3px;
+  color: #111111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ct-details-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 6px 16px calc(env(safe-area-inset-bottom, 0px) + 32px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ct-details-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* 白卡容器 */
+.ct-dt-card {
+  background: #ffffff;
+  border-radius: 22px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+}
+
+/* 成员信息区 */
+.ct-dt-profile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+}
+
+.ct-dt-avatar {
+  flex-shrink: 0;
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  background: #ededf2;
+  color: #111111;
+  font-size: calc(var(--app-font-size, 15px) + 4px);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.ct-dt-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ct-dt-profile-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ct-dt-name {
+  font-size: calc(var(--app-font-size, 15px) + 2px);
+  font-weight: 700;
+  color: #111111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ct-dt-bio {
+  margin-top: 4px;
+  font-size: calc(var(--app-font-size, 15px) - 2px);
+  color: #8e8e93;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 群成员横向列表 */
+.ct-dt-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 18px 16px;
+  border-top: 1px solid #f2f2f7;
+}
+
+.ct-dt-member {
+  width: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.ct-dt-member-av {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  background: #ededf2;
+  color: #111111;
+  font-size: var(--app-font-size, 15px);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.ct-dt-member-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ct-dt-member-name {
+  width: 100%;
+  text-align: center;
+  font-size: calc(var(--app-font-size, 15px) - 3.5px);
+  color: #6e6e73;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 列表行 */
+.ct-dt-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px 18px;
+  border-bottom: 1px solid #f2f2f7;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.18s ease;
+}
+
+.ct-dt-row:last-child {
+  border-bottom: none;
+}
+
+.ct-dt-row.is-pressed {
+  background: #f5f5f8;
+}
+
+.ct-dt-row-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.ct-dt-row-label {
+  font-size: var(--app-font-size, 15px);
+  font-weight: 600;
+  color: #111111;
+}
+
+.ct-dt-row-sub {
+  margin-top: 2px;
+  font-size: calc(var(--app-font-size, 15px) - 2.5px);
+  color: #8e8e93;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ct-dt-row-right {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: calc(var(--app-font-size, 15px) - 1.5px);
+  color: #8e8e93;
+}
+
+.ct-dt-chevron {
+  width: 15px;
+  height: 15px;
+  stroke: #c7c7cc;
+  stroke-width: 2.2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* 开关 */
+.ct-dt-switch {
+  width: 48px;
+  height: 28px;
+  border-radius: 999px;
+  border: none;
+  padding: 2px;
+  background: #d1d1d6;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+  display: inline-flex;
+  align-items: center;
+}
+
+.ct-dt-switch.is-on {
+  background: #111111;
+}
+
+.ct-dt-switch-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.18);
+  transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ct-dt-switch.is-on .ct-dt-switch-thumb {
+  transform: translateX(20px);
+}
+
+/* 群名称输入行 */
+.ct-dt-inline-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  text-align: right;
+  font-family: inherit;
+  font-size: calc(var(--app-font-size, 15px) - 1px);
+  color: #3a3a3c;
+}
+
+/* 危险按钮 */
+.ct-dt-danger-btn {
+  width: 100%;
+  padding: 15px 18px;
+  border: none;
+  background: #ffffff;
+  color: #ff3b30;
+  font-family: inherit;
+  font-size: var(--app-font-size, 15px);
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.18s ease;
+}
+
+.ct-dt-danger-btn.is-pressed {
+  background: #fff2f2;
+}
+
+/* 查找聊天记录浮层 */
+.ct-dt-search-view {
+  position: absolute;
+  inset: 0;
+  z-index: 65;
+  display: flex;
+  flex-direction: column;
+  background: #f2f2f7;
+  transform: translateX(100%);
+  pointer-events: none;
+  transition: transform 0.34s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ct-dt-search-view.is-open {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.ct-dt-search-box-wrap {
+  padding: 0 16px 10px;
+}
+
+.ct-dt-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+
+.ct-dt-search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: calc(var(--app-font-size, 15px) - 0.5px);
+  color: #111111;
+}
+
+.ct-dt-search-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 16px calc(env(safe-area-inset-bottom, 0px) + 28px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ct-dt-search-item {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 13px 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.ct-dt-search-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: calc(var(--app-font-size, 15px) - 2.5px);
+  color: #8e8e93;
+  margin-bottom: 5px;
+}
+
+.ct-dt-search-sender {
+  font-weight: 700;
+  color: #111111;
+}
+
+.ct-dt-search-text {
+  font-size: calc(var(--app-font-size, 15px) - 0.5px);
+  color: #1c1c1e;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.ct-dt-empty {
+  background: #ffffff;
+  border-radius: 22px;
+  padding: 42px 20px;
+  text-align: center;
+  font-size: calc(var(--app-font-size, 15px) - 1px);
+  color: #8e8e93;
+}
