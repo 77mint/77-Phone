@@ -26,7 +26,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px 10px 16px;
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 10px;
   background: #f2f2f7;
 }
 
@@ -43,10 +43,10 @@
 
 .sp-title {
   margin: 0;
-  font-size: 27px;
-  font-weight: 800;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
+  font-size: calc(var(--app-font-size, 15px) + 7px);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.3px;
   color: #111111;
 }
 
@@ -117,7 +117,7 @@
   background: transparent;
   color: #111111;
   font-family: inherit;
-  font-size: 14px;
+  font-size: calc(var(--app-font-size, 15px) - 1px);
   -webkit-appearance: none;
 }
 
@@ -134,7 +134,7 @@
   background: #111111;
   color: #ffffff;
   font-family: inherit;
-  font-size: 12px;
+  font-size: calc(var(--app-font-size, 15px) - 3px);
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
@@ -188,14 +188,14 @@
 }
 
 .sp-empty-title {
-  font-size: 15.5px;
+  font-size: calc(var(--app-font-size, 15px) + 0.5px);
   font-weight: 700;
   color: #111111;
 }
 
 .sp-empty-sub {
   margin-top: 6px;
-  font-size: 13px;
+  font-size: calc(var(--app-font-size, 15px) - 2px);
   line-height: 1.5;
   color: #8e8e93;
 }
@@ -250,7 +250,7 @@
 }
 
 .sp-card-title {
-  font-size: 14px;
+  font-size: calc(var(--app-font-size, 15px) - 1px);
   font-weight: 700;
   line-height: 1.35;
   color: #111111;
@@ -262,7 +262,7 @@
 
 .sp-card-shop {
   margin-top: 4px;
-  font-size: 11.5px;
+  font-size: calc(var(--app-font-size, 15px) - 3.5px);
   color: #8e8e93;
   white-space: nowrap;
   overflow: hidden;
@@ -279,7 +279,7 @@
 }
 
 .sp-card-price {
-  font-size: 15.5px;
+  font-size: calc(var(--app-font-size, 15px) + 0.5px);
   font-weight: 800;
   color: #111111;
   letter-spacing: -0.02em;
@@ -374,7 +374,7 @@
 }
 
 .sp-cart-name {
-  font-size: 14.5px;
+  font-size: calc(var(--app-font-size, 15px) - 0.5px);
   font-weight: 700;
   color: #111111;
   white-space: nowrap;
@@ -384,7 +384,7 @@
 
 .sp-cart-shop {
   margin-top: 2px;
-  font-size: 12px;
+  font-size: calc(var(--app-font-size, 15px) - 3px);
   color: #8e8e93;
 }
 
@@ -396,7 +396,7 @@
 }
 
 .sp-cart-price {
-  font-size: 15px;
+  font-size: var(--app-font-size, 15px);
   font-weight: 800;
   color: #111111;
 }
@@ -419,7 +419,7 @@
   border-radius: 50%;
   background: #ffffff;
   color: #111111;
-  font-size: 14px;
+  font-size: calc(var(--app-font-size, 15px) - 1px);
   font-weight: 700;
   display: inline-flex;
   align-items: center;
@@ -436,7 +436,7 @@
 .sp-qty-num {
   min-width: 16px;
   text-align: center;
-  font-size: 13px;
+  font-size: calc(var(--app-font-size, 15px) - 2px);
   font-weight: 700;
 }
 
@@ -460,13 +460,13 @@
 }
 
 .sp-checkout-total {
-  font-size: 17px;
+  font-size: calc(var(--app-font-size, 15px) + 2px);
   font-weight: 800;
   color: #111111;
 }
 
 .sp-checkout-wallet {
-  font-size: 12px;
+  font-size: calc(var(--app-font-size, 15px) - 3px);
   color: #8e8e93;
 }
 
@@ -479,7 +479,7 @@
   background: #111111;
   color: #ffffff;
   font-family: inherit;
-  font-size: 13.5px;
+  font-size: calc(var(--app-font-size, 15px) - 1.5px);
   font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
@@ -505,13 +505,13 @@
 }
 
 .sp-wallet-label {
-  font-size: 13px;
+  font-size: calc(var(--app-font-size, 15px) - 2px);
   color: #8e8e93;
 }
 
 .sp-wallet-val {
   margin-top: 4px;
-  font-size: 26px;
+  font-size: calc(var(--app-font-size, 15px) + 11px);
   font-weight: 800;
   letter-spacing: -0.02em;
   color: #111111;
@@ -534,7 +534,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 12.5px;
+  font-size: calc(var(--app-font-size, 15px) - 2.5px);
   color: #8e8e93;
   padding-bottom: 10px;
   border-bottom: 1px solid #f2f2f7;
@@ -556,7 +556,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 14px;
+  font-size: calc(var(--app-font-size, 15px) - 1px);
   color: #111111;
 }
 
@@ -569,7 +569,7 @@
 }
 
 .sp-order-sum {
-  font-size: 14.5px;
+  font-size: calc(var(--app-font-size, 15px) - 0.5px);
   font-weight: 800;
 }
 
@@ -581,7 +581,7 @@
   background: #ffffff;
   color: #111111;
   font-family: inherit;
-  font-size: 12px;
+  font-size: calc(var(--app-font-size, 15px) - 3px);
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
@@ -635,7 +635,7 @@
   background: transparent;
   color: #6e6e73;
   font-family: inherit;
-  font-size: 13.5px;
+  font-size: calc(var(--app-font-size, 15px) - 1.5px);
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
@@ -729,21 +729,21 @@
 }
 
 .sp-detail-price {
-  font-size: 24px;
+  font-size: calc(var(--app-font-size, 15px) + 9px);
   font-weight: 800;
   color: #111111;
 }
 
 .sp-detail-name {
   margin-top: 8px;
-  font-size: 17px;
+  font-size: calc(var(--app-font-size, 15px) + 2px);
   font-weight: 700;
   line-height: 1.4;
 }
 
 .sp-detail-shop {
   margin-top: 6px;
-  font-size: 13px;
+  font-size: calc(var(--app-font-size, 15px) - 2px);
   color: #8e8e93;
 }
 
@@ -751,7 +751,7 @@
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid #f2f2f7;
-  font-size: 14.5px;
+  font-size: calc(var(--app-font-size, 15px) - 0.5px);
   line-height: 1.65;
   color: #3a3a3c;
 }
@@ -774,7 +774,7 @@
   background: #ffffff;
   color: #111111;
   font-family: inherit;
-  font-size: 14.5px;
+  font-size: calc(var(--app-font-size, 15px) - 0.5px);
   font-weight: 700;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -793,7 +793,7 @@
   background: #111111;
   color: #ffffff;
   font-family: inherit;
-  font-size: 14.5px;
+  font-size: calc(var(--app-font-size, 15px) - 0.5px);
   font-weight: 700;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -845,7 +845,7 @@
 }
 
 .sp-sheet-title {
-  font-size: 16.5px;
+  font-size: calc(var(--app-font-size, 15px) + 1.5px);
   font-weight: 700;
 }
 
@@ -854,7 +854,7 @@
   background: #f2f2f7;
   color: #111111;
   font-family: inherit;
-  font-size: 13px;
+  font-size: calc(var(--app-font-size, 15px) - 2px);
   font-weight: 600;
   height: 30px;
   padding: 0 12px;
@@ -869,7 +869,7 @@
 .sp-form-label {
   display: block;
   margin-bottom: 5px;
-  font-size: 12.5px;
+  font-size: calc(var(--app-font-size, 15px) - 2.5px);
   font-weight: 600;
   color: #6e6e73;
 }
@@ -885,7 +885,7 @@
   background: #f2f2f7;
   color: #111111;
   font-family: inherit;
-  font-size: 14.5px;
+  font-size: calc(var(--app-font-size, 15px) - 0.5px);
 }
 
 .sp-form-submit {
@@ -897,7 +897,7 @@
   background: #111111;
   color: #ffffff;
   font-family: inherit;
-  font-size: 15px;
+  font-size: var(--app-font-size, 15px);
   font-weight: 700;
   cursor: pointer;
   transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
@@ -917,7 +917,7 @@
   border-radius: 999px;
   background: rgba(17, 17, 17, 0.88);
   color: #ffffff;
-  font-size: 13px;
+  font-size: calc(var(--app-font-size, 15px) - 2px);
   font-weight: 500;
   opacity: 0;
   pointer-events: none;
