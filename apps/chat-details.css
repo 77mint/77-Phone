@@ -2,12 +2,15 @@
    Chat 聊天详情页 (apps/chat-details.css)
    - 独立挂载于 #app-chat，不修改 apps/chat.css
    - 全量字体跟随全局 --app-font-size 与 --app-font
-   - iOS 原生圆角卡片 + 阻尼滑入 + .is-pressed 触感反馈
+   - iOS Safari visualViewport 键盘适配，输入框不遮挡、不放大、不卡死
    ========================================================= */
 
 .ctd-overlay {
     position: absolute;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     z-index: 95;
     background: #f2f2f7;
     font-family: var(--app-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif);
@@ -108,6 +111,7 @@
     min-height: 0;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     padding: 8px 16px calc(env(safe-area-inset-bottom, 0px) + 36px);
     display: flex;
     flex-direction: column;
@@ -478,7 +482,7 @@
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
-/* 二级页表单输入与文本域 */
+/* 二级页表单输入与文本域（>=16px 防 iOS 聚焦放大） */
 .ctd-field-card {
     padding: 16px 18px;
     display: flex;
@@ -505,10 +509,11 @@
     border-radius: 14px;
     padding: 11px 14px;
     font-family: inherit;
-    font-size: var(--app-font-size, 15px);
+    font-size: max(16px, var(--app-font-size, 15px));
     color: #1c1c1e;
     background: #f9f9fb;
     outline: none;
+    -webkit-appearance: none;
     transition: border-color 0.18s ease, background-color 0.18s ease;
 }
 
@@ -525,12 +530,13 @@
     border-radius: 14px;
     padding: 12px 14px;
     font-family: inherit;
-    font-size: var(--app-font-size, 15px);
+    font-size: max(16px, var(--app-font-size, 15px));
     color: #1c1c1e;
     background: #f9f9fb;
     line-height: 1.5;
     resize: vertical;
     outline: none;
+    -webkit-appearance: none;
     transition: border-color 0.18s ease, background-color 0.18s ease;
 }
 
@@ -584,7 +590,7 @@
     outline: none;
     background: transparent;
     font-family: inherit;
-    font-size: var(--app-font-size, 15px);
+    font-size: max(16px, var(--app-font-size, 15px));
     color: #1c1c1e;
     min-width: 0;
 }
@@ -831,16 +837,20 @@
     color: #8e8e93;
 }
 
-/* 底部动作菜单 & 确认弹窗 */
+/* 底部动作菜单 & 确认弹窗（支持 visualViewport 动态高度，不被键盘挡住） */
 .ctd-sheet-backdrop {
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 100%;
     z-index: 9990;
     background: rgba(0, 0, 0, 0.36);
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    padding: 16px 14px calc(env(safe-area-inset-bottom, 0px) + 16px);
+    padding: 12px 14px calc(env(safe-area-inset-bottom, 0px) + 12px);
+    box-sizing: border-box;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.24s ease;
@@ -854,6 +864,7 @@
 .ctd-sheet-box {
     width: 100%;
     max-width: 420px;
+    max-height: 100%;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -871,12 +882,24 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    max-height: 70vh;
+    min-height: 0;
+}
+
+.ctd-sheet-group.ctd-sheet-main {
+    flex: 0 1 auto;
+    max-height: calc(100% - 64px);
+}
+
+.ctd-sheet-group.ctd-sheet-cancel {
+    flex-shrink: 0;
 }
 
 .ctd-sheet-list {
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
 }
 
 .ctd-sheet-header {
@@ -913,9 +936,10 @@
     background: #f2f2f7;
     padding: 9px 12px;
     font-family: inherit;
-    font-size: calc(var(--app-font-size, 15px) - 1px);
+    font-size: max(16px, var(--app-font-size, 15px));
     color: #1c1c1e;
     outline: none;
+    -webkit-appearance: none;
 }
 
 .ctd-sheet-check-row {
@@ -999,16 +1023,20 @@
     font-weight: 600;
 }
 
-/* 输入弹窗 */
+/* 输入弹窗（紧随 visualViewport 居中，不被键盘遮挡） */
 .ctd-modal-backdrop {
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 100%;
     z-index: 9992;
     background: rgba(0, 0, 0, 0.38);
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 24px;
+    box-sizing: border-box;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.22s ease;
@@ -1055,10 +1083,11 @@
     border-radius: 12px;
     padding: 10px 12px;
     font-family: inherit;
-    font-size: var(--app-font-size, 15px);
+    font-size: max(16px, var(--app-font-size, 15px));
     color: #1c1c1e;
     background: #f9f9fb;
     outline: none;
+    -webkit-appearance: none;
 }
 
 .ctd-modal-input:focus {
