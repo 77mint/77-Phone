@@ -105,12 +105,17 @@
 /* 主滚动区 */
 .ctd-scroll {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    padding: 6px 16px calc(env(safe-area-inset-bottom, 0px) + 28px);
+    padding: 8px 16px calc(env(safe-area-inset-bottom, 0px) + 34px);
     display: flex;
     flex-direction: column;
     gap: 16px;
+}
+
+.ctd-scroll > * {
+    flex-shrink: 0;
 }
 
 .ctd-scroll::-webkit-scrollbar {
@@ -123,6 +128,7 @@
     border-radius: 22px;
     overflow: hidden;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+    flex-shrink: 0;
 }
 
 /* 联系人 / 群聊资料卡 */
@@ -240,6 +246,7 @@
     gap: 12px;
     padding: 15px 18px;
     min-height: 54px;
+    box-sizing: border-box;
     background: #ffffff;
     position: relative;
     cursor: pointer;
@@ -287,7 +294,7 @@
 .ctd-row-sub {
     font-size: calc(var(--app-font-size, 15px) - 2.5px);
     color: #8e8e93;
-    line-height: 1.35;
+    line-height: 1.38;
 }
 
 .ctd-row-right {
@@ -367,13 +374,14 @@
     transform: translateX(20px) scale(0.95);
 }
 
-/* 聊天顶部免打扰小铃铛（实色无叠色） */
+/* 聊天顶部免打扰小铃铛（100% 不透明实色，绝不叠色） */
 .ctd-mute-bell {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     margin-left: 5px;
-    color: #9a9aa0;
+    color: #a4a4aa;
+    opacity: 1;
     vertical-align: middle;
     flex-shrink: 0;
     line-height: 1;
@@ -400,6 +408,7 @@
     align-items: center;
     gap: 8px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+    flex-shrink: 0;
 }
 
 .ctd-search-icon {
@@ -444,7 +453,7 @@
 
 /* 日历卡片 */
 .ctd-calendar-wrap {
-    overflow: hidden;
+    flex-shrink: 0;
     transition: opacity 0.26s ease, transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
@@ -642,7 +651,7 @@
 
 .ctd-empty-hint {
     text-align: center;
-    padding: 24px 16px;
+    padding: 20px 16px;
     font-size: calc(var(--app-font-size, 15px) - 1px);
     color: #8e8e93;
     line-height: 1.5;
