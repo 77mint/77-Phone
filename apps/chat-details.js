@@ -1,29 +1,34 @@
-/* apps/chat-details.js - 微信 Chat 聊天室右上角「···」详情页（全局 #f2f2f7 + 宽松白卡） */
+/* apps/chat-details.js - 微信 Chat 聊天室右上角「···」详情页（全局 #f2f2f7 + 真·实时感知 + 独立世界书页） */
 (function () {
   'use strict';
 
   var SETTINGS_KEY = 'chat_thread_settings_v1';
   var THREADS_KEY = 'chat_threads_v1';
   var MSGS_PREFIX = 'chat_msgs_v1_';
+  var REAL_CTX_KEY = 'phone_real_context_cache_v1';
 
+  // 1:1 复刻 IMG_2079.png：顶部小环 + 微撇轮廓铃铛 + 底部小铃舌 + 左上到右下斜杠
   var SVG_MUTE_BELL =
-    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M18.2 16.6H5.8c1-1.1 1.6-2.4 1.6-4.1V10.2c0-2.7 2-4.7 4.6-4.7s4.6 2 4.6 4.7v2.3c0 1.7.6 3 1.6 4.1z"/>' +
-      '<path d="M10.4 18.8a1.7 1.7 0 0 0 3.2 0"/>' +
-      '<line x1="4.2" y1="4.2" x2="19.8" y2="19.8"/>' +
+    '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M10.8 4.4a1.2 1.2 0 0 1 2.4 0"/>' +
+      '<path d="M16.2 11.4c0-3.2-1.8-5.4-4.2-5.4-1.1 0-2 .4-2.7 1.1"/>' +
+      '<path d="M7.8 11.4v1c0 2.2-.6 3.7-1.6 4.7h11.6c-1-1-1.6-2.5-1.6-4.7v-1"/>' +
+      '<path d="M10.9 18.2a1.1 1.1 0 0 0 2.2 0"/>' +
+      '<line x1="3.8" y1="4.5" x2="20.2" y2="20.5"/>' +
     '</svg>';
 
   var activeThreadId = null;
   var lastContactId = null;
   var detailsEl = null;
   var searchEl = null;
-  var aiEl = null;
+  var loreEl = null;
 
   var calYear = new Date().getFullYear();
   var calMonth = new Date().getMonth();
   var selectedDateStr = '';
   var calendarCollapsed = false;
   var syncingBell = false;
+  var fetchingReal = false;
 
   function loadJSON(key, fallback) {
     try {
@@ -71,6 +76,132 @@
     if (!Array.isArray(merged.loreIds)) merged.loreIds = [];
     all[threadId] = merged;
     saveJSON(SETTINGS_KEY, all);
+  }
+
+  function getRealCache() {
+    return loadJSON(REAL_CTX_KEY, {
+      location: '',
+      weather: '',
+      lat: null,
+      lon: null,
+      updatedAt: 0
+    });
+  }
+
+  function wmoToText(code) {
+    var c = Number(code);
+    if (c === 0) return '晴';
+    if (c === 1 || c === 2) return '多云';
+    if (c === 3) return '阴';
+    if (c === 45 || c === 48) return '雾';
+    if (c >= 51 && c <= 67) return '雨';
+    if (c >= 71 && c <= 77) return '雪';
+    if (c >= 80 && c <= 82) return '阵雨';
+    if (c >= 95) return '雷阵雨';
+    return '多云';
+  }
+
+  function fetchCoords() {
+    return new Promise(function (resolve) {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          function (pos) {
+            resolve({
+              lat: pos.coords.latitude,
+              lon: pos.coords.longitude,
+              fromGps: true
+            });
+          },
+          function () {
+            resolve(null);
+          },
+          { enableHighAccuracy: false, timeout: 6000, maximumAge: 300000 }
+        );
+      } else {
+        resolve(null);
+      }
+    }).then(function (gps) {
+      if (gps) return gps;
+      return fetch('https://get.geojs.io/v1/ip/geo.json')
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d && d.latitude && d.longitude) {
+            return {
+              lat: parseFloat(d.latitude),
+              lon: parseFloat(d.longitude),
+              city: d.city || d.region || d.country || ''
+            };
+          }
+          return null;
+        })
+        .catch(function () { return null; });
+    });
+  }
+
+  function refreshRealContext(force) {
+    var cache = getRealCache();
+    var fresh = cache.updatedAt && (Date.now() - cache.updatedAt < 600000);
+    if (!force && fresh && cache.location && cache.weather) {
+      return Promise.resolve(cache);
+    }
+    if (fetchingReal) return Promise.resolve(cache);
+    fetchingReal = true;
+
+    return fetchCoords().then(function (coords) {
+      if (!coords) throw new Error('无法获取定位');
+      var locPromise = coords.city
+        ? Promise.resolve(coords.city)
+        : fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' + encodeURIComponent(coords.lat) + '&longitude=' + encodeURIComponent(coords.lon) + '&localityLanguage=zh')
+            .then(function (r) { return r.json(); })
+            .then(function (g) {
+              var parts = [g.city || g.principalSubdivision || '', g.locality || ''].filter(Boolean);
+              var uniq = [];
+              parts.forEach(function (p) { if (uniq.indexOf(p) === -1) uniq.push(p); });
+              return uniq.join(' ') || (g.countryName || '已定位');
+            })
+            .catch(function () { return '已定位'; });
+
+      var weatherPromise = fetch('https://api.open-meteo.com/v1/forecast?latitude=' + encodeURIComponent(coords.lat) + '&longitude=' + encodeURIComponent(coords.lon) + '&current=temperature_2m,weather_code&timezone=auto')
+        .then(function (r) { return r.json(); })
+        .then(function (w) {
+          if (w && w.current) {
+            var desc = wmoToText(w.current.weather_code);
+            var temp = Math.round(Number(w.current.temperature_2m));
+            return desc + ' ' + temp + '°C';
+          }
+          return '';
+        })
+        .catch(function () { return ''; });
+
+      return Promise.all([locPromise, weatherPromise]).then(function (res) {
+        var next = {
+          location: res[0] || cache.location || '',
+          weather: res[1] || cache.weather || '',
+          lat: coords.lat,
+          lon: coords.lon,
+          updatedAt: Date.now()
+        };
+        saveJSON(REAL_CTX_KEY, next);
+        return next;
+      });
+    }).catch(function () {
+      return cache;
+    }).finally(function () {
+      fetchingReal = false;
+      if (detailsEl && detailsEl.classList.contains('is-open')) {
+        renderDetailsBody();
+      }
+    });
+  }
+
+  function getRealContext(threadId) {
+    var s = getThreadSettings(threadId);
+    var cache = getRealCache();
+    return {
+      time: s.realTime ? new Date().toLocaleString('zh-CN', { hour12: false }) : '',
+      weather: s.realWeather ? (cache.weather || '') : '',
+      location: s.realLocation ? (cache.location || '') : ''
+    };
   }
 
   function getThreads() {
@@ -398,39 +529,31 @@
       searchEl = document.getElementById('ctDetailsSearchView');
     }
 
-    if (!document.getElementById('ctDetailsAiView')) {
-      aiEl = document.createElement('div');
-      aiEl.id = 'ctDetailsAiView';
-      aiEl.className = 'ct-dt-subview';
-      aiEl.innerHTML =
+    if (!document.getElementById('ctDetailsLoreView')) {
+      loreEl = document.createElement('div');
+      loreEl.id = 'ctDetailsLoreView';
+      loreEl.className = 'ct-dt-subview';
+      loreEl.innerHTML =
         '<div class="ct-details-topbar">' +
           '<div class="ct-details-topbar-left">' +
-            '<button class="ct-details-back" id="ctDtAiBackBtn" type="button" aria-label="返回">' +
+            '<button class="ct-details-back" id="ctDtLoreBackBtn" type="button" aria-label="返回">' +
               '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>' +
             '</button>' +
-            '<h1 class="ct-details-title">AI 感知与设定</h1>' +
+            '<h1 class="ct-details-title">单独挂载世界书</h1>' +
           '</div>' +
         '</div>' +
-        '<div class="ct-details-scroll" id="ctDtAiScroll"></div>';
-      appContainer.appendChild(aiEl);
+        '<div class="ct-details-scroll" id="ctDtLoreScroll"></div>';
+      appContainer.appendChild(loreEl);
 
-      bindPress(document.getElementById('ctDtAiBackBtn'), function () {
-        aiEl.classList.remove('is-open');
+      bindPress(document.getElementById('ctDtLoreBackBtn'), function () {
+        loreEl.classList.remove('is-open');
         renderDetailsBody();
       });
     } else {
-      aiEl = document.getElementById('ctDetailsAiView');
+      loreEl = document.getElementById('ctDetailsLoreView');
     }
 
     return true;
-  }
-
-  function getAiSummaryText(settings) {
-    var parts = [];
-    if (settings.realWeather) parts.push('天气');
-    if (settings.realLocation) parts.push('地点');
-    if (settings.loreOverride) parts.push('单独世界书(' + settings.loreIds.length + ')');
-    return parts.length ? parts.join(' · ') : '天气、地点、预设与世界书';
   }
 
   function renderDetailsBody() {
@@ -446,6 +569,7 @@
     var chars = getArchiveChars();
     var isGroup = thread.type === 'group';
     var settings = getThreadSettings(thread.id);
+    var realCache = getRealCache();
 
     var profileCardHtml = '';
     if (!isGroup) {
@@ -491,6 +615,24 @@
         '</div>';
     }
 
+    var presetName = '未设置';
+    if (window.PhonePresets && typeof window.PhonePresets.getActivePreset === 'function') {
+      var p = window.PhonePresets.getActivePreset('online');
+      if (p && p.name) presetName = p.name;
+    }
+
+    var weatherSub = settings.realWeather
+      ? (realCache.weather ? ('当前：' + realCache.weather) : (fetchingReal ? '正在获取实时天气...' : '点击刷新天气'))
+      : '开启后同步真实天气给角色';
+
+    var locSub = settings.realLocation
+      ? (realCache.location ? ('当前：' + realCache.location) : (fetchingReal ? '正在获取当前位置...' : '点击刷新位置'))
+      : '开启后同步真实地点给角色';
+
+    var loreSub = settings.loreOverride
+      ? ('已开启 · 已选 ' + settings.loreIds.length + ' 本')
+      : '跟随全局世界书';
+
     var chevronSvg = '<svg class="ct-dt-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>';
 
     scroll.innerHTML =
@@ -524,10 +666,33 @@
         ) : '') +
       '</div>' +
       '<div class="ct-dt-card">' +
-        '<div class="ct-dt-row" id="ctDtAiRow">' +
+        '<div class="ct-dt-row" id="ctDtRealWeatherRow">' +
           '<div class="ct-dt-row-left">' +
-            '<div class="ct-dt-row-label">AI 感知与设定</div>' +
-            '<div class="ct-dt-row-sub">' + escapeHtml(getAiSummaryText(settings)) + '</div>' +
+            '<div class="ct-dt-row-label">感知真实天气</div>' +
+            '<div class="ct-dt-row-sub">' + escapeHtml(weatherSub) + '</div>' +
+          '</div>' +
+          '<button class="ct-dt-switch' + (settings.realWeather ? ' is-on' : '') + '" type="button" aria-label="感知真实天气"><span class="ct-dt-switch-thumb"></span></button>' +
+        '</div>' +
+        '<div class="ct-dt-row" id="ctDtRealLocRow">' +
+          '<div class="ct-dt-row-left">' +
+            '<div class="ct-dt-row-label">感知真实地点</div>' +
+            '<div class="ct-dt-row-sub">' + escapeHtml(locSub) + '</div>' +
+          '</div>' +
+          '<button class="ct-dt-switch' + (settings.realLocation ? ' is-on' : '') + '" type="button" aria-label="感知真实地点"><span class="ct-dt-switch-thumb"></span></button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ct-dt-card">' +
+        '<div class="ct-dt-row">' +
+          '<div class="ct-dt-row-left">' +
+            '<div class="ct-dt-row-label">当前线上预设</div>' +
+            '<div class="ct-dt-row-sub">在「预设」App 中切换</div>' +
+          '</div>' +
+          '<div class="ct-dt-row-right"><span>' + escapeHtml(presetName) + '</span></div>' +
+        '</div>' +
+        '<div class="ct-dt-row" id="ctDtLoreRow">' +
+          '<div class="ct-dt-row-left">' +
+            '<div class="ct-dt-row-label">启用单独挂载世界书</div>' +
+            '<div class="ct-dt-row-sub">' + escapeHtml(loreSub) + '</div>' +
           '</div>' +
           '<div class="ct-dt-row-right">' + chevronSvg + '</div>' +
         '</div>' +
@@ -583,9 +748,25 @@
       renderDetailsBody();
     });
 
-    bindPress(document.getElementById('ctDtAiRow'), function () {
-      renderAiView();
-      aiEl.classList.add('is-open');
+    bindPress(document.getElementById('ctDtRealWeatherRow'), function () {
+      var cur = getThreadSettings(thread.id);
+      var next = !cur.realWeather;
+      setThreadSettings(thread.id, { realWeather: next });
+      renderDetailsBody();
+      if (next) refreshRealContext(true);
+    });
+
+    bindPress(document.getElementById('ctDtRealLocRow'), function () {
+      var cur = getThreadSettings(thread.id);
+      var next = !cur.realLocation;
+      setThreadSettings(thread.id, { realLocation: next });
+      renderDetailsBody();
+      if (next) refreshRealContext(true);
+    });
+
+    bindPress(document.getElementById('ctDtLoreRow'), function () {
+      renderLoreView();
+      loreEl.classList.add('is-open');
     });
 
     bindPress(document.getElementById('ctDtBgRow'), function () {
@@ -626,17 +807,11 @@
     });
   }
 
-  function renderAiView() {
-    var scroll = document.getElementById('ctDtAiScroll');
+  function renderLoreView() {
+    var scroll = document.getElementById('ctDtLoreScroll');
     if (!scroll || !activeThreadId) return;
 
     var settings = getThreadSettings(activeThreadId);
-    var presetName = '未设置';
-    if (window.PhonePresets && typeof window.PhonePresets.getActivePreset === 'function') {
-      var p = window.PhonePresets.getActivePreset('online');
-      if (p && p.name) presetName = p.name;
-    }
-
     var books = getLorebooks();
     var checkSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 
@@ -660,23 +835,6 @@
 
     scroll.innerHTML =
       '<div class="ct-dt-card">' +
-        '<div class="ct-dt-row" id="ctDtRealWeatherRow">' +
-          '<div class="ct-dt-row-left"><div class="ct-dt-row-label">感知真实天气</div></div>' +
-          '<button class="ct-dt-switch' + (settings.realWeather ? ' is-on' : '') + '" type="button" aria-label="感知真实天气"><span class="ct-dt-switch-thumb"></span></button>' +
-        '</div>' +
-        '<div class="ct-dt-row" id="ctDtRealLocRow">' +
-          '<div class="ct-dt-row-left"><div class="ct-dt-row-label">感知真实地点</div></div>' +
-          '<button class="ct-dt-switch' + (settings.realLocation ? ' is-on' : '') + '" type="button" aria-label="感知真实地点"><span class="ct-dt-switch-thumb"></span></button>' +
-        '</div>' +
-      '</div>' +
-      '<div class="ct-dt-card">' +
-        '<div class="ct-dt-row">' +
-          '<div class="ct-dt-row-left">' +
-            '<div class="ct-dt-row-label">当前线上预设</div>' +
-            '<div class="ct-dt-row-sub">在「预设」App 中切换</div>' +
-          '</div>' +
-          '<div class="ct-dt-row-right"><span>' + escapeHtml(presetName) + '</span></div>' +
-        '</div>' +
         '<div class="ct-dt-row" id="ctDtLoreOverrideRow">' +
           '<div class="ct-dt-row-left">' +
             '<div class="ct-dt-row-label">启用单独挂载世界书</div>' +
@@ -685,26 +843,14 @@
           '<button class="ct-dt-switch' + (settings.loreOverride ? ' is-on' : '') + '" type="button" aria-label="启用单独挂载世界书"><span class="ct-dt-switch-thumb"></span></button>' +
         '</div>' +
       '</div>' +
-      '<div class="ct-dt-lore-collapse' + (settings.loreOverride ? ' is-open' : '') + '">' +
-        '<div class="ct-dt-card">' + booksHtml + '</div>' +
+      '<div class="ct-dt-card ct-dt-lore-list-wrap' + (settings.loreOverride ? '' : ' is-disabled') + '">' +
+        booksHtml +
       '</div>';
-
-    bindPress(document.getElementById('ctDtRealWeatherRow'), function () {
-      var cur = getThreadSettings(activeThreadId);
-      setThreadSettings(activeThreadId, { realWeather: !cur.realWeather });
-      renderAiView();
-    });
-
-    bindPress(document.getElementById('ctDtRealLocRow'), function () {
-      var cur = getThreadSettings(activeThreadId);
-      setThreadSettings(activeThreadId, { realLocation: !cur.realLocation });
-      renderAiView();
-    });
 
     bindPress(document.getElementById('ctDtLoreOverrideRow'), function () {
       var cur = getThreadSettings(activeThreadId);
       setThreadSettings(activeThreadId, { loreOverride: !cur.loreOverride });
-      renderAiView();
+      renderLoreView();
     });
 
     scroll.querySelectorAll('[data-pick-lore]').forEach(function (row) {
@@ -716,7 +862,7 @@
         if (pos === -1) ids.push(bid);
         else ids.splice(pos, 1);
         setThreadSettings(activeThreadId, { loreIds: ids });
-        renderAiView();
+        renderLoreView();
       });
     });
   }
@@ -886,13 +1032,19 @@
 
   function openDetails() {
     if (!ensureDOM()) return;
-    resolveCurrentThread();
+    var t = resolveCurrentThread();
     renderDetailsBody();
     detailsEl.classList.add('is-open');
+    if (t) {
+      var s = getThreadSettings(t.id);
+      if (s.realWeather || s.realLocation) {
+        refreshRealContext(false);
+      }
+    }
   }
 
   function closeDetails() {
-    if (aiEl) aiEl.classList.remove('is-open');
+    if (loreEl) loreEl.classList.remove('is-open');
     if (searchEl) searchEl.classList.remove('is-open');
     if (detailsEl) detailsEl.classList.remove('is-open');
   }
@@ -969,6 +1121,8 @@
 
   window.PhoneChatDetails = {
     getSettings: getThreadSettings,
+    getRealContext: getRealContext,
+    refreshRealContext: refreshRealContext,
     open: openDetails,
     close: closeDetails
   };
