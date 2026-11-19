@@ -6,10 +6,23 @@
   var THREADS_KEY = 'chat_threads_v1';
   var MSGS_PREFIX = 'chat_msgs_v1_';
 
+  var SVG_MUTE_BELL =
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M18 16.5H6c.9-1.1 1.4-2.4 1.4-4V10a4.6 4.6 0 0 1 9.2 0v2.5c0 1.6.5 2.9 1.4 4z"/>' +
+      '<path d="M10.3 19a1.8 1.8 0 0 0 3.4 0"/>' +
+      '<line x1="4" y1="4" x2="20" y2="20"/>' +
+    '</svg>';
+
   var activeThreadId = null;
   var lastContactId = null;
   var detailsEl = null;
   var searchEl = null;
+  var loreEl = null;
+
+  var calYear = new Date().getFullYear();
+  var calMonth = new Date().getMonth();
+  var selectedDateStr = '';
+  var syncingBell = false;
 
   function loadJSON(key, fallback) {
     try {
@@ -26,19 +39,36 @@
     } catch (e) {}
   }
 
+  function defaultSettings() {
+    return {
+      pinned: false,
+      muted: false,
+      hasBg: false,
+      realTime: false,
+      realWeather: false,
+      realLocation: false,
+      loreOverride: false,
+      loreIds: []
+    };
+  }
+
   function getAllSettings() {
     return loadJSON(SETTINGS_KEY, {});
   }
 
   function getThreadSettings(threadId) {
     var all = getAllSettings();
-    return Object.assign({ pinned: false, muted: false, hasBg: false }, all[threadId] || {});
+    var s = Object.assign(defaultSettings(), all[threadId] || {});
+    if (!Array.isArray(s.loreIds)) s.loreIds = [];
+    return s;
   }
 
   function setThreadSettings(threadId, patch) {
     if (!threadId) return;
     var all = getAllSettings();
-    all[threadId] = Object.assign({ pinned: false, muted: false, hasBg: false }, all[threadId] || {}, patch);
+    var merged = Object.assign(defaultSettings(), all[threadId] || {}, patch);
+    if (!Array.isArray(merged.loreIds)) merged.loreIds = [];
+    all[threadId] = merged;
     saveJSON(SETTINGS_KEY, all);
   }
 
@@ -62,6 +92,40 @@
       return window.PhoneArchive.getCharAvatar(charObj.id) || charObj.avatar || '';
     }
     return charObj.avatar || '';
+  }
+
+  function getLorebooks() {
+    try {
+      if (window.PhoneLorebook) {
+        if (typeof window.PhoneLorebook.getBooks === 'function') {
+          var b = window.PhoneLorebook.getBooks();
+          if (Array.isArray(b)) return b;
+        }
+        if (typeof window.PhoneLorebook.getAll === 'function') {
+          var a = window.PhoneLorebook.getAll();
+          if (Array.isArray(a)) return a;
+        }
+        if (typeof window.PhoneLorebook.getList === 'function') {
+          var l = window.PhoneLorebook.getList();
+          if (Array.isArray(l)) return l;
+        }
+      }
+      var keys = ['phone_lorebooks_v1', 'phone_lorebook_v1', 'phone_lorebook_books_v1', 'lorebook_books_v1'];
+      for (var i = 0; i < keys.length; i++) {
+        var arr = loadJSON(keys[i], null);
+        if (Array.isArray(arr) && arr.length) return arr;
+      }
+      for (var j = 0; j < localStorage.length; j++) {
+        var k = localStorage.key(j);
+        if (k && /lore/i.test(k)) {
+          var parsed = loadJSON(k, null);
+          if (Array.isArray(parsed) && parsed.length && (parsed[0].name || parsed[0].title)) {
+            return parsed;
+          }
+        }
+      }
+    } catch (e) {}
+    return [];
   }
 
   function escapeHtml(str) {
@@ -134,6 +198,63 @@
     return null;
   }
 
+  function reorderStoredThreadsByPin() {
+    var list = loadJSON(THREADS_KEY, []);
+    if (!Array.isArray(list) || list.length < 2) return;
+    var all = getAllSettings();
+    var pinned = [];
+    var normal = [];
+    list.forEach(function (t) {
+      if (t && all[t.id] && all[t.id].pinned) pinned.push(t);
+      else normal.push(t);
+    });
+    saveJSON(THREADS_KEY, pinned.concat(normal));
+  }
+
+  function syncPinnedRowsInHomeList() {
+    var flatList = document.querySelector('#ctMainScroll .ct-flat-list');
+    if (!flatList) return;
+    var rows = Array.from(flatList.querySelectorAll('.ct-thread-row[data-thread-id]'));
+    if (!rows.length) return;
+    var all = getAllSettings();
+    var pinnedRows = [];
+    rows.forEach(function (row) {
+      var tid = row.dataset.threadId;
+      var isPinned = !!(tid && all[tid] && all[tid].pinned);
+      row.classList.toggle('is-pinned-row', isPinned);
+      if (isPinned) pinnedRows.push(row);
+    });
+    for (var i = pinnedRows.length - 1; i >= 0; i--) {
+      if (flatList.firstElementChild !== pinnedRows[i]) {
+        flatList.insertBefore(pinnedRows[i], flatList.firstElementChild);
+      }
+    }
+  }
+
+  function syncRoomBell() {
+    if (syncingBell) return;
+    var titleEl = document.getElementById('ctRoomTitle');
+    if (!titleEl) return;
+    var t = resolveCurrentThread();
+    var muted = t ? getThreadSettings(t.id).muted : false;
+    var existing = titleEl.querySelector('.ct-dt-room-bell');
+    syncingBell = true;
+    try {
+      if (muted) {
+        if (!existing) {
+          var span = document.createElement('span');
+          span.className = 'ct-dt-room-bell';
+          span.innerHTML = SVG_MUTE_BELL;
+          titleEl.appendChild(span);
+        }
+      } else if (existing) {
+        existing.remove();
+      }
+    } finally {
+      syncingBell = false;
+    }
+  }
+
   function applyRoomBackground(threadId) {
     var box = document.getElementById('ctRoomMessages');
     if (!box) return;
@@ -165,6 +286,19 @@
     showChatToast._t = setTimeout(function () {
       el.classList.remove('show');
     }, 1800);
+  }
+
+  function getMsgDateStr(m) {
+    if (!m) return '';
+    var ts = 0;
+    if (typeof m.createdAt === 'number') ts = m.createdAt;
+    else if (m.id && /^m-\d{10,}/.test(String(m.id))) {
+      ts = parseInt(String(m.id).slice(2), 10);
+    }
+    if (!ts || isNaN(ts)) return '';
+    var d = new Date(ts);
+    if (isNaN(d.getTime())) return '';
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
 
   function ensureDOM() {
@@ -216,7 +350,7 @@
     if (!document.getElementById('ctDetailsSearchView')) {
       searchEl = document.createElement('div');
       searchEl.id = 'ctDetailsSearchView';
-      searchEl.className = 'ct-dt-search-view';
+      searchEl.className = 'ct-dt-subview';
       searchEl.innerHTML =
         '<div class="ct-details-topbar">' +
           '<div class="ct-details-topbar-left">' +
@@ -239,9 +373,33 @@
         searchEl.classList.remove('is-open');
       });
 
-      document.getElementById('ctDtSearchInput').addEventListener('input', renderSearchResults);
+      document.getElementById('ctDtSearchInput').addEventListener('input', renderSearchView);
     } else {
       searchEl = document.getElementById('ctDetailsSearchView');
+    }
+
+    if (!document.getElementById('ctDetailsLoreView')) {
+      loreEl = document.createElement('div');
+      loreEl.id = 'ctDetailsLoreView';
+      loreEl.className = 'ct-dt-subview';
+      loreEl.innerHTML =
+        '<div class="ct-details-topbar">' +
+          '<div class="ct-details-topbar-left">' +
+            '<button class="ct-details-back" id="ctDtLoreBackBtn" type="button" aria-label="返回">' +
+              '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>' +
+            '</button>' +
+            '<h1 class="ct-details-title">单独挂载世界书</h1>' +
+          '</div>' +
+        '</div>' +
+        '<div class="ct-details-scroll" id="ctDtLoreScroll"></div>';
+      appContainer.appendChild(loreEl);
+
+      bindPress(document.getElementById('ctDtLoreBackBtn'), function () {
+        loreEl.classList.remove('is-open');
+        renderDetailsBody();
+      });
+    } else {
+      loreEl = document.getElementById('ctDetailsLoreView');
     }
 
     return true;
@@ -311,6 +469,10 @@
       if (p && p.name) presetName = p.name;
     }
 
+    var loreSub = settings.loreOverride
+      ? ('已开启 · 已选 ' + settings.loreIds.length + ' 本')
+      : '跟随全局世界书';
+
     var chevronSvg = '<svg class="ct-dt-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>';
 
     scroll.innerHTML =
@@ -324,11 +486,11 @@
       '<div class="ct-dt-card">' +
         '<div class="ct-dt-row" id="ctDtPinRow">' +
           '<div class="ct-dt-row-left"><div class="ct-dt-row-label">置顶聊天</div></div>' +
-          '<button class="ct-dt-switch' + (settings.pinned ? ' is-on' : '') + '" id="ctDtPinSwitch" type="button" aria-label="置顶聊天"><span class="ct-dt-switch-thumb"></span></button>' +
+          '<button class="ct-dt-switch' + (settings.pinned ? ' is-on' : '') + '" type="button" aria-label="置顶聊天"><span class="ct-dt-switch-thumb"></span></button>' +
         '</div>' +
         '<div class="ct-dt-row" id="ctDtMuteRow">' +
           '<div class="ct-dt-row-left"><div class="ct-dt-row-label">消息免打扰</div></div>' +
-          '<button class="ct-dt-switch' + (settings.muted ? ' is-on' : '') + '" id="ctDtMuteSwitch" type="button" aria-label="消息免打扰"><span class="ct-dt-switch-thumb"></span></button>' +
+          '<button class="ct-dt-switch' + (settings.muted ? ' is-on' : '') + '" type="button" aria-label="消息免打扰"><span class="ct-dt-switch-thumb"></span></button>' +
         '</div>' +
         '<div class="ct-dt-row" id="ctDtBgRow">' +
           '<div class="ct-dt-row-left">' +
@@ -344,12 +506,36 @@
         ) : '') +
       '</div>' +
       '<div class="ct-dt-card">' +
+        '<div class="ct-dt-row" id="ctDtRealTimeRow">' +
+          '<div class="ct-dt-row-left">' +
+            '<div class="ct-dt-row-label">感知真实时间</div>' +
+            '<div class="ct-dt-row-sub">开启后聊天记录支持按日期查看</div>' +
+          '</div>' +
+          '<button class="ct-dt-switch' + (settings.realTime ? ' is-on' : '') + '" type="button" aria-label="感知真实时间"><span class="ct-dt-switch-thumb"></span></button>' +
+        '</div>' +
+        '<div class="ct-dt-row" id="ctDtRealWeatherRow">' +
+          '<div class="ct-dt-row-left"><div class="ct-dt-row-label">感知真实天气</div></div>' +
+          '<button class="ct-dt-switch' + (settings.realWeather ? ' is-on' : '') + '" type="button" aria-label="感知真实天气"><span class="ct-dt-switch-thumb"></span></button>' +
+        '</div>' +
+        '<div class="ct-dt-row" id="ctDtRealLocRow">' +
+          '<div class="ct-dt-row-left"><div class="ct-dt-row-label">感知真实地点</div></div>' +
+          '<button class="ct-dt-switch' + (settings.realLocation ? ' is-on' : '') + '" type="button" aria-label="感知真实地点"><span class="ct-dt-switch-thumb"></span></button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ct-dt-card">' +
         '<div class="ct-dt-row">' +
           '<div class="ct-dt-row-left">' +
             '<div class="ct-dt-row-label">当前线上预设</div>' +
             '<div class="ct-dt-row-sub">在「预设」App 中切换</div>' +
           '</div>' +
           '<div class="ct-dt-row-right"><span>' + escapeHtml(presetName) + '</span></div>' +
+        '</div>' +
+        '<div class="ct-dt-row" id="ctDtLoreRow">' +
+          '<div class="ct-dt-row-left">' +
+            '<div class="ct-dt-row-label">启用单独挂载世界书</div>' +
+            '<div class="ct-dt-row-sub">' + escapeHtml(loreSub) + '</div>' +
+          '</div>' +
+          '<div class="ct-dt-row-right">' + chevronSvg + '</div>' +
         '</div>' +
       '</div>' +
       '<div class="ct-dt-card">' +
@@ -367,7 +553,10 @@
           list[idx].name = nextName;
           saveJSON(THREADS_KEY, list);
           var roomTitle = document.getElementById('ctRoomTitle');
-          if (roomTitle) roomTitle.textContent = nextName;
+          if (roomTitle) {
+            roomTitle.textContent = nextName;
+            syncRoomBell();
+          }
           showChatToast('群聊名称已更新');
         }
       });
@@ -376,20 +565,50 @@
     bindPress(document.getElementById('ctDtSearchRow'), function () {
       var inp = document.getElementById('ctDtSearchInput');
       if (inp) inp.value = '';
-      renderSearchResults();
+      selectedDateStr = '';
+      var now = new Date();
+      calYear = now.getFullYear();
+      calMonth = now.getMonth();
+      renderSearchView();
       searchEl.classList.add('is-open');
     });
 
     bindPress(document.getElementById('ctDtPinRow'), function () {
       var cur = getThreadSettings(thread.id);
       setThreadSettings(thread.id, { pinned: !cur.pinned });
+      reorderStoredThreadsByPin();
+      syncPinnedRowsInHomeList();
       renderDetailsBody();
     });
 
     bindPress(document.getElementById('ctDtMuteRow'), function () {
       var cur = getThreadSettings(thread.id);
       setThreadSettings(thread.id, { muted: !cur.muted });
+      syncRoomBell();
       renderDetailsBody();
+    });
+
+    bindPress(document.getElementById('ctDtRealTimeRow'), function () {
+      var cur = getThreadSettings(thread.id);
+      setThreadSettings(thread.id, { realTime: !cur.realTime });
+      renderDetailsBody();
+    });
+
+    bindPress(document.getElementById('ctDtRealWeatherRow'), function () {
+      var cur = getThreadSettings(thread.id);
+      setThreadSettings(thread.id, { realWeather: !cur.realWeather });
+      renderDetailsBody();
+    });
+
+    bindPress(document.getElementById('ctDtRealLocRow'), function () {
+      var cur = getThreadSettings(thread.id);
+      setThreadSettings(thread.id, { realLocation: !cur.realLocation });
+      renderDetailsBody();
+    });
+
+    bindPress(document.getElementById('ctDtLoreRow'), function () {
+      renderLoreView();
+      loreEl.classList.add('is-open');
     });
 
     bindPress(document.getElementById('ctDtBgRow'), function () {
@@ -430,44 +649,197 @@
     });
   }
 
-  function renderSearchResults() {
+  function renderSearchView() {
     var listEl = document.getElementById('ctDtSearchList');
     var inp = document.getElementById('ctDtSearchInput');
     if (!listEl || !activeThreadId) return;
 
+    var settings = getThreadSettings(activeThreadId);
     var kw = inp ? inp.value.trim().toLowerCase() : '';
     var msgs = loadJSON(MSGS_PREFIX + activeThreadId, []);
     if (!Array.isArray(msgs)) msgs = [];
 
-    var filtered = kw
-      ? msgs.filter(function (m) {
-          var txt = String(m.text || m.transcript || '').toLowerCase();
-          return txt.indexOf(kw) !== -1;
-        })
-      : msgs.slice(-20).reverse();
+    var activeDates = {};
+    msgs.forEach(function (m) {
+      var ds = getMsgDateStr(m);
+      if (ds) activeDates[ds] = true;
+    });
 
-    if (!filtered.length) {
-      listEl.innerHTML = '<div class="ct-dt-empty">' + (kw ? '没有找到匹配的聊天记录' : '暂无聊天记录') + '</div>';
-      return;
+    var headerHtml = '';
+    if (settings.realTime) {
+      var firstDay = new Date(calYear, calMonth, 1).getDay();
+      var daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+      var cells = [];
+      for (var e = 0; e < firstDay; e++) {
+        cells.push('<div class="ct-dt-cal-day is-empty"></div>');
+      }
+      for (var d = 1; d <= daysInMonth; d++) {
+        var ds = calYear + '-' + String(calMonth + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+        var hasMsg = !!activeDates[ds];
+        var isSel = selectedDateStr === ds;
+        var cls = 'ct-dt-cal-day' + (hasMsg ? ' has-msg' : ' is-disabled') + (isSel ? ' is-selected' : '');
+        cells.push('<button class="' + cls + '" data-cal-date="' + ds + '" type="button">' + d + '</button>');
+      }
+
+      headerHtml +=
+        '<div class="ct-dt-cal-card">' +
+          '<div class="ct-dt-cal-head">' +
+            '<span class="ct-dt-cal-month">' + calYear + '年' + (calMonth + 1) + '月</span>' +
+            '<div class="ct-dt-cal-nav">' +
+              '<button class="ct-dt-cal-btn" id="ctDtCalPrev" type="button" aria-label="上个月">' +
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>' +
+              '</button>' +
+              '<button class="ct-dt-cal-btn" id="ctDtCalNext" type="button" aria-label="下个月">' +
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>' +
+              '</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="ct-dt-cal-week"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>' +
+          '<div class="ct-dt-cal-grid">' + cells.join('') + '</div>' +
+        '</div>';
+
+      if (selectedDateStr) {
+        headerHtml +=
+          '<div class="ct-dt-date-bar">' +
+            '<span>已筛选：' + escapeHtml(selectedDateStr) + '</span>' +
+            '<button class="ct-dt-date-clear" id="ctDtDateClear" type="button">查看全部</button>' +
+          '</div>';
+      }
+    }
+
+    var filtered = msgs.slice();
+    if (settings.realTime && selectedDateStr) {
+      filtered = filtered.filter(function (m) {
+        return getMsgDateStr(m) === selectedDateStr;
+      });
+    }
+    if (kw) {
+      filtered = filtered.filter(function (m) {
+        var txt = String(m.text || m.transcript || '').toLowerCase();
+        return txt.indexOf(kw) !== -1;
+      });
+    } else if (!selectedDateStr) {
+      filtered = filtered.slice(-30).reverse();
     }
 
     var chars = getArchiveChars();
-    listEl.innerHTML = filtered.map(function (m) {
-      var senderName = '我';
-      if (m.sender !== 'me') {
-        var c = chars.find(function (item) { return item.id === m.charId; });
-        senderName = c ? (c.name || c.nickname || '对方') : '对方';
+    var listHtml = !filtered.length
+      ? '<div class="ct-dt-empty">' + (kw || selectedDateStr ? '没有找到匹配的聊天记录' : '暂无聊天记录') + '</div>'
+      : filtered.map(function (m) {
+          var senderName = '我';
+          if (m.sender !== 'me') {
+            var c = chars.find(function (item) { return item.id === m.charId; });
+            senderName = c ? (c.name || c.nickname || '对方') : '对方';
+          }
+          var dStr = settings.realTime ? getMsgDateStr(m) : '';
+          var timeLabel = dStr ? (dStr.slice(5) + ' ' + (m.time || '')) : (m.time || '');
+          return (
+            '<div class="ct-dt-search-item">' +
+              '<div class="ct-dt-search-meta">' +
+                '<span class="ct-dt-search-sender">' + escapeHtml(senderName) + '</span>' +
+                '<span>' + escapeHtml(timeLabel) + '</span>' +
+              '</div>' +
+              '<div class="ct-dt-search-text">' + escapeHtml(m.text || m.transcript || '') + '</div>' +
+            '</div>'
+          );
+        }).join('');
+
+    listEl.innerHTML = headerHtml + listHtml;
+
+    if (settings.realTime) {
+      var prevBtn = document.getElementById('ctDtCalPrev');
+      var nextBtn = document.getElementById('ctDtCalNext');
+      var clearBtn = document.getElementById('ctDtDateClear');
+      bindPress(prevBtn, function () {
+        calMonth -= 1;
+        if (calMonth < 0) {
+          calMonth = 11;
+          calYear -= 1;
+        }
+        renderSearchView();
+      });
+      bindPress(nextBtn, function () {
+        calMonth += 1;
+        if (calMonth > 11) {
+          calMonth = 0;
+          calYear += 1;
+        }
+        renderSearchView();
+      });
+      if (clearBtn) {
+        bindPress(clearBtn, function () {
+          selectedDateStr = '';
+          renderSearchView();
+        });
       }
-      return (
-        '<div class="ct-dt-search-item">' +
-          '<div class="ct-dt-search-meta">' +
-            '<span class="ct-dt-search-sender">' + escapeHtml(senderName) + '</span>' +
-            '<span>' + escapeHtml(m.time || '') + '</span>' +
+      listEl.querySelectorAll('.ct-dt-cal-day.has-msg').forEach(function (dayBtn) {
+        bindPress(dayBtn, function () {
+          var ds = dayBtn.getAttribute('data-cal-date');
+          selectedDateStr = selectedDateStr === ds ? '' : ds;
+          renderSearchView();
+        });
+      });
+    }
+  }
+
+  function renderLoreView() {
+    var scroll = document.getElementById('ctDtLoreScroll');
+    if (!scroll || !activeThreadId) return;
+
+    var settings = getThreadSettings(activeThreadId);
+    var books = getLorebooks();
+    var checkSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+
+    var booksHtml = !books.length
+      ? '<div class="ct-dt-empty">世界书 App 里还没有世界书</div>'
+      : books.map(function (b, idx) {
+          var bid = String(b.id || b.name || b.title || idx);
+          var bname = b.name || b.title || ('世界书 ' + (idx + 1));
+          var entryCount = Array.isArray(b.entries) ? b.entries.length : 0;
+          var checked = settings.loreIds.indexOf(bid) !== -1;
+          return (
+            '<div class="ct-dt-row" data-pick-lore="' + escapeHtml(bid) + '">' +
+              '<div class="ct-dt-row-left">' +
+                '<div class="ct-dt-row-label">' + escapeHtml(bname) + '</div>' +
+                (entryCount ? '<div class="ct-dt-row-sub">' + entryCount + ' 条设定</div>' : '') +
+              '</div>' +
+              '<span class="ct-dt-check' + (checked ? ' is-checked' : '') + '">' + (checked ? checkSvg : '') + '</span>' +
+            '</div>'
+          );
+        }).join('');
+
+    scroll.innerHTML =
+      '<div class="ct-dt-card">' +
+        '<div class="ct-dt-row" id="ctDtLoreOverrideRow">' +
+          '<div class="ct-dt-row-left">' +
+            '<div class="ct-dt-row-label">启用单独挂载世界书</div>' +
+            '<div class="ct-dt-row-sub">开启后不随全局，仅启用下方勾选的世界书</div>' +
           '</div>' +
-          '<div class="ct-dt-search-text">' + escapeHtml(m.text || m.transcript || '') + '</div>' +
-        '</div>'
-      );
-    }).join('');
+          '<button class="ct-dt-switch' + (settings.loreOverride ? ' is-on' : '') + '" type="button" aria-label="启用单独挂载世界书"><span class="ct-dt-switch-thumb"></span></button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ct-dt-card ct-dt-lore-list-wrap' + (settings.loreOverride ? '' : ' is-disabled') + '">' +
+        booksHtml +
+      '</div>';
+
+    bindPress(document.getElementById('ctDtLoreOverrideRow'), function () {
+      var cur = getThreadSettings(activeThreadId);
+      setThreadSettings(activeThreadId, { loreOverride: !cur.loreOverride });
+      renderLoreView();
+    });
+
+    scroll.querySelectorAll('[data-pick-lore]').forEach(function (row) {
+      bindPress(row, function () {
+        var bid = row.getAttribute('data-pick-lore');
+        var cur = getThreadSettings(activeThreadId);
+        var ids = cur.loreIds.slice();
+        var pos = ids.indexOf(bid);
+        if (pos === -1) ids.push(bid);
+        else ids.splice(pos, 1);
+        setThreadSettings(activeThreadId, { loreIds: ids });
+        renderLoreView();
+      });
+    });
   }
 
   function openDetails() {
@@ -478,15 +850,42 @@
   }
 
   function closeDetails() {
+    if (loreEl) loreEl.classList.remove('is-open');
     if (searchEl) searchEl.classList.remove('is-open');
     if (detailsEl) detailsEl.classList.remove('is-open');
   }
 
+  function setupObservers() {
+    var titleEl = document.getElementById('ctRoomTitle');
+    if (titleEl && !titleEl.dataset.dtObs) {
+      titleEl.dataset.dtObs = '1';
+      var tObs = new MutationObserver(function () {
+        syncRoomBell();
+      });
+      tObs.observe(titleEl, { childList: true });
+    }
+
+    var mainScroll = document.getElementById('ctMainScroll');
+    if (mainScroll && !mainScroll.dataset.dtObs) {
+      mainScroll.dataset.dtObs = '1';
+      var mObs = new MutationObserver(function () {
+        syncPinnedRowsInHomeList();
+      });
+      mObs.observe(mainScroll, { childList: true });
+      syncPinnedRowsInHomeList();
+    }
+  }
+
   document.addEventListener('click', function (e) {
+    setupObservers();
+
     var row = e.target.closest('.ct-row[data-thread-id]');
     if (row) {
       activeThreadId = row.dataset.threadId || null;
-      setTimeout(function () { applyRoomBackground(activeThreadId); }, 30);
+      setTimeout(function () {
+        applyRoomBackground(activeThreadId);
+        syncRoomBell();
+      }, 30);
       return;
     }
 
@@ -498,7 +897,10 @@
 
     if (e.target.closest('#ctProfileMsgBtn') && lastContactId) {
       activeThreadId = 'dm-' + lastContactId;
-      setTimeout(function () { applyRoomBackground(activeThreadId); }, 30);
+      setTimeout(function () {
+        applyRoomBackground(activeThreadId);
+        syncRoomBell();
+      }, 30);
       return;
     }
 
@@ -506,6 +908,7 @@
       closeDetails();
       activeThreadId = null;
       applyRoomBackground(null);
+      setTimeout(syncPinnedRowsInHomeList, 30);
       return;
     }
 
@@ -515,6 +918,12 @@
       openDetails();
     }
   }, true);
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupObservers);
+  } else {
+    setupObservers();
+  }
 
   window.PhoneChatDetails = {
     getSettings: getThreadSettings,
