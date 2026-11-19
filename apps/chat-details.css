@@ -108,7 +108,7 @@
     min-height: 0;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    padding: 8px 16px calc(env(safe-area-inset-bottom, 0px) + 34px);
+    padding: 8px 16px calc(env(safe-area-inset-bottom, 0px) + 36px);
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -137,6 +137,13 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
+    cursor: pointer;
+    transition: background-color 0.16s ease, transform 0.16s cubic-bezier(0.32, 0.72, 0, 1);
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ctd-profile-card.is-pressed {
+    background: #f6f6f8;
 }
 
 .ctd-profile-head {
@@ -330,6 +337,15 @@
     font-weight: 600;
 }
 
+.ctd-row-center {
+    justify-content: center;
+    text-align: center;
+}
+
+.ctd-row-center .ctd-row-title {
+    font-weight: 600;
+}
+
 /* 原生质感开关 */
 .ctd-switch {
     position: relative;
@@ -399,6 +415,87 @@
     background-repeat: no-repeat !important;
 }
 
+/* 二级页表单输入与文本域 */
+.ctd-field-card {
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ctd-field-label {
+    font-size: calc(var(--app-font-size, 15px) - 1.5px);
+    font-weight: 600;
+    color: #1c1c1e;
+}
+
+.ctd-field-desc {
+    font-size: calc(var(--app-font-size, 15px) - 2.5px);
+    color: #8e8e93;
+    line-height: 1.4;
+}
+
+.ctd-input-clean {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #e5e5ea;
+    border-radius: 14px;
+    padding: 11px 14px;
+    font-family: inherit;
+    font-size: var(--app-font-size, 15px);
+    color: #1c1c1e;
+    background: #f9f9fb;
+    outline: none;
+    transition: border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.ctd-input-clean:focus {
+    border-color: #1c1c1e;
+    background: #ffffff;
+}
+
+.ctd-textarea {
+    width: 100%;
+    min-height: 150px;
+    box-sizing: border-box;
+    border: 1px solid #e5e5ea;
+    border-radius: 14px;
+    padding: 12px 14px;
+    font-family: inherit;
+    font-size: var(--app-font-size, 15px);
+    color: #1c1c1e;
+    background: #f9f9fb;
+    line-height: 1.5;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.ctd-textarea:focus {
+    border-color: #1c1c1e;
+    background: #ffffff;
+}
+
+.ctd-primary-btn {
+    width: 100%;
+    border: none;
+    border-radius: 18px;
+    background: #1c1c1e;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: var(--app-font-size, 15px);
+    font-weight: 600;
+    padding: 14px 18px;
+    cursor: pointer;
+    transition: transform 0.16s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.16s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ctd-primary-btn.is-pressed {
+    transform: scale(0.97);
+    opacity: 0.88;
+}
+
 /* 查找聊天记录页 */
 .ctd-search-box {
     background: #ffffff;
@@ -451,7 +548,7 @@
     display: flex;
 }
 
-/* 日历卡片 */
+/* 日历卡片（无圆点，黑色加粗标识有记录日期） */
 .ctd-calendar-wrap {
     flex-shrink: 0;
     transition: opacity 0.26s ease, transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
@@ -519,16 +616,14 @@
 .ctd-cal-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    row-gap: 8px;
+    row-gap: 6px;
 }
 
 .ctd-cal-day {
-    height: 40px;
+    height: 38px;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    position: relative;
     border-radius: 12px;
     font-size: var(--app-font-size, 15px);
     color: #c7c7cc;
@@ -538,7 +633,7 @@
 
 .ctd-cal-day.has-msg {
     color: #1c1c1e;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
 }
 
@@ -550,18 +645,6 @@
 .ctd-cal-day.selected {
     background: #1c1c1e;
     color: #ffffff;
-}
-
-.ctd-cal-dot {
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: #1c1c1e;
-    margin-top: 2px;
-}
-
-.ctd-cal-day.selected .ctd-cal-dot {
-    background: #ffffff;
 }
 
 /* 已选日期胶囊条 */
@@ -599,7 +682,7 @@
     background: #e5e5ea;
 }
 
-/* 消息搜索结果列表 */
+/* 消息搜索结果列表 & 记忆列表 */
 .ctd-msg-list {
     display: flex;
     flex-direction: column;
@@ -723,10 +806,12 @@
     background: #ffffff;
     border-radius: 20px;
     overflow: hidden;
+    max-height: 70vh;
+    overflow-y: auto;
 }
 
 .ctd-sheet-header {
-    padding: 14px 18px 10px;
+    padding: 14px 18px 12px;
     text-align: center;
     border-bottom: 1px solid #f2f2f7;
 }
@@ -742,6 +827,44 @@
     font-size: calc(var(--app-font-size, 15px) - 2.5px);
     color: #8e8e93;
     line-height: 1.4;
+}
+
+.ctd-sheet-check-row {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: #f2f2f7;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ctd-sheet-check-box {
+    width: 18px;
+    height: 18px;
+    border-radius: 6px;
+    border: 1.6px solid #8e8e93;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    transition: all 0.18s ease;
+}
+
+.ctd-sheet-check-row.checked .ctd-sheet-check-box {
+    background: #1c1c1e;
+    border-color: #1c1c1e;
+}
+
+.ctd-sheet-check-text {
+    font-size: calc(var(--app-font-size, 15px) - 1.5px);
+    font-weight: 500;
+    color: #1c1c1e;
 }
 
 .ctd-sheet-btn {
@@ -772,6 +895,10 @@
 
 .ctd-sheet-btn.is-pressed {
     background: #f2f2f7;
+}
+
+.ctd-sheet-btn.selected {
+    font-weight: 700;
 }
 
 .ctd-sheet-btn.danger {
