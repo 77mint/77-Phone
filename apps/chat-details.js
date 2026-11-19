@@ -3,8 +3,9 @@
    - 拦截 #ctRoomMoreBtn，不改动 apps/chat.js / apps/chat.css
    - 包含：资料设置（聊天独立备注/头像）、置顶/免打扰铃铛/聊天背景、
      查找聊天记录（无圆点黑色日期筛选）、天气/地点感知、独立API、
-     专属思维链、专属预设、单独挂载世界书、语言与翻译、语音模型、
-     聊天界面设定、记忆宫殿、拉黑（需确认）、导入导出、清空（含清空记忆勾选项）
+     专属思维链、专属预设、单独挂载世界书、语言与翻译（24种语言含简繁/粤语/沪语）、
+     语音模型（6大入口自动匹配URL + MiniMax国内/国际站 + 第三方）、
+     聊天界面设定、记忆宫殿、拉黑、红字导出/导入、清空（含清空记忆勾选项）
    ========================================================= */
 
 (function () {
@@ -17,9 +18,69 @@
     const API_CONFIG_KEY = 'phone_api_config_v2';
     const API_BUNDLES_KEY = 'phone_api_bundle_presets';
 
-    const LANG_OPTIONS = ['跟随预设', '中文', '英语', '日语', '韩语', '法语', '德语', '西班牙语', '俄语'];
-    const SECOND_LANG_OPTIONS = ['无', '中文', '英语', '日语', '韩语', '法语', '德语', '西班牙语', '俄语'];
-    const TRANS_LANG_OPTIONS = ['中文', '英语', '日语', '韩语', '法语', '德语', '西班牙语'];
+    const BASE_LANGUAGES = [
+        '简体中文', '繁体中文', '粤语', '沪语',
+        '英语', '日语', '韩语', '法语', '德语', '西班牙语',
+        '俄语', '意大利语', '葡萄牙语', '泰语', '越南语',
+        '阿拉伯语', '印尼语', '马来语', '荷兰语', '土耳其语',
+        '波兰语', '瑞典语', '印地语', '拉丁语'
+    ];
+    const LANG_OPTIONS = ['跟随预设'].concat(BASE_LANGUAGES);
+    const SECOND_LANG_OPTIONS = ['无'].concat(BASE_LANGUAGES);
+    const TRANS_LANG_OPTIONS = BASE_LANGUAGES.slice();
+
+    // 6 个语音模型配置预设
+    const VOICE_PROVIDERS = [
+        {
+            id: 'minimax',
+            label: 'MiniMax',
+            cnUrl: 'https://api.minimax.chat/v1/t2a_v2',
+            intlUrl: 'https://api.minimax.io/v1/t2a_v2',
+            defaultModel: 'speech-02-hd',
+            needGroupId: true,
+            voicePlaceholder: '音色 ID（如 male-qn-qingse）'
+        },
+        {
+            id: 'elevenlabs',
+            label: 'ElevenLabs',
+            defaultUrl: 'https://api.elevenlabs.io/v1/text-to-speech/{voice_id}',
+            defaultModel: 'eleven_multilingual_v2',
+            needGroupId: false,
+            voicePlaceholder: 'Voice ID'
+        },
+        {
+            id: 'fish',
+            label: 'Fish Audio',
+            defaultUrl: 'https://api.fish.audio/v1/tts',
+            defaultModel: 's2-pro',
+            needGroupId: false,
+            voicePlaceholder: 'Reference ID / 模型音色 ID'
+        },
+        {
+            id: 'openai',
+            label: 'OpenAI',
+            defaultUrl: 'https://api.openai.com/v1/audio/speech',
+            defaultModel: 'gpt-4o-mini-tts',
+            needGroupId: false,
+            voicePlaceholder: '音色名（如 coral / nova / alloy）'
+        },
+        {
+            id: 'siliconflow',
+            label: '硅基流动',
+            defaultUrl: 'https://api.siliconflow.cn/v1/audio/speech',
+            defaultModel: 'FunAudioLLM/CosyVoice2-0.5B',
+            needGroupId: false,
+            voicePlaceholder: '音色 URI 或系统音色名'
+        },
+        {
+            id: 'custom',
+            label: '第三方',
+            defaultUrl: '',
+            defaultModel: '',
+            needGroupId: false,
+            voicePlaceholder: '音色 ID / 名称'
+        }
+    ];
 
     let currentThreadId = null;
     let overlayEl = null;
@@ -28,7 +89,6 @@
     let toastEl = null;
     let toastTimer = null;
 
-    // 内存缓存聊天专属头像，避免频繁读取 IndexedDB 闪烁
     const customAvatarCache = new Map();
 
     // 查找聊天记录状态
@@ -89,7 +149,7 @@
 
     function bindAllPressed(root) {
         if (!root) return;
-        root.querySelectorAll('.ctd-back-btn, .ctd-profile-card, .ctd-row:not(.ctd-row-static), .ctd-switch, .ctd-cal-nav-btn, .ctd-cal-day.has-msg, .ctd-date-pill-clear, .ctd-msg-item, .ctd-sheet-btn, .ctd-modal-btn, .ctd-primary-btn').forEach(bindPressed);
+        root.querySelectorAll('.ctd-back-btn, .ctd-profile-card, .ctd-row:not(.ctd-row-static), .ctd-switch, .ctd-cal-nav-btn, .ctd-cal-day.has-msg, .ctd-date-pill-clear, .ctd-msg-item, .ctd-sheet-btn, .ctd-modal-btn, .ctd-primary-btn, .ctd-provider-pill, .ctd-region-btn').forEach(bindPressed);
     }
 
     function showToast(msg) {
@@ -128,10 +188,16 @@
             autoTranslate: false,
             charOutputLang: '跟随预设',
             charSecondLang: '无',
-            translateLang: '中文',
+            translateLang: '简体中文',
             voiceEnabled: false,
             voiceAutoPlay: false,
             voiceEmotionTag: false,
+            voiceProvider: 'minimax',
+            voiceMinimaxRegion: 'cn',
+            voiceApiUrl: 'https://api.minimax.chat/v1/t2a_v2',
+            voiceApiKey: '',
+            voiceGroupId: '',
+            voiceModel: 'speech-02-hd',
             voiceVoiceId: '',
             voiceSpeed: '1.0',
             chatTheme: 'default',
@@ -147,6 +213,10 @@
         all[threadId] = next;
         saveJSON(SETTINGS_KEY, all);
         return next;
+    }
+
+    function getProviderMeta(id) {
+        return VOICE_PROVIDERS.find(p => p.id === id) || VOICE_PROVIDERS[0];
     }
 
     function getThreads() {
@@ -275,7 +345,7 @@
         if (!settings || !settings.apiBundleId) return '跟随全局';
         const list = getAvailableApiBundles();
         const found = list.find(b => b.id === settings.apiBundleId);
-        return found ? (found.name || '已指定配置') : '跟随全局';
+        return found ? (found.name || '已指定') : '跟随全局';
     }
 
     function getAvailableOnlinePresets() {
@@ -468,7 +538,7 @@
         return nextCache;
     }
 
-    /* ---------------- 聊天界面同步（置顶 / 免打扰 / 备注 / 头像 / 背景） ---------------- */
+    /* ---------------- 聊天界面同步 ---------------- */
     function sortThreadsByPin() {
         const allSettings = getAllSettings();
         const threads = loadJSON(THREADS_KEY, []);
@@ -511,11 +581,8 @@
                 const avBox = row.querySelector('.ct-avatar');
                 if (avData && avBox) {
                     let img = avBox.querySelector('img');
-                    if (!img) {
-                        avBox.innerHTML = `<img src="${escapeHtml(avData)}" alt="">`;
-                    } else if (img.src !== avData) {
-                        img.src = avData;
-                    }
+                    if (!img) avBox.innerHTML = `<img src="${escapeHtml(avData)}" alt="">`;
+                    else if (img.src !== avData) img.src = avData;
                 }
             }
         }
@@ -575,11 +642,8 @@
 
         msgBox.querySelectorAll('.ct-msg-row:not(.me) .ct-msg-avatar').forEach(avBox => {
             let img = avBox.querySelector('img');
-            if (!img) {
-                avBox.innerHTML = `<img src="${escapeHtml(avData)}" alt="">`;
-            } else if (img.src !== avData) {
-                img.src = avData;
-            }
+            if (!img) avBox.innerHTML = `<img src="${escapeHtml(avData)}" alt="">`;
+            else if (img.src !== avData) img.src = avData;
         });
     }
 
@@ -630,20 +694,22 @@
         return null;
     }
 
-    /* ---------------- 弹窗与动作菜单 ---------------- */
-    function openActionSheet({ title, desc, checkboxLabel, actions }) {
+    /* ---------------- 弹窗与动作菜单（支持搜索过滤 & 复选框） ---------------- */
+    function openActionSheet({ title, desc, checkboxLabel, searchable, actions }) {
         const backdrop = document.createElement('div');
         backdrop.className = 'ctd-sheet-backdrop';
         let isChecked = false;
-
-        const actionsHtml = actions.map((a, idx) => `
-            <button type="button" class="ctd-sheet-btn ${a.danger ? 'danger' : ''} ${a.selected ? 'selected' : ''}" data-idx="${idx}">${escapeHtml(a.label)}</button>
-        `).join('');
 
         const checkHtml = checkboxLabel ? `
             <div class="ctd-sheet-check-row" id="ctdSheetCheckRow">
                 <div class="ctd-sheet-check-box">${SVG_CHECK}</div>
                 <span class="ctd-sheet-check-text">${escapeHtml(checkboxLabel)}</span>
+            </div>
+        ` : '';
+
+        const searchHtml = searchable ? `
+            <div class="ctd-sheet-search-wrap">
+                <input type="text" class="ctd-sheet-search-input" id="ctdSheetSearchInput" placeholder="搜索语言...">
             </div>
         ` : '';
 
@@ -657,7 +723,8 @@
                             ${checkHtml}
                         </div>
                     ` : ''}
-                    ${actionsHtml}
+                    ${searchHtml}
+                    <div class="ctd-sheet-list" id="ctdSheetList"></div>
                 </div>
                 <div class="ctd-sheet-group">
                     <button type="button" class="ctd-sheet-btn cancel" data-cancel="1">取消</button>
@@ -665,9 +732,32 @@
             </div>
         `;
 
+        const listBox = backdrop.querySelector('#ctdSheetList');
+        function renderList(filterText) {
+            const kw = (filterText || '').trim().toLowerCase();
+            const items = actions
+                .map((a, idx) => ({ a, idx }))
+                .filter(({ a }) => !kw || a.label.toLowerCase().includes(kw));
+
+            if (!items.length) {
+                listBox.innerHTML = `<div class="ctd-empty-hint" style="padding:16px;">无匹配项</div>`;
+                return;
+            }
+            listBox.innerHTML = items.map(({ a, idx }) => `
+                <button type="button" class="ctd-sheet-btn ${a.danger ? 'danger' : ''} ${a.selected ? 'selected' : ''}" data-idx="${idx}">${escapeHtml(a.label)}</button>
+            `).join('');
+            bindAllPressed(listBox);
+        }
+
+        renderList('');
         document.body.appendChild(backdrop);
         bindAllPressed(backdrop);
         requestAnimationFrame(() => backdrop.classList.add('open'));
+
+        const searchInput = backdrop.querySelector('#ctdSheetSearchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', () => renderList(searchInput.value));
+        }
 
         const checkRow = backdrop.querySelector('#ctdSheetCheckRow');
         if (checkRow) {
@@ -839,7 +929,7 @@
         const displayName = getDisplayName(thread, settings);
         const customAv = settings.hasCustomAvatar ? await loadCustomAvatar(currentThreadId) : '';
 
-        // 1. 资料卡（带 > 进二级页改备注、改头像）
+        // 1. 资料卡
         let profileHtml = '';
         if (isGroup) {
             const memberIds = Array.isArray(thread.memberIds) ? thread.memberIds : [];
@@ -861,7 +951,7 @@
                         <div class="ctd-avatar-lg">${customAv ? `<img src="${escapeHtml(customAv)}" alt="">` : SVG_GROUP}</div>
                         <div class="ctd-profile-info">
                             <div class="ctd-profile-name">${escapeHtml(displayName)}</div>
-                            <div class="ctd-profile-sub">共 ${memberIds.length} 位成员 · 修改备注与头像</div>
+                            <div class="ctd-profile-sub">共 ${memberIds.length} 位成员</div>
                         </div>
                         <div class="ctd-chevron">${SVG_CHEVRON}</div>
                     </div>
@@ -878,7 +968,7 @@
                         <div class="ctd-avatar-lg">${av ? `<img src="${escapeHtml(av)}" alt="">` : escapeHtml(fallbackChar)}</div>
                         <div class="ctd-profile-info">
                             <div class="ctd-profile-name">${escapeHtml(displayName)}</div>
-                            <div class="ctd-profile-sub">${settings.remark ? '已设置聊天备注 · 点击编辑' : '点击修改聊天备注与头像'}</div>
+                            <div class="ctd-profile-sub">备注与头像</div>
                         </div>
                         <div class="ctd-chevron">${SVG_CHEVRON}</div>
                     </div>
@@ -911,7 +1001,7 @@
             </div>
         `;
 
-        // 3. 查找聊天记录（位于感知真实天气上方）
+        // 3. 查找聊天记录
         const searchCardHtml = `
             <div class="ctd-card">
                 <div class="ctd-row" id="ctdSearchEntryRow">
@@ -921,20 +1011,16 @@
             </div>
         `;
 
-        // 4. 感知真实天气 & 地点
-        const weatherSub = settings.realWeather
-            ? (cache.weatherText ? `当前同步：${cache.weatherText}` : '正在同步实时天气信息...')
-            : '开启后将同步当前所在地区的实时天气';
-        const locationSub = settings.realLocation
-            ? (cache.locationText ? `当前同步：${cache.locationText}` : '正在同步实时位置信息...')
-            : '开启后将同步当前所在城市与位置信息';
+        // 4. 感知真实天气 & 地点（开启时仅显示简短同步结果）
+        const weatherSub = settings.realWeather ? (cache.weatherText || '同步中...') : '';
+        const locationSub = settings.realLocation ? (cache.locationText || '同步中...') : '';
 
         const realEnvCardHtml = `
             <div class="ctd-card">
                 <div class="ctd-row ctd-row-static">
                     <div class="ctd-row-left">
                         <div class="ctd-row-title">感知真实天气</div>
-                        <div class="ctd-row-sub">${escapeHtml(weatherSub)}</div>
+                        ${weatherSub ? `<div class="ctd-row-sub">${escapeHtml(weatherSub)}</div>` : ''}
                     </div>
                     <div class="ctd-row-right">
                         <button type="button" class="ctd-switch ${settings.realWeather ? 'on' : ''}" id="ctdWeatherSwitch" aria-label="感知真实天气"></button>
@@ -943,7 +1029,7 @@
                 <div class="ctd-row ctd-row-static">
                     <div class="ctd-row-left">
                         <div class="ctd-row-title">感知真实地点</div>
-                        <div class="ctd-row-sub">${escapeHtml(locationSub)}</div>
+                        ${locationSub ? `<div class="ctd-row-sub">${escapeHtml(locationSub)}</div>` : ''}
                     </div>
                     <div class="ctd-row-right">
                         <button type="button" class="ctd-switch ${settings.realLocation ? 'on' : ''}" id="ctdLocationSwitch" aria-label="感知真实地点"></button>
@@ -952,14 +1038,11 @@
             </div>
         `;
 
-        // 5. 独立 API（在真实天气下面）
+        // 5. 独立 API
         const apiCardHtml = `
             <div class="ctd-card">
                 <div class="ctd-row" id="ctdApiEntryRow">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">独立 API</div>
-                        <div class="ctd-row-sub">为当前对话单独指定模型接口方案</div>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">独立 API</div></div>
                     <div class="ctd-row-right">
                         <span class="ctd-row-value">${escapeHtml(getApiDisplayLabel(settings))}</span>
                         <span class="ctd-chevron">${SVG_CHEVRON}</span>
@@ -969,7 +1052,7 @@
         `;
 
         // 6. 专属思维链 / 专属预设 / 单独挂载世界书
-        const cotLabel = settings.cotShow ? '已开启显示' : (settings.cotCustom ? '已自定义' : '默认');
+        const cotLabel = settings.cotShow ? '已开启' : (settings.cotCustom ? '已自定义' : '默认');
         const presetInfo = getPresetDisplayInfo(settings);
         const loreCount = Array.isArray(settings.loreIds) ? settings.loreIds.length : 0;
         const loreStatusText = settings.loreOverride ? `已选 ${loreCount} 本` : '跟随全局';
@@ -977,30 +1060,21 @@
         const coreCardHtml = `
             <div class="ctd-card">
                 <div class="ctd-row" id="ctdCotEntryRow">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">专属思维链</div>
-                        <div class="ctd-row-sub">控制思维链展示与自定义思考引导</div>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">专属思维链</div></div>
                     <div class="ctd-row-right">
                         <span class="ctd-row-value">${escapeHtml(cotLabel)}</span>
                         <span class="ctd-chevron">${SVG_CHEVRON}</span>
                     </div>
                 </div>
                 <div class="ctd-row" id="ctdPresetEntryRow">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">专属预设</div>
-                        <div class="ctd-row-sub">仅对当前对话生效，支持单选指定</div>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">专属预设</div></div>
                     <div class="ctd-row-right">
                         <span class="ctd-row-value">${escapeHtml(presetInfo.label)}</span>
                         <span class="ctd-chevron">${SVG_CHEVRON}</span>
                     </div>
                 </div>
                 <div class="ctd-row" id="ctdLoreEntryRow">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">单独挂载世界书</div>
-                        <div class="ctd-row-sub">开启后仅启用已勾选的世界书</div>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">单独挂载世界书</div></div>
                     <div class="ctd-row-right">
                         <span class="ctd-row-value">${escapeHtml(loreStatusText)}</span>
                         <span class="ctd-chevron">${SVG_CHEVRON}</span>
@@ -1013,10 +1087,7 @@
         const langCardHtml = `
             <div class="ctd-card">
                 <div class="ctd-row ctd-row-static">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">自动展开翻译</div>
-                        <div class="ctd-row-sub">收到外语消息时自动附带译文展示</div>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">自动展开翻译</div></div>
                     <div class="ctd-row-right">
                         <button type="button" class="ctd-switch ${settings.autoTranslate ? 'on' : ''}" id="ctdAutoTransSwitch" aria-label="自动展开翻译"></button>
                     </div>
@@ -1038,27 +1109,31 @@
                 <div class="ctd-row" id="ctdTransLangRow">
                     <div class="ctd-row-left"><div class="ctd-row-title">翻译语言</div></div>
                     <div class="ctd-row-right">
-                        <span class="ctd-row-value">${escapeHtml(settings.translateLang || '中文')}</span>
+                        <span class="ctd-row-value">${escapeHtml(settings.translateLang || '简体中文')}</span>
                         <span class="ctd-chevron">${SVG_CHEVRON}</span>
                     </div>
                 </div>
             </div>
         `;
 
-        // 8. 语音模型 & 聊天界面设定
-        const voiceStatus = settings.voiceEnabled ? (settings.voiceAutoPlay ? '自动播放' : '已开启') : '未开启';
-        const voiceUiCardHtml = `
+        // 8. 启用语音模型（独立小卡片）
+        const providerMeta = getProviderMeta(settings.voiceProvider);
+        const voiceStatus = settings.voiceEnabled ? providerMeta.label : '未开启';
+        const voiceCardHtml = `
             <div class="ctd-card">
                 <div class="ctd-row" id="ctdVoiceEntryRow">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">启用语音模型</div>
-                        <div class="ctd-row-sub">配置语音合成、自动播放与情绪标注</div>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">启用语音模型</div></div>
                     <div class="ctd-row-right">
                         <span class="ctd-row-value">${escapeHtml(voiceStatus)}</span>
                         <span class="ctd-chevron">${SVG_CHEVRON}</span>
                     </div>
                 </div>
+            </div>
+        `;
+
+        // 9. 聊天界面设定（独立小卡片）
+        const themeCardHtml = `
+            <div class="ctd-card">
                 <div class="ctd-row" id="ctdThemeEntryRow">
                     <div class="ctd-row-left"><div class="ctd-row-title">聊天界面设定</div></div>
                     <div class="ctd-row-right">
@@ -1069,15 +1144,12 @@
             </div>
         `;
 
-        // 9. 记忆宫殿
+        // 10. 记忆宫殿
         const memCount = getCharMemories(thread).length;
         const memoryCardHtml = `
             <div class="ctd-card">
                 <div class="ctd-row" id="ctdMemoryEntryRow">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">记忆宫殿</div>
-                        <div class="ctd-row-sub">查看并管理该角色的长期记忆档案</div>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">记忆宫殿</div></div>
                     <div class="ctd-row-right">
                         <span class="ctd-row-value">${memCount ? `${memCount} 条` : '暂无'}</span>
                         <span class="ctd-chevron">${SVG_CHEVRON}</span>
@@ -1086,7 +1158,7 @@
             </div>
         `;
 
-        // 10. 拉黑（位于导出入与清空之前）
+        // 11. 拉黑
         const blockCardHtml = `
             <div class="ctd-card">
                 <div class="ctd-row ${settings.blocked ? 'ctd-row-center' : 'ctd-row-danger'}" id="ctdBlockRow">
@@ -1095,21 +1167,19 @@
             </div>
         `;
 
-        // 11. 导出 / 导入聊天记录
+        // 12. 导出 / 导入聊天记录（合卡居中红字）
         const ioCardHtml = `
             <div class="ctd-card">
-                <div class="ctd-row" id="ctdExportRow">
-                    <div class="ctd-row-left"><div class="ctd-row-title">导出聊天记录</div></div>
-                    <div class="ctd-row-right"><span class="ctd-chevron">${SVG_CHEVRON}</span></div>
+                <div class="ctd-row ctd-row-danger" id="ctdExportRow">
+                    <div class="ctd-row-title">导出聊天记录</div>
                 </div>
-                <div class="ctd-row" id="ctdImportRow">
-                    <div class="ctd-row-left"><div class="ctd-row-title">导入聊天记录</div></div>
-                    <div class="ctd-row-right"><span class="ctd-chevron">${SVG_CHEVRON}</span></div>
+                <div class="ctd-row ctd-row-danger" id="ctdImportRow">
+                    <div class="ctd-row-title">导入聊天记录</div>
                 </div>
             </div>
         `;
 
-        // 12. 清空聊天记录（最底下，弹窗附带清空记忆勾选项）
+        // 13. 清空聊天记录（最底下）
         const clearCardHtml = `
             <div class="ctd-card">
                 <div class="ctd-row ctd-row-danger" id="ctdClearChatRow">
@@ -1120,8 +1190,8 @@
 
         scrollEl.innerHTML =
             profileHtml + basicCardHtml + searchCardHtml + realEnvCardHtml +
-            apiCardHtml + coreCardHtml + langCardHtml + voiceUiCardHtml +
-            memoryCardHtml + blockCardHtml + ioCardHtml + clearCardHtml;
+            apiCardHtml + coreCardHtml + langCardHtml + voiceCardHtml +
+            themeCardHtml + memoryCardHtml + blockCardHtml + ioCardHtml + clearCardHtml;
 
         bindAllPressed(scrollEl);
         bindMainViewEvents(thread);
@@ -1198,7 +1268,7 @@
                     renderMainView();
                     showToast('已开启实时天气感知');
                 } catch (err) {
-                    showToast('未能获取天气信息，请检查网络或定位权限');
+                    showToast('未能获取天气信息');
                 }
             } else {
                 renderMainView();
@@ -1220,7 +1290,7 @@
                     renderMainView();
                     showToast('已开启实时地点感知');
                 } catch (err) {
-                    showToast('未能获取位置信息，请检查定位权限');
+                    showToast('未能获取位置信息');
                 }
             } else {
                 renderMainView();
@@ -1261,6 +1331,7 @@
             const cur = getThreadSettings(currentThreadId);
             openActionSheet({
                 title: '选择角色输出语言',
+                searchable: true,
                 actions: LANG_OPTIONS.map(lang => ({
                     label: lang + (cur.charOutputLang === lang ? ' ✓' : ''),
                     selected: cur.charOutputLang === lang,
@@ -1276,6 +1347,7 @@
             const cur = getThreadSettings(currentThreadId);
             openActionSheet({
                 title: '选择角色第二语言',
+                searchable: true,
                 actions: SECOND_LANG_OPTIONS.map(lang => ({
                     label: lang + (cur.charSecondLang === lang ? ' ✓' : ''),
                     selected: cur.charSecondLang === lang,
@@ -1290,7 +1362,8 @@
         document.getElementById('ctdTransLangRow').addEventListener('click', () => {
             const cur = getThreadSettings(currentThreadId);
             openActionSheet({
-                title: '选择翻译目标语言',
+                title: '选择翻译语言',
+                searchable: true,
                 actions: TRANS_LANG_OPTIONS.map(lang => ({
                     label: lang + (cur.translateLang === lang ? ' ✓' : ''),
                     selected: cur.translateLang === lang,
@@ -1378,7 +1451,7 @@
         });
     }
 
-    /* ---------------- 二级页：资料设置（改备注 / 改头像） ---------------- */
+    /* ---------------- 二级页：资料设置 ---------------- */
     async function renderProfileSubView() {
         const scrollEl = document.getElementById('ctdProfileScroll');
         if (!scrollEl || !currentThreadId) return;
@@ -1393,20 +1466,14 @@
         scrollEl.innerHTML = `
             <div class="ctd-card">
                 <div class="ctd-row" id="ctdSubRemarkRow">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">${isGroup ? '群聊名称 / 备注' : '修改备注'}</div>
-                        <div class="ctd-row-sub">仅在当前聊天界面生效，不影响档案原资料</div>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">${isGroup ? '群聊备注' : '修改备注'}</div></div>
                     <div class="ctd-row-right">
                         <span class="ctd-row-value">${escapeHtml(settings.remark || displayName)}</span>
                         <span class="ctd-chevron">${SVG_CHEVRON}</span>
                     </div>
                 </div>
                 <div class="ctd-row" id="ctdSubAvatarRow">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">修改头像</div>
-                        <div class="ctd-row-sub">仅在当前聊天界面生效</div>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">修改头像</div></div>
                     <div class="ctd-row-right">
                         <div class="ctd-member-av" style="width:34px;height:34px;border-radius:9px;">
                             ${av ? `<img src="${escapeHtml(av)}" alt="">` : escapeHtml(displayName.slice(0, 1))}
@@ -1428,7 +1495,7 @@
                     syncRoomTitleAndBellUI();
                     syncHomeListUI();
                     renderProfileSubView();
-                    showToast(val ? '聊天备注已更新' : '已恢复默认名称');
+                    showToast(val ? '备注已更新' : '已恢复默认名称');
                 }
             });
         });
@@ -1437,10 +1504,7 @@
             openActionSheet({
                 title: '修改聊天头像',
                 actions: [
-                    {
-                        label: '从相册选择头像',
-                        onClick: () => pickCustomAvatar()
-                    },
+                    { label: '从相册选择头像', onClick: () => pickCustomAvatar() },
                     {
                         label: '恢复默认头像',
                         onClick: async () => {
@@ -1478,7 +1542,7 @@
                 syncHomeListUI();
                 syncRoomCustomAvatarsUI();
                 renderProfileSubView();
-                showToast('聊天头像已更新');
+                showToast('头像已更新');
             };
             reader.readAsDataURL(file);
         };
@@ -1496,10 +1560,7 @@
         const followHtml = `
             <div class="ctd-card">
                 <div class="ctd-row" id="ctdApiFollowGlobalRow">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">跟随全局 API</div>
-                        <div class="ctd-row-sub">默认使用「API」App 中的当前主力配置</div>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">跟随全局 API</div></div>
                     <div class="ctd-row-right">
                         <div class="ctd-check-circle ${!selectedId ? 'checked' : ''}">${!selectedId ? SVG_CHECK : ''}</div>
                     </div>
@@ -1509,7 +1570,7 @@
 
         let listHtml = '';
         if (!bundles.length) {
-            listHtml = `<div class="ctd-empty-hint">暂无已保存的配置组，可在「API」App 中保存配置组后在此选择</div>`;
+            listHtml = `<div class="ctd-empty-hint">暂无已保存的配置组，请先在「API」中添加</div>`;
         } else {
             const rowsHtml = bundles.map(b => {
                 const isSel = selectedId === b.id;
@@ -1517,7 +1578,7 @@
                     <div class="ctd-row ctd-api-bundle-row" data-bundle-id="${escapeHtml(b.id)}">
                         <div class="ctd-row-left">
                             <div class="ctd-row-title">${escapeHtml(b.name || '未命名配置')}</div>
-                            <div class="ctd-row-sub">${escapeHtml(b.model || b.endpoint || '自定义接口方案')}</div>
+                            ${b.model ? `<div class="ctd-row-sub">${escapeHtml(b.model)}</div>` : ''}
                         </div>
                         <div class="ctd-row-right">
                             <div class="ctd-check-circle ${isSel ? 'checked' : ''}">${isSel ? SVG_CHECK : ''}</div>
@@ -1525,10 +1586,7 @@
                     </div>
                 `;
             }).join('');
-            listHtml = `
-                <div class="ctd-section-label">指定独立配置（单选）</div>
-                <div class="ctd-card">${rowsHtml}</div>
-            `;
+            listHtml = `<div class="ctd-section-label">独立配置（单选）</div><div class="ctd-card">${rowsHtml}</div>`;
         }
 
         scrollEl.innerHTML = followHtml + listHtml;
@@ -1539,12 +1597,11 @@
             renderApiSubView();
             showToast('已恢复跟随全局 API');
         });
-
         scrollEl.querySelectorAll('.ctd-api-bundle-row').forEach(row => {
             row.addEventListener('click', () => {
                 updateThreadSettings(currentThreadId, { apiBundleId: row.dataset.bundleId || '' });
                 renderApiSubView();
-                showToast('已指定当前对话 API');
+                showToast('已指定独立 API');
             });
         });
     }
@@ -1558,21 +1615,17 @@
         scrollEl.innerHTML = `
             <div class="ctd-card">
                 <div class="ctd-row ctd-row-static">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">显示思维链</div>
-                        <div class="ctd-row-sub">开启后将在对话中展示模型的思考过程</div>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">显示思维链</div></div>
                     <div class="ctd-row-right">
                         <button type="button" class="ctd-switch ${settings.cotShow ? 'on' : ''}" id="ctdCotShowSwitch" aria-label="显示思维链"></button>
                     </div>
                 </div>
             </div>
             <div class="ctd-card ctd-field-card">
-                <div class="ctd-field-label">自定义思维链引导词</div>
-                <div class="ctd-field-desc">为当前对话补充专属思考步骤要求，留空则跟随预设默认设置</div>
+                <div class="ctd-field-label">自定义思维链</div>
                 <textarea class="ctd-textarea" id="ctdCotTextarea" placeholder="输入自定义思维链内容...">${escapeHtml(settings.cotCustom || '')}</textarea>
             </div>
-            <button type="button" class="ctd-primary-btn" id="ctdCotSaveBtn">保存思维链设置</button>
+            <button type="button" class="ctd-primary-btn" id="ctdCotSaveBtn">保存</button>
         `;
         bindAllPressed(scrollEl);
 
@@ -1588,53 +1641,80 @@
         document.getElementById('ctdCotSaveBtn').addEventListener('click', () => {
             const val = document.getElementById('ctdCotTextarea').value.trim();
             updateThreadSettings(currentThreadId, { cotCustom: val });
-            showToast('专属思维链已保存');
+            showToast('已保存思维链设置');
         });
     }
 
-    /* ---------------- 二级页：启用语音模型 ---------------- */
+    /* ---------------- 二级页：启用语音模型（6口子自动匹配 + MiniMax国内/国际站 + 第三方） ---------------- */
     function renderVoiceSubView() {
         const scrollEl = document.getElementById('ctdVoiceScroll');
         if (!scrollEl || !currentThreadId) return;
         const settings = getThreadSettings(currentThreadId);
+        const provider = getProviderMeta(settings.voiceProvider);
+        const region = settings.voiceMinimaxRegion || 'cn';
+
+        const providerGridHtml = VOICE_PROVIDERS.map(p => `
+            <button type="button" class="ctd-provider-pill ${p.id === provider.id ? 'active' : ''}" data-provider="${p.id}">${escapeHtml(p.label)}</button>
+        `).join('');
+
+        const regionHtml = provider.id === 'minimax' ? `
+            <div class="ctd-region-bar">
+                <button type="button" class="ctd-region-btn ${region === 'cn' ? 'active' : ''}" data-mm-region="cn">国内站</button>
+                <button type="button" class="ctd-region-btn ${region === 'intl' ? 'active' : ''}" data-mm-region="intl">国际站</button>
+            </div>
+        ` : '';
+
+        const groupIdHtml = provider.needGroupId ? `
+            <div class="ctd-input-label">Group ID</div>
+            <input type="text" class="ctd-input-clean" id="ctdVoiceGroupInput" placeholder="输入 MiniMax Group ID" value="${escapeHtml(settings.voiceGroupId || '')}">
+        ` : '';
 
         scrollEl.innerHTML = `
             <div class="ctd-card">
                 <div class="ctd-row ctd-row-static">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">打开语音模型</div>
-                        <div class="ctd-row-sub">开启后支持将角色回复合成为语音消息</div>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">允许发送语音</div></div>
                     <div class="ctd-row-right">
-                        <button type="button" class="ctd-switch ${settings.voiceEnabled ? 'on' : ''}" id="ctdVoiceEnableSw" aria-label="打开语音模型"></button>
+                        <button type="button" class="ctd-switch ${settings.voiceEnabled ? 'on' : ''}" id="ctdVoiceEnableSw" aria-label="允许发送语音"></button>
                     </div>
                 </div>
                 <div class="ctd-row ctd-row-static">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">自动播放</div>
-                        <div class="ctd-row-sub">收到新语音时自动播放音频</div>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">自动播放</div></div>
                     <div class="ctd-row-right">
                         <button type="button" class="ctd-switch ${settings.voiceAutoPlay ? 'on' : ''}" id="ctdVoiceAutoSw" aria-label="自动播放"></button>
                     </div>
                 </div>
                 <div class="ctd-row ctd-row-static">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">自动标注情绪</div>
-                        <div class="ctd-row-sub">合成前自动匹配语气与情绪标签</div>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">自动标注情绪</div></div>
                     <div class="ctd-row-right">
                         <button type="button" class="ctd-switch ${settings.voiceEmotionTag ? 'on' : ''}" id="ctdVoiceEmotionSw" aria-label="自动标注情绪"></button>
                     </div>
                 </div>
             </div>
+
             <div class="ctd-card ctd-field-card">
-                <div class="ctd-field-label">语音模型配置</div>
-                <div class="ctd-field-desc">填写当前角色专属音色 ID（Voice ID）与语速，接口密钥统一读取「API」App 中的 TTS 配置</div>
-                <input type="text" class="ctd-input-clean" id="ctdVoiceIdInput" placeholder="音色 ID（留空使用全局默认）" value="${escapeHtml(settings.voiceVoiceId || '')}">
-                <input type="text" class="ctd-input-clean" id="ctdVoiceSpeedInput" placeholder="语速（默认 1.0）" value="${escapeHtml(settings.voiceSpeed || '1.0')}">
+                <div class="ctd-field-label">模型配置</div>
+                <div class="ctd-provider-grid">${providerGridHtml}</div>
+                ${regionHtml}
+
+                <div class="ctd-input-label">接口地址（支持直接修改为第三方中转）</div>
+                <input type="text" class="ctd-input-clean" id="ctdVoiceUrlInput" placeholder="https://..." value="${escapeHtml(settings.voiceApiUrl || '')}">
+
+                <div class="ctd-input-label">API Key</div>
+                <input type="password" class="ctd-input-clean" id="ctdVoiceKeyInput" placeholder="输入 API Key" value="${escapeHtml(settings.voiceApiKey || '')}">
+
+                ${groupIdHtml}
+
+                <div class="ctd-input-label">模型名称</div>
+                <input type="text" class="ctd-input-clean" id="ctdVoiceModelInput" placeholder="输入模型名" value="${escapeHtml(settings.voiceModel || '')}">
+
+                <div class="ctd-input-label">音色 ID</div>
+                <input type="text" class="ctd-input-clean" id="ctdVoiceIdInput" placeholder="${escapeHtml(provider.voicePlaceholder)}" value="${escapeHtml(settings.voiceVoiceId || '')}">
+
+                <div class="ctd-input-label">语速</div>
+                <input type="text" class="ctd-input-clean" id="ctdVoiceSpeedInput" placeholder="1.0" value="${escapeHtml(settings.voiceSpeed || '1.0')}">
             </div>
-            <button type="button" class="ctd-primary-btn" id="ctdVoiceSaveBtn">保存语音配置</button>
+
+            <button type="button" class="ctd-primary-btn" id="ctdVoiceSaveBtn">保存配置</button>
         `;
         bindAllPressed(scrollEl);
 
@@ -1656,10 +1736,49 @@
             const next = updateThreadSettings(currentThreadId, { voiceEmotionTag: !cur.voiceEmotionTag });
             e.currentTarget.classList.toggle('on', next.voiceEmotionTag);
         });
+
+        // 切换 6 个厂商口子，自动匹配 URL 与默认模型
+        scrollEl.querySelectorAll('.ctd-provider-pill').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const pid = btn.dataset.provider;
+                const meta = getProviderMeta(pid);
+                const cur = getThreadSettings(currentThreadId);
+                let autoUrl = meta.defaultUrl || '';
+                if (pid === 'minimax') {
+                    autoUrl = (cur.voiceMinimaxRegion === 'intl') ? meta.intlUrl : meta.cnUrl;
+                }
+                updateThreadSettings(currentThreadId, {
+                    voiceProvider: pid,
+                    voiceApiUrl: autoUrl,
+                    voiceModel: meta.defaultModel || ''
+                });
+                renderVoiceSubView();
+            });
+        });
+
+        // MiniMax 国内站 / 国际站切换
+        scrollEl.querySelectorAll('.ctd-region-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const reg = btn.dataset.mmRegion;
+                const meta = getProviderMeta('minimax');
+                updateThreadSettings(currentThreadId, {
+                    voiceMinimaxRegion: reg,
+                    voiceApiUrl: reg === 'intl' ? meta.intlUrl : meta.cnUrl
+                });
+                renderVoiceSubView();
+            });
+        });
+
         document.getElementById('ctdVoiceSaveBtn').addEventListener('click', () => {
-            const voiceVoiceId = document.getElementById('ctdVoiceIdInput').value.trim();
-            const voiceSpeed = document.getElementById('ctdVoiceSpeedInput').value.trim() || '1.0';
-            updateThreadSettings(currentThreadId, { voiceVoiceId, voiceSpeed });
+            const groupInput = document.getElementById('ctdVoiceGroupInput');
+            updateThreadSettings(currentThreadId, {
+                voiceApiUrl: document.getElementById('ctdVoiceUrlInput').value.trim(),
+                voiceApiKey: document.getElementById('ctdVoiceKeyInput').value.trim(),
+                voiceGroupId: groupInput ? groupInput.value.trim() : '',
+                voiceModel: document.getElementById('ctdVoiceModelInput').value.trim(),
+                voiceVoiceId: document.getElementById('ctdVoiceIdInput').value.trim(),
+                voiceSpeed: document.getElementById('ctdVoiceSpeedInput').value.trim() || '1.0'
+            });
             showToast('语音模型配置已保存');
         });
     }
@@ -1673,10 +1792,7 @@
         scrollEl.innerHTML = `
             <div class="ctd-card">
                 <div class="ctd-row" id="ctdThemeDefaultRow">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">默认</div>
-                        <div class="ctd-row-sub">采用系统标准聊天界面样式</div>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">默认</div></div>
                     <div class="ctd-row-right">
                         <div class="ctd-check-circle ${(!settings.chatTheme || settings.chatTheme === 'default') ? 'checked' : ''}">${SVG_CHECK}</div>
                     </div>
@@ -1686,7 +1802,7 @@
         bindAllPressed(scrollEl);
         document.getElementById('ctdThemeDefaultRow').addEventListener('click', () => {
             updateThreadSettings(currentThreadId, { chatTheme: 'default' });
-            showToast('当前已使用默认聊天界面');
+            showToast('当前已使用默认界面');
         });
     }
 
@@ -1699,7 +1815,7 @@
 
         let listHtml = '';
         if (!memories.length) {
-            listHtml = `<div class="ctd-empty-hint">当前角色暂无已记录的长期记忆</div>`;
+            listHtml = `<div class="ctd-empty-hint">当前角色暂无长期记忆</div>`;
         } else {
             listHtml = `<div class="ctd-msg-list">` + memories.map(m => `
                 <div class="ctd-msg-item">
@@ -1715,10 +1831,7 @@
         scrollEl.innerHTML = `
             <div class="ctd-card">
                 <div class="ctd-row" id="ctdOpenMemoryAppRow">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">前往「记忆」App 管理</div>
-                        <div class="ctd-row-sub">可在记忆中心进行新增、编辑与整理</div>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">前往「记忆」管理</div></div>
                     <div class="ctd-row-right"><span class="ctd-chevron">${SVG_CHEVRON}</span></div>
                 </div>
             </div>
@@ -1737,7 +1850,7 @@
         });
     }
 
-    /* ---------------- 二级页：查找聊天记录（无圆点黑色日期） ---------------- */
+    /* ---------------- 二级页：查找聊天记录 ---------------- */
     function renderSearchView() {
         const scrollEl = document.getElementById('ctdSearchScroll');
         if (!scrollEl || !currentThreadId) return;
@@ -1752,10 +1865,7 @@
             </div>
             <div class="ctd-card">
                 <div class="ctd-row ctd-row-static">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">感知真实时间</div>
-                        <div class="ctd-row-sub">开启后可按日期筛选记录，并同步真实时间</div>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">感知真实时间</div></div>
                     <div class="ctd-row-right">
                         <button type="button" class="ctd-switch ${realTimeOn ? 'on' : ''}" id="ctdRealTimeSwitch" aria-label="感知真实时间"></button>
                     </div>
@@ -1953,7 +2063,7 @@
                     <div class="ctd-row ctd-preset-item-row" data-preset-id="${escapeHtml(p.id)}">
                         <div class="ctd-row-left">
                             <div class="ctd-row-title">${escapeHtml(p.name || '未命名预设')}</div>
-                            <div class="ctd-row-sub">${count ? `包含 ${count} 条提示词` : '线上预设'}</div>
+                            ${count ? `<div class="ctd-row-sub">${count} 条提示词</div>` : ''}
                         </div>
                         <div class="ctd-row-right">
                             <div class="ctd-check-circle ${isSelected ? 'checked' : ''}">${isSelected ? SVG_CHECK : ''}</div>
@@ -1993,10 +2103,7 @@
         const toggleHtml = `
             <div class="ctd-card">
                 <div class="ctd-row ctd-row-static">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">启用单独挂载</div>
-                        <div class="ctd-row-sub">开启后将覆盖全局配置，仅生效已选世界书</div>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">启用单独挂载</div></div>
                     <div class="ctd-row-right">
                         <button type="button" class="ctd-switch ${settings.loreOverride ? 'on' : ''}" id="ctdLoreOverrideSwitch" aria-label="启用单独挂载"></button>
                     </div>
@@ -2015,7 +2122,7 @@
                     <div class="ctd-row ctd-lore-book-row" data-book-id="${escapeHtml(b.id)}">
                         <div class="ctd-row-left">
                             <div class="ctd-row-title">${escapeHtml(b.name || b.title || '未命名世界书')}</div>
-                            <div class="ctd-row-sub">${entryCount ? `共 ${entryCount} 条词条` : '世界书'}</div>
+                            ${entryCount ? `<div class="ctd-row-sub">${entryCount} 条词条</div>` : ''}
                         </div>
                         <div class="ctd-row-right">
                             <div class="ctd-check-circle ${checked ? 'checked' : ''}">${checked ? SVG_CHECK : ''}</div>
@@ -2034,7 +2141,7 @@
             const cur = getThreadSettings(currentThreadId);
             const next = updateThreadSettings(currentThreadId, { loreOverride: !cur.loreOverride });
             renderLoreView();
-            showToast(next.loreOverride ? '已开启单独挂载世界书' : '已切换为跟随全局世界书');
+            showToast(next.loreOverride ? '已开启单独挂载' : '已切换为跟随全局');
         });
 
         scrollEl.querySelectorAll('.ctd-lore-book-row').forEach(row => {
@@ -2072,7 +2179,7 @@
                     renderMainView();
                     showToast('已更新聊天背景');
                 } catch (e) {
-                    showToast('背景保存失败，请重试');
+                    showToast('背景保存失败');
                 }
             };
             reader.readAsDataURL(file);
@@ -2101,7 +2208,7 @@
         a.click();
         a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
-        showToast(`已导出 ${msgs.length} 条聊天记录`);
+        showToast(`已导出 ${msgs.length} 条记录`);
     }
 
     function importThreadMessages() {
@@ -2118,7 +2225,7 @@
                     const parsed = JSON.parse(reader.result);
                     const arr = Array.isArray(parsed) ? parsed : (Array.isArray(parsed && parsed.messages) ? parsed.messages : null);
                     if (!arr) {
-                        showToast('文件格式无效，请选择正确的导出文件');
+                        showToast('文件格式无效');
                         return;
                     }
                     saveJSON(MSGS_PREFIX + currentThreadId, arr);
@@ -2130,9 +2237,9 @@
                         threads[idx].lastTime = formatMsgTimeLabel(last, false);
                         saveJSON(THREADS_KEY, threads);
                     }
-                    showToast(`已导入 ${arr.length} 条聊天记录，重新进入对话即可查看`);
+                    showToast(`已导入 ${arr.length} 条记录`);
                 } catch (e) {
-                    showToast('解析导入文件失败');
+                    showToast('导入文件解析失败');
                 }
             };
             reader.readAsText(file);
@@ -2165,7 +2272,6 @@
                 return;
             }
 
-            // 拉黑拦截发送
             const sendBtn = e.target.closest('#ctRoomSendBtn');
             if (sendBtn) {
                 const tid = resolveActiveThreadId();
