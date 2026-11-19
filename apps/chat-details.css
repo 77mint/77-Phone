@@ -1,642 +1,895 @@
-/* apps/chat-details.css - 聊天详情页样式（全局 #f2f2f7 + 宽松留白卡片 + 全局字号联动） */
-
-.ct-details-view,
-.ct-dt-subview {
-  position: absolute;
-  inset: 0;
-  z-index: 60;
-  display: flex;
-  flex-direction: column;
-  background: #f2f2f7;
-  color: #111111;
-  font-family: var(--app-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif);
-  font-size: var(--app-font-size, 15px);
-  transform: translateX(100%);
-  pointer-events: none;
-  transition: transform 0.34s cubic-bezier(0.32, 0.72, 0, 1);
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.ct-dt-subview {
-  z-index: 66;
-}
-
-.ct-details-view.is-open,
-.ct-dt-subview.is-open {
-  transform: translateX(0);
-  pointer-events: auto;
-}
-
-.ct-details-topbar {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 12px;
-  background: #f2f2f7;
-  gap: 10px;
-}
-
-.ct-details-topbar-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  flex: 1;
-}
-
-.ct-details-back {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.95);
-  color: #111111;
-  cursor: pointer;
-  flex-shrink: 0;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.2s ease;
-}
-
-.ct-details-back.is-pressed {
-  transform: scale(0.9);
-  background: #e9e9ee;
-}
-
-.ct-details-title {
-  margin: 0;
-  font-size: calc(var(--app-font-size, 15px) + 7px);
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.3px;
-  color: #111111;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.ct-details-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding: 8px 16px calc(env(safe-area-inset-bottom, 0px) + 36px);
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.ct-details-scroll::-webkit-scrollbar {
-  display: none;
-}
-
-/* 白卡容器 */
-.ct-dt-card {
-  background: #ffffff;
-  border-radius: 22px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-/* 成员信息区 */
-.ct-dt-profile {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 18px 20px;
-}
-
-.ct-dt-avatar {
-  flex-shrink: 0;
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  background: #ededf2;
-  color: #111111;
-  font-size: calc(var(--app-font-size, 15px) + 4px);
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.ct-dt-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.ct-dt-profile-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.ct-dt-name {
-  font-size: calc(var(--app-font-size, 15px) + 2px);
-  font-weight: 700;
-  color: #111111;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.ct-dt-bio {
-  margin-top: 4px;
-  font-size: calc(var(--app-font-size, 15px) - 2px);
-  color: #8e8e93;
-  line-height: 1.45;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* 群成员横向列表 */
-.ct-dt-members {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding: 14px 20px 18px;
-  border-top: 1px solid #f2f2f7;
-}
-
-.ct-dt-member {
-  width: 52px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-}
-
-.ct-dt-member-av {
-  width: 44px;
-  height: 44px;
-  border-radius: 13px;
-  background: #ededf2;
-  color: #111111;
-  font-size: var(--app-font-size, 15px);
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.ct-dt-member-av img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.ct-dt-member-name {
-  width: 100%;
-  text-align: center;
-  font-size: calc(var(--app-font-size, 15px) - 3.5px);
-  color: #6e6e73;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* 列表行（宽松呼吸感） */
-.ct-dt-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 16px 20px;
-  border-bottom: 1px solid #f2f2f7;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background-color 0.18s ease, transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.ct-dt-row:last-child {
-  border-bottom: none;
-}
-
-.ct-dt-row.is-pressed {
-  background: #f5f5f8;
-}
-
-.ct-dt-row-left {
-  flex: 1;
-  min-width: 0;
-}
-
-.ct-dt-row-label {
-  font-size: var(--app-font-size, 15px);
-  font-weight: 600;
-  color: #111111;
-}
-
-.ct-dt-row-sub {
-  margin-top: 3px;
-  font-size: calc(var(--app-font-size, 15px) - 2.5px);
-  color: #8e8e93;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.ct-dt-row-right {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: calc(var(--app-font-size, 15px) - 1.5px);
-  color: #8e8e93;
-}
-
-.ct-dt-chevron {
-  width: 15px;
-  height: 15px;
-  stroke: #c7c7cc;
-  stroke-width: 2.2;
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-/* 开关 */
-.ct-dt-switch {
-  width: 48px;
-  height: 28px;
-  border-radius: 999px;
-  border: none;
-  padding: 2px;
-  background: #d1d1d6;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background-color 0.24s cubic-bezier(0.32, 0.72, 0, 1);
-  display: inline-flex;
-  align-items: center;
-}
-
-.ct-dt-switch.is-on {
-  background: #111111;
-}
-
-.ct-dt-switch-thumb {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.18);
-  transition: transform 0.24s cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.ct-dt-switch.is-on .ct-dt-switch-thumb {
-  transform: translateX(20px);
-}
-
-/* 世界书单独挂载折叠与勾选 */
-.ct-dt-lore-list-wrap {
-  transition: opacity 0.24s ease;
-}
-
-.ct-dt-lore-list-wrap.is-disabled {
-  opacity: 0.45;
-  pointer-events: none;
-}
-
-.ct-dt-check {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 1.8px solid #c7c7cc;
-  background: #ffffff;
-  color: #ffffff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: background-color 0.2s cubic-bezier(0.32, 0.72, 0, 1), border-color 0.2s ease, transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.ct-dt-check.is-checked {
-  background: #111111;
-  border-color: #111111;
-  transform: scale(1.04);
-}
-
-/* 群名称输入行 */
-.ct-dt-inline-input {
-  width: 100%;
-  border: none;
-  outline: none;
-  background: transparent;
-  text-align: right;
-  font-family: inherit;
-  font-size: calc(var(--app-font-size, 15px) - 1px);
-  color: #3a3a3c;
-}
-
-/* 危险按钮 */
-.ct-dt-danger-btn {
-  width: 100%;
-  padding: 16px 20px;
-  border: none;
-  background: #ffffff;
-  color: #ff3b30;
-  font-family: inherit;
-  font-size: var(--app-font-size, 15px);
-  font-weight: 600;
-  text-align: center;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background-color 0.18s ease;
-}
-
-.ct-dt-danger-btn.is-pressed {
-  background: #fff2f2;
-}
-
-/* 主页置顶变色 + 聊天室顶部免打扰小铃铛（1:1 IMG_2079） */
-#app-chat .ct-thread-row.is-pinned-row {
-  background: #f6f6f8 !important;
-}
-
-.ct-dt-room-bell {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: 5px;
-  color: rgba(0, 0, 0, 0.36);
-  vertical-align: -2px;
-  flex-shrink: 0;
-}
-
-/* 查找聊天记录：搜索框 + 感知真实时间开关 + 可收起月历 */
-.ct-dt-search-top {
-  flex-shrink: 0;
-  padding: 2px 16px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.ct-dt-search-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 40px;
-  padding: 0 14px;
-  border-radius: 20px;
-  background: #ffffff;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
-}
-
-.ct-dt-search-input {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  outline: none;
-  background: transparent;
-  font-family: inherit;
-  font-size: calc(var(--app-font-size, 15px) - 0.5px);
-  color: #111111;
-}
-
-.ct-dt-rt-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 11px 16px;
-  border-radius: 18px;
-  background: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-  cursor: pointer;
-  transition: background-color 0.18s ease;
-}
-
-.ct-dt-rt-bar.is-pressed {
-  background: #f5f5f8;
-}
-
-.ct-dt-rt-label {
-  font-size: calc(var(--app-font-size, 15px) - 0.5px);
-  font-weight: 600;
-  color: #111111;
-}
-
-.ct-dt-cal-wrap {
-  max-height: 0;
-  opacity: 0;
-  overflow: hidden;
-  transform: translateY(-6px);
-  pointer-events: none;
-  transition: max-height 0.34s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.25s ease, transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.ct-dt-cal-wrap.is-open {
-  max-height: 360px;
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-}
-
-.ct-dt-cal-card {
-  background: #ffffff;
-  border-radius: 22px;
-  padding: 14px 14px 16px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
-}
-
-.ct-dt-cal-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  padding: 0 4px;
-}
-
-.ct-dt-cal-month {
-  font-size: calc(var(--app-font-size, 15px) + 0.5px);
-  font-weight: 700;
-  color: #111111;
-}
-
-.ct-dt-cal-nav {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.ct-dt-cal-btn {
-  width: 30px;
-  height: 30px;
-  border: none;
-  border-radius: 50%;
-  background: #f2f2f7;
-  color: #111111;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.ct-dt-cal-btn.is-pressed {
-  transform: scale(0.86);
-}
-
-.ct-dt-cal-week {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  text-align: center;
-  font-size: calc(var(--app-font-size, 15px) - 3.5px);
-  color: #8e8e93;
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-
-.ct-dt-cal-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px 2px;
-}
-
-.ct-dt-cal-day {
-  position: relative;
-  height: 36px;
-  border: none;
-  border-radius: 12px;
-  background: transparent;
-  font-family: inherit;
-  font-size: calc(var(--app-font-size, 15px) - 1px);
-  font-weight: 600;
-  color: #111111;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.18s ease, color 0.18s ease;
-}
-
-.ct-dt-cal-day.is-empty {
-  pointer-events: none;
-}
-
-.ct-dt-cal-day.is-disabled {
-  color: #c7c7cc;
-  font-weight: 400;
-  pointer-events: none;
-}
-
-.ct-dt-cal-day.has-msg::after {
-  content: "";
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #111111;
-  margin-top: 2px;
-}
-
-.ct-dt-cal-day.is-selected {
-  background: #111111;
-  color: #ffffff;
-}
-
-.ct-dt-cal-day.is-selected::after {
-  background: #ffffff;
-}
-
-.ct-dt-cal-day.is-pressed {
-  transform: scale(0.88);
-}
-
-.ct-dt-date-pill {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
-  border-radius: 18px;
-  background: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-  font-size: calc(var(--app-font-size, 15px) - 1.5px);
-  color: #111111;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.ct-dt-date-pill-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.ct-dt-date-clear {
-  border: none;
-  background: #f2f2f7;
-  color: #111111;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-family: inherit;
-  font-size: calc(var(--app-font-size, 15px) - 3px);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.ct-dt-search-list {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding: 2px 16px calc(env(safe-area-inset-bottom, 0px) + 28px);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.ct-dt-search-list::-webkit-scrollbar {
-  display: none;
-}
-
-.ct-dt-search-item {
-  background: #ffffff;
-  border-radius: 18px;
-  padding: 13px 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-}
-
-.ct-dt-search-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: calc(var(--app-font-size, 15px) - 2.5px);
-  color: #8e8e93;
-  margin-bottom: 5px;
-}
-
-.ct-dt-search-sender {
-  font-weight: 700;
-  color: #111111;
-}
-
-.ct-dt-search-text {
-  font-size: calc(var(--app-font-size, 15px) - 0.5px);
-  color: #1c1c1e;
-  line-height: 1.5;
-  word-break: break-word;
-}
-
-.ct-dt-empty {
-  background: #ffffff;
-  border-radius: 22px;
-  padding: 42px 20px;
-  text-align: center;
-  font-size: calc(var(--app-font-size, 15px) - 1px);
-  color: #8e8e93;
+/* =========================================================
+   Chat 聊天详情页 (apps/chat-details.css)
+   - 独立挂载于 #app-chat，不修改 apps/chat.css
+   - 全量字体跟随全局 --app-font-size 与 --app-font
+   - iOS 原生圆角卡片 + 阻尼滑入 + .is-pressed 触感反馈
+   ========================================================= */
+
+.ctd-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 95;
+    background: #f2f2f7;
+    font-family: var(--app-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif);
+    color: #1c1c1e;
+    overflow: hidden;
+    transform: translate3d(100%, 0, 0);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+        transform 0.34s cubic-bezier(0.32, 0.72, 0, 1),
+        opacity 0.24s ease;
+}
+
+.ctd-overlay.open {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.ctd-page {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    background: #f2f2f7;
+    transform: translate3d(100%, 0, 0);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+        transform 0.32s cubic-bezier(0.32, 0.72, 0, 1),
+        opacity 0.22s ease;
+}
+
+.ctd-page.ctd-page-root {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.ctd-page.ctd-page-root.is-behind {
+    transform: translate3d(-24%, 0, 0);
+    opacity: 0.92;
+    pointer-events: none;
+}
+
+.ctd-page.open {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* 顶部导航栏 */
+.ctd-topbar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: calc(env(safe-area-inset-top, 0px) + 12px) 18px 12px;
+    background: #f2f2f7;
+}
+
+.ctd-back-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: #ffffff;
+    color: #1c1c1e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.18s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ctd-back-btn.is-pressed {
+    transform: scale(0.92);
+    background: #e5e5ea;
+}
+
+.ctd-title {
+    font-size: calc(var(--app-font-size, 15px) + 7px);
+    font-weight: 700;
+    color: #1c1c1e;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 主滚动区 */
+.ctd-scroll {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 6px 16px calc(env(safe-area-inset-bottom, 0px) + 28px);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.ctd-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+/* 卡片容器 */
+.ctd-card {
+    background: #ffffff;
+    border-radius: 22px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+}
+
+/* 联系人 / 群聊资料卡 */
+.ctd-profile-card {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.ctd-profile-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.ctd-avatar-lg {
+    width: 54px;
+    height: 54px;
+    border-radius: 14px;
+    background: #f2f2f7;
+    color: #1c1c1e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: calc(var(--app-font-size, 15px) + 5px);
+    font-weight: 600;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.ctd-avatar-lg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.ctd-profile-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ctd-profile-name {
+    font-size: calc(var(--app-font-size, 15px) + 2px);
+    font-weight: 600;
+    color: #1c1c1e;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ctd-profile-sub {
+    font-size: calc(var(--app-font-size, 15px) - 2px);
+    color: #8e8e93;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ctd-group-members {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #f2f2f7;
+}
+
+.ctd-member-item {
+    width: 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.ctd-member-av {
+    width: 44px;
+    height: 44px;
+    border-radius: 11px;
+    background: #f2f2f7;
+    color: #1c1c1e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: calc(var(--app-font-size, 15px) + 1px);
+    font-weight: 600;
+    overflow: hidden;
+}
+
+.ctd-member-av img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.ctd-member-name {
+    width: 100%;
+    text-align: center;
+    font-size: calc(var(--app-font-size, 15px) - 3px);
+    color: #636366;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 通用列表行 */
+.ctd-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 15px 18px;
+    min-height: 54px;
+    background: #ffffff;
+    position: relative;
+    cursor: pointer;
+    transition: background-color 0.16s ease, transform 0.16s cubic-bezier(0.32, 0.72, 0, 1);
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ctd-row + .ctd-row::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 18px;
+    right: 18px;
+    height: 1px;
+    background: #f2f2f7;
+}
+
+.ctd-row.is-pressed {
+    background: #f2f2f7;
+}
+
+.ctd-row.ctd-row-static {
+    cursor: default;
+}
+
+.ctd-row.ctd-row-static.is-pressed {
+    background: #ffffff;
+}
+
+.ctd-row-left {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.ctd-row-title {
+    font-size: var(--app-font-size, 15px);
+    font-weight: 500;
+    color: #1c1c1e;
+    line-height: 1.35;
+}
+
+.ctd-row-sub {
+    font-size: calc(var(--app-font-size, 15px) - 2.5px);
+    color: #8e8e93;
+    line-height: 1.35;
+}
+
+.ctd-row-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.ctd-row-value {
+    font-size: calc(var(--app-font-size, 15px) - 1px);
+    color: #8e8e93;
+    max-width: 140px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ctd-chevron {
+    color: #c7c7cc;
+    display: flex;
+    align-items: center;
+}
+
+/* 危险按钮行 */
+.ctd-row-danger {
+    justify-content: center;
+    text-align: center;
+}
+
+.ctd-row-danger .ctd-row-title {
+    color: #ff3b30;
+    font-weight: 600;
+}
+
+/* 原生质感开关 */
+.ctd-switch {
+    position: relative;
+    width: 50px;
+    height: 30px;
+    border-radius: 15px;
+    background: #d1d1d6;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background-color 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ctd-switch::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.16);
+    transition: transform 0.26s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ctd-switch.on {
+    background: #1c1c1e;
+}
+
+.ctd-switch.on::after {
+    transform: translateX(20px);
+}
+
+.ctd-switch.is-pressed::after {
+    transform: scale(0.95);
+}
+
+.ctd-switch.on.is-pressed::after {
+    transform: translateX(20px) scale(0.95);
+}
+
+/* 聊天顶部免打扰小铃铛（实色无叠色） */
+.ctd-mute-bell {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 5px;
+    color: #9a9aa0;
+    vertical-align: middle;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+/* 主页置顶底色 */
+.ctd-pinned-row {
+    background-color: #f6f6f8 !important;
+}
+
+/* 聊天背景应用 */
+.ctd-has-bg {
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+}
+
+/* 查找聊天记录页 */
+.ctd-search-box {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+}
+
+.ctd-search-icon {
+    color: #8e8e93;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.ctd-search-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: var(--app-font-size, 15px);
+    color: #1c1c1e;
+    min-width: 0;
+}
+
+.ctd-search-input::placeholder {
+    color: #aeaeb2;
+}
+
+.ctd-search-clear {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: none;
+    background: #e5e5ea;
+    color: #636366;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.ctd-search-clear.visible {
+    display: flex;
+}
+
+/* 日历卡片 */
+.ctd-calendar-wrap {
+    overflow: hidden;
+    transition: opacity 0.26s ease, transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ctd-calendar-card {
+    background: #ffffff;
+    border-radius: 22px;
+    padding: 16px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+}
+
+.ctd-cal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.ctd-cal-month {
+    font-size: calc(var(--app-font-size, 15px) + 1px);
+    font-weight: 700;
+    color: #1c1c1e;
+}
+
+.ctd-cal-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ctd-cal-nav-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: #f2f2f7;
+    color: #1c1c1e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.16s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.16s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ctd-cal-nav-btn.is-pressed {
+    transform: scale(0.9);
+    background: #e5e5ea;
+}
+
+.ctd-cal-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.ctd-cal-weekday {
+    font-size: calc(var(--app-font-size, 15px) - 3px);
+    color: #8e8e93;
+    font-weight: 500;
+}
+
+.ctd-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    row-gap: 8px;
+}
+
+.ctd-cal-day {
+    height: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    border-radius: 12px;
+    font-size: var(--app-font-size, 15px);
+    color: #c7c7cc;
+    user-select: none;
+    transition: transform 0.16s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.16s ease;
+}
+
+.ctd-cal-day.has-msg {
+    color: #1c1c1e;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.ctd-cal-day.has-msg.is-pressed {
+    background: #f2f2f7;
+    transform: scale(0.92);
+}
+
+.ctd-cal-day.selected {
+    background: #1c1c1e;
+    color: #ffffff;
+}
+
+.ctd-cal-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #1c1c1e;
+    margin-top: 2px;
+}
+
+.ctd-cal-day.selected .ctd-cal-dot {
+    background: #ffffff;
+}
+
+/* 已选日期胶囊条 */
+.ctd-date-pill-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #ffffff;
+    border-radius: 18px;
+    padding: 11px 16px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+}
+
+.ctd-date-pill-text {
+    font-size: calc(var(--app-font-size, 15px) - 1px);
+    font-weight: 600;
+    color: #1c1c1e;
+}
+
+.ctd-date-pill-clear {
+    border: none;
+    background: #f2f2f7;
+    color: #1c1c1e;
+    font-family: inherit;
+    font-size: calc(var(--app-font-size, 15px) - 2px);
+    font-weight: 500;
+    padding: 5px 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.16s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.16s ease;
+}
+
+.ctd-date-pill-clear.is-pressed {
+    transform: scale(0.94);
+    background: #e5e5ea;
+}
+
+/* 消息搜索结果列表 */
+.ctd-msg-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ctd-msg-item {
+    background: #ffffff;
+    border-radius: 18px;
+    padding: 13px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+    cursor: pointer;
+    transition: transform 0.16s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.16s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ctd-msg-item.is-pressed {
+    transform: scale(0.985);
+    background: #f6f6f8;
+}
+
+.ctd-msg-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.ctd-msg-sender {
+    font-size: calc(var(--app-font-size, 15px) - 2px);
+    font-weight: 600;
+    color: #1c1c1e;
+}
+
+.ctd-msg-time {
+    font-size: calc(var(--app-font-size, 15px) - 3px);
+    color: #8e8e93;
+}
+
+.ctd-msg-body {
+    font-size: var(--app-font-size, 15px);
+    color: #3a3a3c;
+    line-height: 1.45;
+    word-break: break-word;
+}
+
+.ctd-empty-hint {
+    text-align: center;
+    padding: 24px 16px;
+    font-size: calc(var(--app-font-size, 15px) - 1px);
+    color: #8e8e93;
+    line-height: 1.5;
+}
+
+/* 单选 / 多选圆形勾选控件 */
+.ctd-check-circle {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1.8px solid #c7c7cc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+    color: #ffffff;
+}
+
+.ctd-check-circle.checked {
+    background: #1c1c1e;
+    border-color: #1c1c1e;
+}
+
+/* 分组小标题 */
+.ctd-section-label {
+    padding: 0 6px;
+    margin-bottom: -8px;
+    font-size: calc(var(--app-font-size, 15px) - 2.5px);
+    font-weight: 500;
+    color: #8e8e93;
+}
+
+/* 底部动作菜单 & 确认弹窗 */
+.ctd-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 9990;
+    background: rgba(0, 0, 0, 0.36);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 16px 14px calc(env(safe-area-inset-bottom, 0px) + 16px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.24s ease;
+}
+
+.ctd-sheet-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.ctd-sheet-box {
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transform: translate3d(0, 28px, 0);
+    transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ctd-sheet-backdrop.open .ctd-sheet-box {
+    transform: translate3d(0, 0, 0);
+}
+
+.ctd-sheet-group {
+    background: #ffffff;
+    border-radius: 20px;
+    overflow: hidden;
+}
+
+.ctd-sheet-header {
+    padding: 14px 18px 10px;
+    text-align: center;
+    border-bottom: 1px solid #f2f2f7;
+}
+
+.ctd-sheet-title {
+    font-size: calc(var(--app-font-size, 15px) - 1px);
+    font-weight: 600;
+    color: #1c1c1e;
+}
+
+.ctd-sheet-desc {
+    margin-top: 4px;
+    font-size: calc(var(--app-font-size, 15px) - 2.5px);
+    color: #8e8e93;
+    line-height: 1.4;
+}
+
+.ctd-sheet-btn {
+    width: 100%;
+    border: none;
+    background: #ffffff;
+    padding: 15px 18px;
+    font-family: inherit;
+    font-size: var(--app-font-size, 15px);
+    font-weight: 500;
+    color: #1c1c1e;
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    transition: background-color 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ctd-sheet-btn + .ctd-sheet-btn::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: #f2f2f7;
+}
+
+.ctd-sheet-btn.is-pressed {
+    background: #f2f2f7;
+}
+
+.ctd-sheet-btn.danger {
+    color: #ff3b30;
+    font-weight: 600;
+}
+
+.ctd-sheet-btn.cancel {
+    font-weight: 600;
+}
+
+/* 输入弹窗 */
+.ctd-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 9992;
+    background: rgba(0, 0, 0, 0.38);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+}
+
+.ctd-modal-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.ctd-modal-card {
+    width: 100%;
+    max-width: 310px;
+    background: #ffffff;
+    border-radius: 22px;
+    overflow: hidden;
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.16);
+    transform: scale(0.94);
+    transition: transform 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ctd-modal-backdrop.open .ctd-modal-card {
+    transform: scale(1);
+}
+
+.ctd-modal-body {
+    padding: 20px 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.ctd-modal-title {
+    font-size: calc(var(--app-font-size, 15px) + 1px);
+    font-weight: 600;
+    color: #1c1c1e;
+    text-align: center;
+}
+
+.ctd-modal-input {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #e5e5ea;
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: var(--app-font-size, 15px);
+    color: #1c1c1e;
+    background: #f9f9fb;
+    outline: none;
+}
+
+.ctd-modal-input:focus {
+    border-color: #1c1c1e;
+    background: #ffffff;
+}
+
+.ctd-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-top: 1px solid #f2f2f7;
+}
+
+.ctd-modal-btn {
+    border: none;
+    background: #ffffff;
+    padding: 13px 10px;
+    font-family: inherit;
+    font-size: var(--app-font-size, 15px);
+    font-weight: 500;
+    color: #8e8e93;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.ctd-modal-btn + .ctd-modal-btn {
+    border-left: 1px solid #f2f2f7;
+    color: #1c1c1e;
+    font-weight: 600;
+}
+
+.ctd-modal-btn.is-pressed {
+    background: #f2f2f7;
+}
+
+/* 轻提示 Toast */
+.ctd-toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 84px);
+    transform: translate(-50%, 10px);
+    z-index: 9999;
+    background: rgba(28, 28, 30, 0.9);
+    color: #ffffff;
+    font-family: var(--app-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif);
+    font-size: calc(var(--app-font-size, 15px) - 1.5px);
+    font-weight: 500;
+    padding: 9px 18px;
+    border-radius: 20px;
+    opacity: 0;
+    pointer-events: none;
+    white-space: nowrap;
+    transition: opacity 0.22s ease, transform 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ctd-toast.show {
+    opacity: 1;
+    transform: translate(-50%, 0);
 }
