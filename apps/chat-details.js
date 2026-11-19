@@ -37,21 +37,13 @@
     const SVG_CHECK = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`;
     const SVG_GROUP = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
 
-    // 实色镂空免打扰小铃铛（彻底避免斜线交叉叠色）
+    // 1:1 p2 样式免打扰小铃铛（100% 不透明实色，交叉无叠色暗点）
     const SVG_MUTE_BELL = `
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <defs>
-                <mask id="ctdMuteBellMask">
-                    <rect width="24" height="24" fill="white"/>
-                    <line x1="2.5" y1="2.5" x2="21.5" y2="21.5" stroke="black" stroke-width="3.6" stroke-linecap="round"/>
-                </mask>
-            </defs>
-            <g mask="url(#ctdMuteBellMask)" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18 8.5a6 6 0 0 0-12 0c0 6.2-2.2 8.2-2.2 8.2h16.4S18 14.7 18 8.5"/>
-                <path d="M10.4 19.6a1.8 1.8 0 0 0 3.2 0"/>
-                <path d="M12 2.5v1"/>
-            </g>
-            <line x1="3.5" y1="3.5" x2="20.5" y2="20.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10.4 5.2a1.6 1.6 0 0 1 3.2 0"/>
+            <path d="M8.9 6.3A5.6 5.6 0 0 1 17.6 11v2.9c0 1.4.6 2.6 1.6 3.4H4.8c1-.8 1.6-2 1.6-3.4v-2.6"/>
+            <path d="M10.2 17.5a1.8 1.8 0 0 0 3.6 0"/>
+            <line x1="4.2" y1="4.2" x2="19.8" y2="19.8"/>
         </svg>`;
 
     /* ---------------- 工具函数 ---------------- */
