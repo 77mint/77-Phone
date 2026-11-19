@@ -1,4 +1,4 @@
-/* apps/chat-details.css - 聊天详情页样式（全局 #f2f2f7 + 纯白卡片 + 全局字号联动） */
+/* apps/chat-details.css - 聊天详情页样式（全局 #f2f2f7 + 宽松留白卡片 + 全局字号联动） */
 
 .ct-details-view,
 .ct-dt-subview {
@@ -33,7 +33,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 10px;
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 12px;
   background: #f2f2f7;
   gap: 10px;
 }
@@ -86,10 +86,10 @@
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 6px 16px calc(env(safe-area-inset-bottom, 0px) + 32px);
+  padding: 8px 16px calc(env(safe-area-inset-bottom, 0px) + 36px);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 18px;
 }
 
 .ct-details-scroll::-webkit-scrollbar {
@@ -109,13 +109,13 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 16px 18px;
+  padding: 18px 20px;
 }
 
 .ct-dt-avatar {
   flex-shrink: 0;
-  width: 54px;
-  height: 54px;
+  width: 56px;
+  height: 56px;
   border-radius: 16px;
   background: #ededf2;
   color: #111111;
@@ -152,7 +152,7 @@
   margin-top: 4px;
   font-size: calc(var(--app-font-size, 15px) - 2px);
   color: #8e8e93;
-  line-height: 1.4;
+  line-height: 1.45;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -164,7 +164,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  padding: 14px 18px 16px;
+  padding: 14px 20px 18px;
   border-top: 1px solid #f2f2f7;
 }
 
@@ -207,13 +207,13 @@
   text-overflow: ellipsis;
 }
 
-/* 列表行 */
+/* 列表行（宽松呼吸感） */
 .ct-dt-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 15px 18px;
+  padding: 16px 20px;
   border-bottom: 1px solid #f2f2f7;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -240,7 +240,7 @@
 }
 
 .ct-dt-row-sub {
-  margin-top: 2px;
+  margin-top: 3px;
   font-size: calc(var(--app-font-size, 15px) - 2.5px);
   color: #8e8e93;
   white-space: nowrap;
@@ -277,7 +277,7 @@
   background: #d1d1d6;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background-color 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: background-color 0.24s cubic-bezier(0.32, 0.72, 0, 1);
   display: inline-flex;
   align-items: center;
 }
@@ -292,14 +292,30 @@
   border-radius: 50%;
   background: #ffffff;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.18);
-  transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform 0.24s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .ct-dt-switch.is-on .ct-dt-switch-thumb {
   transform: translateX(20px);
 }
 
-/* 勾选圆圈（世界书单独挂载） */
+/* 世界书单独挂载折叠动画 */
+.ct-dt-lore-collapse {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: max-height 0.34s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.26s ease, transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ct-dt-lore-collapse.is-open {
+  max-height: 1200px;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
 .ct-dt-check {
   width: 22px;
   height: 22px;
@@ -317,11 +333,7 @@
 .ct-dt-check.is-checked {
   background: #111111;
   border-color: #111111;
-}
-
-.ct-dt-lore-list-wrap.is-disabled {
-  opacity: 0.45;
-  pointer-events: none;
+  transform: scale(1.04);
 }
 
 /* 群名称输入行 */
@@ -339,7 +351,7 @@
 /* 危险按钮 */
 .ct-dt-danger-btn {
   width: 100%;
-  padding: 15px 18px;
+  padding: 16px 20px;
   border: none;
   background: #ffffff;
   color: #ff3b30;
@@ -356,9 +368,9 @@
   background: #fff2f2;
 }
 
-/* 主页置顶变色 + 聊天室顶部免打扰小铃铛 */
+/* 主页置顶变色 + 聊天室顶部免打扰小铃铛（1:1 IMG_2077） */
 #app-chat .ct-thread-row.is-pinned-row {
-  background: #f2f2f7 !important;
+  background: #f6f6f8 !important;
 }
 
 .ct-dt-room-bell {
@@ -366,14 +378,18 @@
   align-items: center;
   justify-content: center;
   margin-left: 5px;
-  color: #9e9ea4;
+  color: rgba(0, 0, 0, 0.34);
   vertical-align: -1.5px;
   flex-shrink: 0;
 }
 
-/* 查找聊天记录：搜索框 + 日历面板 */
-.ct-dt-search-box-wrap {
-  padding: 0 16px 10px;
+/* 查找聊天记录：搜索框 + 感知真实时间开关 + 可收起月历 */
+.ct-dt-search-top {
+  flex-shrink: 0;
+  padding: 2px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .ct-dt-search-box {
@@ -396,6 +412,44 @@
   font-family: inherit;
   font-size: calc(var(--app-font-size, 15px) - 0.5px);
   color: #111111;
+}
+
+.ct-dt-rt-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 16px;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  cursor: pointer;
+  transition: background-color 0.18s ease;
+}
+
+.ct-dt-rt-bar.is-pressed {
+  background: #f5f5f8;
+}
+
+.ct-dt-rt-label {
+  font-size: calc(var(--app-font-size, 15px) - 0.5px);
+  font-weight: 600;
+  color: #111111;
+}
+
+.ct-dt-cal-wrap {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: max-height 0.34s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.25s ease, transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ct-dt-cal-wrap.is-open {
+  max-height: 360px;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
 .ct-dt-cal-card {
@@ -509,21 +563,34 @@
   transform: scale(0.88);
 }
 
-.ct-dt-date-bar {
+.ct-dt-date-pill {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 2px 4px;
-  font-size: calc(var(--app-font-size, 15px) - 2px);
-  color: #6e6e73;
+  padding: 10px 16px;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  font-size: calc(var(--app-font-size, 15px) - 1.5px);
+  color: #111111;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ct-dt-date-pill-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .ct-dt-date-clear {
   border: none;
-  background: transparent;
+  background: #f2f2f7;
   color: #111111;
+  padding: 4px 10px;
+  border-radius: 999px;
   font-family: inherit;
-  font-size: calc(var(--app-font-size, 15px) - 2px);
+  font-size: calc(var(--app-font-size, 15px) - 3px);
   font-weight: 600;
   cursor: pointer;
 }
@@ -533,7 +600,7 @@
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 4px 16px calc(env(safe-area-inset-bottom, 0px) + 28px);
+  padding: 2px 16px calc(env(safe-area-inset-bottom, 0px) + 28px);
   display: flex;
   flex-direction: column;
   gap: 10px;
