@@ -95,6 +95,8 @@
 }
 
 .ctd-title {
+    flex: 1;
+    min-width: 0;
     font-size: calc(var(--app-font-size, 15px) + 7px);
     font-weight: 700;
     color: #1c1c1e;
@@ -103,6 +105,31 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.ctd-top-action-btn {
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 17px;
+    border: none;
+    background: #ffffff;
+    color: #1c1c1e;
+    font-family: inherit;
+    font-size: calc(var(--app-font-size, 15px) - 1px);
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    cursor: pointer;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: transform 0.16s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.16s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ctd-top-action-btn.is-pressed {
+    transform: scale(0.94);
+    background: #e5e5ea;
 }
 
 /* 主滚动区 */
@@ -135,7 +162,7 @@
     flex-shrink: 0;
 }
 
-/* 联系人 / 群聊资料卡 */
+/* 联系人 / 群聊资料卡（小圆角头像与聊天界面一致） */
 .ctd-profile-card {
     padding: 16px;
     display: flex;
@@ -157,9 +184,9 @@
 }
 
 .ctd-avatar-lg {
-    width: 54px;
-    height: 54px;
-    border-radius: 14px;
+    width: 52px;
+    height: 52px;
+    border-radius: 7px;
     background: #f2f2f7;
     color: #1c1c1e;
     display: flex;
@@ -222,7 +249,7 @@
 .ctd-member-av {
     width: 44px;
     height: 44px;
-    border-radius: 11px;
+    border-radius: 6px;
     background: #f2f2f7;
     color: #1c1c1e;
     display: flex;
@@ -305,6 +332,12 @@
 .ctd-row-sub {
     font-size: calc(var(--app-font-size, 15px) - 2.5px);
     color: #8e8e93;
+    line-height: 1.35;
+}
+
+.ctd-token-note {
+    font-size: calc(var(--app-font-size, 15px) - 3px);
+    color: #9a6b2f;
     line-height: 1.35;
 }
 
@@ -394,7 +427,40 @@
     transform: translateX(20px) scale(0.95);
 }
 
-/* 聊天顶部免打扰小铃铛（100% 不透明实色，绝不叠色） */
+/* 滑块行（界面设定用） */
+.ctd-slider-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 15px 18px;
+    position: relative;
+}
+
+.ctd-slider-row + .ctd-slider-row::before,
+.ctd-row + .ctd-slider-row::before,
+.ctd-slider-row + .ctd-row::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 18px;
+    right: 18px;
+    height: 1px;
+    background: #f2f2f7;
+}
+
+.ctd-slider-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.ctd-range {
+    width: 100%;
+    accent-color: #1c1c1e;
+    margin: 0;
+}
+
+/* 聊天顶部免打扰小铃铛 */
 .ctd-mute-bell {
     display: inline-flex;
     align-items: center;
@@ -482,6 +548,40 @@
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
+/* 输入行 + 拉取按钮 */
+.ctd-inline-input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ctd-inline-input-row .ctd-input-clean {
+    flex: 1;
+    min-width: 0;
+}
+
+.ctd-fetch-btn {
+    height: 44px;
+    padding: 0 14px;
+    border-radius: 14px;
+    border: none;
+    background: #1c1c1e;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: calc(var(--app-font-size, 15px) - 1px);
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform 0.16s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.16s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ctd-fetch-btn.is-pressed {
+    transform: scale(0.94);
+    opacity: 0.85;
+}
+
 /* 二级页表单输入与文本域（>=16px 防 iOS 聚焦放大） */
 .ctd-field-card {
     padding: 16px 18px;
@@ -565,6 +665,62 @@
     opacity: 0.88;
 }
 
+/* 界面设定预览框 */
+.ctd-theme-preview {
+    padding: 16px;
+    background: #ededed;
+    border-radius: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.ctd-prev-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+}
+
+.ctd-prev-row.me {
+    flex-direction: row-reverse;
+}
+
+.ctd-prev-av-wrap {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.ctd-prev-av {
+    background: #d8d8de;
+    color: #1c1c1e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    overflow: hidden;
+}
+
+.ctd-prev-frame {
+    position: absolute;
+    inset: -14%;
+    width: 128%;
+    height: 128%;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+.ctd-prev-bubble {
+    background: #ffffff;
+    color: #1c1c1e;
+    border-radius: 8px;
+    line-height: 1.45;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.ctd-prev-row.me .ctd-prev-bubble {
+    background: #95ec69;
+}
+
 /* 查找聊天记录页 */
 .ctd-search-box {
     background: #ffffff;
@@ -617,7 +773,7 @@
     display: flex;
 }
 
-/* 日历卡片（无圆点，黑色加粗标识有记录日期） */
+/* 日历卡片 */
 .ctd-calendar-wrap {
     flex-shrink: 0;
     transition: opacity 0.26s ease, transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
@@ -837,7 +993,7 @@
     color: #8e8e93;
 }
 
-/* 底部动作菜单 & 确认弹窗（支持 visualViewport 动态高度，不被键盘挡住） */
+/* 底部动作菜单 & 确认弹窗 */
 .ctd-sheet-backdrop {
     position: fixed;
     top: 0;
@@ -1023,7 +1179,7 @@
     font-weight: 600;
 }
 
-/* 输入弹窗（紧随 visualViewport 居中，不被键盘遮挡） */
+/* 输入弹窗 */
 .ctd-modal-backdrop {
     position: fixed;
     top: 0;
