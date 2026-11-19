@@ -1,11 +1,11 @@
 /* =========================================================
    Chat 聊天详情页 (apps/chat-details.js)
    - 拦截 #ctRoomMoreBtn，不改动 apps/chat.js / apps/chat.css
-   - 语音模型支持一键拉取模型列表
-   - 聊天界面设定：右上角导入 PNG/样式、头像显示/形状/大小/头像框、
-     气泡大小、对方与我方独立气泡字体、气泡字体大小并实时生效
-   - 新增表情包卡片（联想搜图、挂载表情包、角色读取、识取、允许偷表情包）
-   - 全量书面化额外 Token 消耗标注
+   - 顶部新增详情搜索框（快捷定位设置项）
+   - 表情包收为二级页（联想搜图/挂载/识取/读取/允许偷），聊天界面设定在其下方
+   - 仅「表情包识取」标注额外调用 Token 消耗；翻译采用方案A（不额外调用）
+   - 预览气泡 1:1 复刻真实聊天界面气泡（4px圆角 + 小尖角 + 真实头像）
+   - 气泡字体仅保留「跟随全局」与「已上传自定义字体」
    ========================================================= */
 
 (function () {
@@ -17,6 +17,7 @@
     const PRESETS_ONLINE_KEY = 'phone_presets_active_online_v1';
     const API_CONFIG_KEY = 'phone_api_config_v2';
     const API_BUNDLES_KEY = 'phone_api_bundle_presets';
+    const UPLOADED_FONTS_KEY = 'phone_chat_uploaded_fonts_v1';
 
     // 110+ 全球语言与中国各地方言
     const ALL_LANGUAGES = [
@@ -207,19 +208,11 @@
         }
     ];
 
-    const BUILTIN_FONTS = [
-        { label: '跟随全局', value: '' },
-        { label: '系统无衬线体', value: '-apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif' },
-        { label: '宋体 / 衬线体', value: '"Songti SC", "Noto Serif SC", Georgia, serif' },
-        { label: '楷体', value: '"Kaiti SC", "STKaiti", KaiTi, serif' },
-        { label: '圆体', value: '"Yuanti SC", "Hiragino Maru Gothic ProN", sans-serif' },
-        { label: '等宽字体', value: '"SF Mono", Menlo, Consolas, monospace' }
-    ];
-
     let currentThreadId = null;
     let overlayEl = null;
     let rootPageEl = null;
     let subPages = {};
+    let pageStack = [];
     let toastEl = null;
     let toastTimer = null;
     let activeInputEl = null;
@@ -228,8 +221,10 @@
     const customAvatarCache = new Map();
     const avatarFrameCache = new Map();
     const bubbleImgCache = new Map();
+    const loadedFontFamilies = new Set();
 
-    // 查找聊天记录状态
+    // 搜索状态
+    let mainSearchQuery = '';
     let searchKeyword = '';
     let selectedDateStr = '';
     let calYear = new Date().getFullYear();
@@ -314,14 +309,8 @@
             if (!isCtdInput(e.target)) return;
             clearTimeout(blurResetTimer);
             activeInputEl = e.target;
-            setTimeout(() => {
-                syncViewportForKeyboard();
-                ensureInputVisibleInScroll(activeInputEl);
-            }, 80);
-            setTimeout(() => {
-                syncViewportForKeyboard();
-                ensureInputVisibleInScroll(activeInputEl);
-            }, 300);
+            setTimeout(() => { syncViewportForKeyboard(); ensureInputVisibleInScroll(activeInputEl); }, 80);
+            setTimeout(() => { syncViewportForKeyboard(); ensureInputVisibleInScroll(activeInputEl); }, 300);
         });
 
         document.addEventListener('focusout', (e) => {
@@ -357,9 +346,7 @@
     }
 
     function saveJSON(key, val) {
-        try {
-            localStorage.setItem(key, JSON.stringify(val));
-        } catch (e) {}
+        try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
     }
 
     function escapeHtml(str) {
@@ -434,17 +421,15 @@
             voiceSpeed: '1.0',
             voiceLoreOverride: false,
             voiceLoreIds: [],
-            // 聊天界面设定
             uiShowAvatar: true,
-            uiAvatarShape: 'squircle', // 'squircle' | 'circle'
+            uiAvatarShape: 'squircle',
             uiAvatarSize: 40,
             uiHasAvatarFrame: false,
-            uiBubbleScale: 100, // 85 - 120
+            uiBubbleScale: 100,
             uiBubbleFontOther: '',
             uiBubbleFontMe: '',
-            uiBubbleFontSize: 0, // 0 = 跟随全局，否则 12-22
+            uiBubbleFontSize: 0,
             uiHasBubbleImg: false,
-            // 表情包设定
             stickerAssocSearch: false,
             stickerPackIds: [],
             stickerCharRead: false,
@@ -529,29 +514,66 @@
         return Array.isArray(msgs) ? msgs : [];
     }
 
-    /* ---------------- 字体列表读取（内置 + 外观已加载字体） ---------------- */
-    function getAvailableFonts() {
-        const list = BUILTIN_FONTS.slice();
-        const seen = new Set(list.map(f => f.label));
+    /* ---------------- 持久化自定义上传字体（仅保留「跟随全局」+「上传的字体」） ---------------- */
+    function getUploadedFonts() {
+        const list = loadJSON(UPLOADED_FONTS_KEY, []);
+        return Array.isArray(list) ? list : [];
+    }
+
+    async function ensureFontFaceLoaded(fontItem) {
+        if (!fontItem || !fontItem.family || loadedFontFamilies.has(fontItem.family)) return;
+        if (!window.PhoneDB || typeof window.PhoneDB.get !== 'function') return;
         try {
-            if (document.fonts && typeof document.fonts.forEach === 'function') {
-                document.fonts.forEach(ff => {
-                    const clean = (ff.family || '').replace(/^['"]|['"]$/g, '').trim();
-                    if (clean && !seen.has(clean)) {
-                        seen.add(clean);
-                        list.push({ label: clean, value: `"${clean}", sans-serif` });
-                    }
-                });
-            }
+            const dataUrl = await window.PhoneDB.get('chat_uploaded_font_' + fontItem.id);
+            if (!dataUrl) return;
+            const style = document.createElement('style');
+            style.textContent = `@font-face { font-family: "${fontItem.family}"; src: url("${dataUrl}"); font-display: swap; }`;
+            document.head.appendChild(style);
+            loadedFontFamilies.add(fontItem.family);
         } catch (e) {}
-        return list;
+    }
+
+    async function loadAllUploadedFonts() {
+        const list = getUploadedFonts();
+        for (const item of list) {
+            await ensureFontFaceLoaded(item);
+        }
     }
 
     function getFontLabel(val) {
         if (!val) return '跟随全局';
-        const found = getAvailableFonts().find(f => f.value === val);
-        if (found) return found.label;
-        return val.split(',')[0].replace(/['"]/g, '').trim() || '自定义';
+        const found = getUploadedFonts().find(f => f.family === val);
+        return found ? found.name : '跟随全局';
+    }
+
+    function uploadCustomFontFile(onUploaded) {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2';
+        input.onchange = () => {
+            const file = input.files && input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async () => {
+                const dataUrl = reader.result;
+                if (!dataUrl) return;
+                const cleanName = file.name.replace(/\.[^.]+$/, '').slice(0, 24) || '自定义字体';
+                const id = 'uf_' + Date.now();
+                const family = 'CtdFont_' + id;
+                if (window.PhoneDB && typeof window.PhoneDB.set === 'function') {
+                    await window.PhoneDB.set('chat_uploaded_font_' + id, dataUrl);
+                }
+                const list = getUploadedFonts();
+                const item = { id, name: cleanName, family };
+                list.unshift(item);
+                saveJSON(UPLOADED_FONTS_KEY, list);
+                await ensureFontFaceLoaded(item);
+                showToast(`已上传字体「${cleanName}」`);
+                if (typeof onUploaded === 'function') onUploaded(item);
+            };
+            reader.readAsDataURL(file);
+        };
+        input.click();
     }
 
     /* ---------------- 表情包分组读取 ---------------- */
@@ -579,6 +601,7 @@
             if (styleEl) styleEl.textContent = '';
             return;
         }
+        await loadAllUploadedFonts();
         const s = getThreadSettings(tid);
         if (!styleEl) {
             styleEl = document.createElement('style');
@@ -593,8 +616,8 @@
         const padH = Math.round(13 * scale);
         const maxW = Math.min(84, Math.max(58, Math.round(70 * scale)));
         const fontSizeRule = s.uiBubbleFontSize > 0 ? `font-size: ${s.uiBubbleFontSize}px !important;` : '';
-        const fontOtherRule = s.uiBubbleFontOther ? `font-family: ${s.uiBubbleFontOther} !important;` : '';
-        const fontMeRule = s.uiBubbleFontMe ? `font-family: ${s.uiBubbleFontMe} !important;` : '';
+        const fontOtherRule = s.uiBubbleFontOther ? `font-family: "${s.uiBubbleFontOther}", sans-serif !important;` : '';
+        const fontMeRule = s.uiBubbleFontMe ? `font-family: "${s.uiBubbleFontMe}", sans-serif !important;` : '';
 
         const frameUrl = s.uiHasAvatarFrame ? await loadDBAsset('chat_avatar_frame_' + tid, avatarFrameCache) : '';
         const bubbleImgUrl = s.uiHasBubbleImg ? await loadDBAsset('chat_bubble_img_' + tid, bubbleImgCache) : '';
@@ -611,14 +634,11 @@
         }
 
         css += `#app-chat #ctRoomMessages .ct-bubble { padding: ${padV}px ${padH}px !important; max-width: ${maxW}% !important; ${fontSizeRule} }\n`;
-        if (fontOtherRule) {
-            css += `#app-chat #ctRoomMessages .ct-msg-row:not(.me) .ct-bubble { ${fontOtherRule} }\n`;
-        }
-        if (fontMeRule) {
-            css += `#app-chat #ctRoomMessages .ct-msg-row.me .ct-bubble { ${fontMeRule} }\n`;
-        }
+        if (fontOtherRule) css += `#app-chat #ctRoomMessages .ct-msg-row:not(.me) .ct-bubble { ${fontOtherRule} }\n`;
+        if (fontMeRule) css += `#app-chat #ctRoomMessages .ct-msg-row.me .ct-bubble { ${fontMeRule} }\n`;
         if (bubbleImgUrl) {
             css += `#app-chat #ctRoomMessages .ct-bubble { background-image: url("${bubbleImgUrl}") !important; background-size: cover !important; background-position: center !important; }\n`;
+            css += `#app-chat #ctRoomMessages .ct-bubble::before, #app-chat #ctRoomMessages .ct-bubble::after { display: none !important; content: none !important; border: none !important; }\n`;
         }
 
         styleEl.textContent = css;
@@ -631,10 +651,7 @@
 
         if (providerId === 'elevenlabs') {
             if (apiUrl && !apiUrl.includes('api.elevenlabs.io')) {
-                try {
-                    const u = new URL(apiUrl);
-                    modelsEndpoint = `${u.origin}/v1/models`;
-                } catch (e) {}
+                try { modelsEndpoint = `${new URL(apiUrl).origin}/v1/models`; } catch (e) {}
             } else {
                 modelsEndpoint = meta.modelsUrl;
             }
@@ -642,10 +659,9 @@
             if (apiUrl) {
                 try {
                     const u = new URL(apiUrl);
-                    modelsEndpoint = `${u.origin}/v1/models`;
-                    if (providerId === 'siliconflow' && u.hostname.includes('siliconflow')) {
-                        modelsEndpoint = meta.modelsUrl;
-                    }
+                    modelsEndpoint = (providerId === 'siliconflow' && u.hostname.includes('siliconflow'))
+                        ? meta.modelsUrl
+                        : `${u.origin}/v1/models`;
                 } catch (e) {}
             } else if (meta.modelsUrl) {
                 modelsEndpoint = meta.modelsUrl;
@@ -661,13 +677,9 @@
                 if (res.ok) {
                     const data = await res.json();
                     let list = [];
-                    if (Array.isArray(data)) {
-                        list = data.map(item => item.model_id || item.id || item.name).filter(Boolean);
-                    } else if (data && Array.isArray(data.data)) {
-                        list = data.data.map(item => item.id || item.model_id || item.name).filter(Boolean);
-                    } else if (data && Array.isArray(data.models)) {
-                        list = data.models.map(item => item.id || item.model_id || item.name).filter(Boolean);
-                    }
+                    if (Array.isArray(data)) list = data.map(item => item.model_id || item.id || item.name).filter(Boolean);
+                    else if (data && Array.isArray(data.data)) list = data.data.map(item => item.id || item.model_id || item.name).filter(Boolean);
+                    else if (data && Array.isArray(data.models)) list = data.models.map(item => item.id || item.model_id || item.name).filter(Boolean);
                     if (list.length) return { models: [...new Set(list)], source: 'remote' };
                 }
             } catch (e) {}
@@ -679,7 +691,7 @@
         return { models: [], source: 'empty' };
     }
 
-    /* ---------------- 日期与 API / 预设 / 世界书 / 记忆读取 ---------------- */
+    /* ---------------- 日期与数据读取 ---------------- */
     function toDateStr(d) {
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
@@ -1182,6 +1194,50 @@
         });
     }
 
+    function openBubbleFontPicker(fieldKey, title) {
+        const cur = getThreadSettings(currentThreadId);
+        const currentFamily = cur[fieldKey] || '';
+        const uploaded = getUploadedFonts();
+
+        const actions = [
+            {
+                label: '跟随全局' + (!currentFamily ? ' ✓' : ''),
+                selected: !currentFamily,
+                onClick: async () => {
+                    updateThreadSettings(currentThreadId, { [fieldKey]: '' });
+                    await applyRoomThemeStyle(currentThreadId);
+                    renderThemeSubView();
+                }
+            }
+        ];
+
+        uploaded.forEach(f => {
+            actions.push({
+                label: f.name + (currentFamily === f.family ? ' ✓' : ''),
+                selected: currentFamily === f.family,
+                onClick: async () => {
+                    await ensureFontFaceLoaded(f);
+                    updateThreadSettings(currentThreadId, { [fieldKey]: f.family });
+                    await applyRoomThemeStyle(currentThreadId);
+                    renderThemeSubView();
+                }
+            });
+        });
+
+        actions.push({
+            label: '+ 上传字体文件（.ttf / .otf / .woff2）',
+            onClick: () => {
+                uploadCustomFontFile(async (newFont) => {
+                    updateThreadSettings(currentThreadId, { [fieldKey]: newFont.family });
+                    await applyRoomThemeStyle(currentThreadId);
+                    renderThemeSubView();
+                });
+            }
+        });
+
+        openActionSheet({ title, actions });
+    }
+
     function openInputModal({ title, value, placeholder, onConfirm }) {
         const backdrop = document.createElement('div');
         backdrop.className = 'ctd-modal-backdrop';
@@ -1226,7 +1282,7 @@
         });
     }
 
-    /* ---------------- DOM 构建与页面切换 ---------------- */
+    /* ---------------- DOM 构建与多级页面栈 ---------------- */
     function buildSubPage(id, title, scrollId, rightActionHtml) {
         return `
             <div class="ctd-page" id="${id}">
@@ -1264,8 +1320,9 @@
             ${buildSubPage('ctDetailsLoreView', '单独挂载世界书', 'ctdLoreScroll')}
             ${buildSubPage('ctDetailsVoiceView', '启用语音模型', 'ctdVoiceScroll')}
             ${buildSubPage('ctDetailsVoiceLoreView', '语音模型世界书', 'ctdVoiceLoreScroll')}
-            ${buildSubPage('ctDetailsThemeView', '聊天界面设定', 'ctdThemeScroll', `<button type="button" class="ctd-top-action-btn" id="ctdThemeImportBtn">导入</button>`)}
+            ${buildSubPage('ctDetailsStickerView', '表情包', 'ctdStickerScroll')}
             ${buildSubPage('ctDetailsStickerPackView', '挂载表情包', 'ctdStickerPackScroll')}
+            ${buildSubPage('ctDetailsThemeView', '聊天界面设定', 'ctdThemeScroll', `<button type="button" class="ctd-top-action-btn" id="ctdThemeImportBtn">导入</button>`)}
             ${buildSubPage('ctDetailsMemoryView', '记忆宫殿', 'ctdMemoryScroll')}
         `;
         mountParent.appendChild(overlayEl);
@@ -1274,41 +1331,49 @@
         [
             'ctDetailsProfileView', 'ctDetailsSearchView', 'ctDetailsApiView',
             'ctDetailsCotView', 'ctDetailsPresetView', 'ctDetailsLoreView',
-            'ctDetailsVoiceView', 'ctDetailsVoiceLoreView', 'ctDetailsThemeView',
-            'ctDetailsStickerPackView', 'ctDetailsMemoryView'
+            'ctDetailsVoiceView', 'ctDetailsVoiceLoreView', 'ctDetailsStickerView',
+            'ctDetailsStickerPackView', 'ctDetailsThemeView', 'ctDetailsMemoryView'
         ].forEach(id => {
             subPages[id] = document.getElementById(id);
         });
 
         document.getElementById('ctdBackBtn').addEventListener('click', closeDetails);
         overlayEl.querySelectorAll('[data-sub-back]').forEach(btn => {
-            btn.addEventListener('click', () => closeSubPage(subPages[btn.dataset.subBack]));
+            btn.addEventListener('click', () => popSubPage());
         });
         document.getElementById('ctdThemeImportBtn').addEventListener('click', () => openThemeImportMenu());
         bindAllPressed(overlayEl);
     }
 
-    function openSubPage(pageEl) {
+    function pushSubPage(pageEl) {
         if (!pageEl) return;
-        rootPageEl.classList.add('is-behind');
+        const prevTop = pageStack.length ? pageStack[pageStack.length - 1] : rootPageEl;
+        if (prevTop) prevTop.classList.add('is-behind');
+        pageEl.classList.remove('is-behind');
         pageEl.classList.add('open');
+        pageStack.push(pageEl);
     }
 
-    function closeSubPage(pageEl) {
-        if (!pageEl) return;
-        if (document.activeElement && pageEl.contains(document.activeElement)) document.activeElement.blur();
+    function popSubPage() {
+        if (!pageStack.length) return;
+        const top = pageStack.pop();
+        if (document.activeElement && top.contains(document.activeElement)) document.activeElement.blur();
         activeInputEl = null;
         resetViewportContainers();
-        pageEl.classList.remove('open');
-        rootPageEl.classList.remove('is-behind');
-        renderMainView();
+        top.classList.remove('open');
+        const nextTop = pageStack.length ? pageStack[pageStack.length - 1] : rootPageEl;
+        if (nextTop) nextTop.classList.remove('is-behind');
+        if (nextTop === rootPageEl) renderMainView();
+        else if (nextTop === subPages.ctDetailsStickerView) renderStickerSubView();
     }
 
     async function openDetails(threadId) {
         currentThreadId = threadId || resolveActiveThreadId();
         if (!currentThreadId) return;
         ensureOverlayDOM();
-        Object.values(subPages).forEach(p => p.classList.remove('open'));
+        mainSearchQuery = '';
+        pageStack = [];
+        Object.values(subPages).forEach(p => { p.classList.remove('open'); p.classList.remove('is-behind'); });
         rootPageEl.classList.remove('is-behind');
         await renderMainView();
         requestAnimationFrame(() => overlayEl.classList.add('open'));
@@ -1320,17 +1385,99 @@
         activeInputEl = null;
         resetViewportContainers();
         overlayEl.classList.remove('open');
-        Object.values(subPages).forEach(p => p.classList.remove('open'));
+        pageStack = [];
+        Object.values(subPages).forEach(p => { p.classList.remove('open'); p.classList.remove('is-behind'); });
         rootPageEl.classList.remove('is-behind');
     }
 
-    /* ---------------- 主详情页渲染 ---------------- */
+    /* ---------------- 主详情页渲染（含顶部快捷搜索） ---------------- */
+    function buildSearchableIndex(thread, settings) {
+        return [
+            { title: '资料设置（修改备注 / 修改头像）', kw: '备注 头像 资料 群名', action: () => { renderProfileSubView(); pushSubPage(subPages.ctDetailsProfileView); } },
+            { title: '置顶聊天', kw: '置顶 排序', action: () => { const n = updateThreadSettings(currentThreadId, { pinned: !settings.pinned }); sortThreadsByPin(); showToast(n.pinned ? '已置顶该聊天' : '已取消置顶'); renderMainBody(); } },
+            { title: '消息免打扰', kw: '免打扰 静音 铃铛', action: () => { const n = updateThreadSettings(currentThreadId, { muted: !settings.muted }); syncRoomTitleAndBellUI(); showToast(n.muted ? '已开启消息免打扰' : '已关闭消息免打扰'); renderMainBody(); } },
+            { title: '聊天背景', kw: '背景 壁纸 图片', action: () => pickChatBackground() },
+            { title: '查找聊天记录 / 感知真实时间', kw: '查找 搜索 记录 历史 日历 真实时间', action: () => { searchKeyword = ''; selectedDateStr = ''; renderSearchView(); pushSubPage(subPages.ctDetailsSearchView); } },
+            { title: '感知真实天气 / 感知真实地点', kw: '天气 地点 位置 定位 实时', action: () => { mainSearchQuery = ''; renderMainView(); } },
+            { title: '独立 API', kw: 'api 接口 模型 独立', action: () => { renderApiSubView(); pushSubPage(subPages.ctDetailsApiView); } },
+            { title: '专属思维链', kw: '思维链 cot 思考', action: () => { renderCotSubView(); pushSubPage(subPages.ctDetailsCotView); } },
+            { title: '专属预设', kw: '预设 提示词 prompt', action: () => { renderPresetView(); pushSubPage(subPages.ctDetailsPresetView); } },
+            { title: '单独挂载世界书', kw: '世界书 设定集 lorebook', action: () => { renderLoreView(); pushSubPage(subPages.ctDetailsLoreView); } },
+            { title: '语言与翻译', kw: '翻译 语言 简中 繁中 粤语 沪语 方言', action: () => { mainSearchQuery = ''; renderMainView(); } },
+            { title: '启用语音模型', kw: '语音 tts minimax elevenlabs fish openai 硅基 播放 情绪', action: () => { renderVoiceSubView(); pushSubPage(subPages.ctDetailsVoiceView); } },
+            { title: '语音模型世界书', kw: '语音 世界书 音色', action: () => { renderVoiceLoreView(); pushSubPage(subPages.ctDetailsVoiceLoreView); } },
+            { title: '表情包（联想搜图 / 挂载 / 识取 / 读取 / 偷表情包）', kw: '表情包 搜图 挂载 识取 读取 偷', action: () => { renderStickerSubView(); pushSubPage(subPages.ctDetailsStickerView); } },
+            { title: '聊天界面设定（头像 / 头像框 / 气泡 / 字体 / 导入）', kw: '界面 设定 美化 气泡 头像 头像框 字体 导入 png', action: () => { renderThemeSubView(); pushSubPage(subPages.ctDetailsThemeView); } },
+            { title: '记忆宫殿', kw: '记忆 宫殿 长期记忆', action: () => { renderMemorySubView(); pushSubPage(subPages.ctDetailsMemoryView); } },
+            { title: '拉黑', kw: '拉黑 黑名单 屏蔽', action: () => triggerBlockSheet(thread) },
+            { title: '导出聊天记录', kw: '导出 备份 json', action: () => exportThreadMessages(thread) },
+            { title: '导入聊天记录', kw: '导入 恢复 json', action: () => importThreadMessages() },
+            { title: '清空聊天记录', kw: '清空 删除 聊天记录 记忆', action: () => triggerClearSheet(thread) }
+        ];
+    }
+
     async function renderMainView() {
         const scrollEl = document.getElementById('ctdMainScroll');
         if (!scrollEl || !currentThreadId) return;
 
+        scrollEl.innerHTML = `
+            <div class="ctd-search-box">
+                <span class="ctd-search-icon">${SVG_SEARCH}</span>
+                <input type="text" class="ctd-search-input" id="ctdMainSearchInput" placeholder="搜索详情设置项..." value="${escapeHtml(mainSearchQuery)}">
+                <button type="button" class="ctd-search-clear ${mainSearchQuery ? 'visible' : ''}" id="ctdMainSearchClear">${SVG_CLEAR}</button>
+            </div>
+            <div id="ctdMainBodySlot" style="display:flex;flex-direction:column;gap:16px;"></div>
+        `;
+
+        const inputEl = document.getElementById('ctdMainSearchInput');
+        const clearBtn = document.getElementById('ctdMainSearchClear');
+        inputEl.addEventListener('input', () => {
+            mainSearchQuery = inputEl.value.trim();
+            clearBtn.classList.toggle('visible', Boolean(mainSearchQuery));
+            renderMainBody();
+        });
+        clearBtn.addEventListener('click', () => {
+            mainSearchQuery = '';
+            inputEl.value = '';
+            clearBtn.classList.remove('visible');
+            renderMainBody();
+        });
+
+        await renderMainBody();
+    }
+
+    async function renderMainBody() {
+        const bodySlot = document.getElementById('ctdMainBodySlot');
+        if (!bodySlot || !currentThreadId) return;
+
         const thread = getThreadById(currentThreadId);
         const settings = getThreadSettings(currentThreadId);
+
+        // 搜索过滤态
+        if (mainSearchQuery) {
+            const kw = mainSearchQuery.toLowerCase();
+            const index = buildSearchableIndex(thread, settings);
+            const matched = index.filter(item => (item.title + ' ' + item.kw).toLowerCase().includes(kw));
+            if (!matched.length) {
+                bodySlot.innerHTML = `<div class="ctd-empty-hint">未找到相关设置项</div>`;
+                return;
+            }
+            bodySlot.innerHTML = `<div class="ctd-card">` + matched.map((item, i) => `
+                <div class="ctd-row ctd-main-hit" data-hit-idx="${i}">
+                    <div class="ctd-row-left"><div class="ctd-row-title">${escapeHtml(item.title)}</div></div>
+                    <div class="ctd-row-right"><span class="ctd-chevron">${SVG_CHEVRON}</span></div>
+                </div>
+            `).join('') + `</div>`;
+            bindAllPressed(bodySlot);
+            bodySlot.querySelectorAll('.ctd-main-hit').forEach(row => {
+                row.addEventListener('click', () => {
+                    const hit = matched[Number(row.dataset.hitIdx)];
+                    if (hit && typeof hit.action === 'function') hit.action();
+                });
+            });
+            return;
+        }
+
         const cache = getRealContextCache();
         const isGroup = thread && thread.type === 'group';
         const displayName = getDisplayName(thread, settings);
@@ -1428,7 +1575,6 @@
                     <div class="ctd-row-left">
                         <div class="ctd-row-title">感知真实天气</div>
                         ${weatherSub ? `<div class="ctd-row-sub">${escapeHtml(weatherSub)}</div>` : ''}
-                        <div class="ctd-token-note">将略微增加上下文 Token 消耗</div>
                     </div>
                     <div class="ctd-row-right">
                         <button type="button" class="ctd-switch ${settings.realWeather ? 'on' : ''}" id="ctdWeatherSwitch" aria-label="感知真实天气"></button>
@@ -1438,7 +1584,6 @@
                     <div class="ctd-row-left">
                         <div class="ctd-row-title">感知真实地点</div>
                         ${locationSub ? `<div class="ctd-row-sub">${escapeHtml(locationSub)}</div>` : ''}
-                        <div class="ctd-token-note">将略微增加上下文 Token 消耗</div>
                     </div>
                     <div class="ctd-row-right">
                         <button type="button" class="ctd-switch ${settings.realLocation ? 'on' : ''}" id="ctdLocationSwitch" aria-label="感知真实地点"></button>
@@ -1469,10 +1614,7 @@
         const coreCardHtml = `
             <div class="ctd-card">
                 <div class="ctd-row" id="ctdCotEntryRow">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">专属思维链</div>
-                        <div class="ctd-token-note">启用思维链将额外增加输出 Token 消耗</div>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">专属思维链</div></div>
                     <div class="ctd-row-right">
                         <span class="ctd-row-value">${escapeHtml(cotLabel)}</span>
                         <span class="ctd-chevron">${SVG_CHEVRON}</span>
@@ -1486,10 +1628,7 @@
                     </div>
                 </div>
                 <div class="ctd-row" id="ctdLoreEntryRow">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">单独挂载世界书</div>
-                        <div class="ctd-token-note">挂载词条数量较多时将增加上下文 Token 消耗</div>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">单独挂载世界书</div></div>
                     <div class="ctd-row-right">
                         <span class="ctd-row-value">${escapeHtml(loreStatusText)}</span>
                         <span class="ctd-chevron">${SVG_CHEVRON}</span>
@@ -1498,14 +1637,11 @@
             </div>
         `;
 
-        // 7. 语言与翻译
+        // 7. 语言与翻译（方案A：随主回复生成，不多调用一次）
         const langCardHtml = `
             <div class="ctd-card">
                 <div class="ctd-row ctd-row-static">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">自动展开翻译</div>
-                        <div class="ctd-token-note">需额外调用翻译请求，将增加 Token 消耗</div>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">自动展开翻译</div></div>
                     <div class="ctd-row-right">
                         <button type="button" class="ctd-switch ${settings.autoTranslate ? 'on' : ''}" id="ctdAutoTransSwitch" aria-label="自动展开翻译"></button>
                     </div>
@@ -1549,10 +1685,7 @@
                     </div>
                 </div>
                 <div class="ctd-row" id="ctdVoiceLoreEntryRow">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">语音模型世界书</div>
-                        <div class="ctd-token-note">挂载语音词条将增加上下文 Token 消耗</div>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">语音模型世界书</div></div>
                     <div class="ctd-row-right">
                         <span class="ctd-row-value">${escapeHtml(voiceLoreStatus)}</span>
                         <span class="ctd-chevron">${SVG_CHEVRON}</span>
@@ -1561,7 +1694,22 @@
             </div>
         `;
 
-        // 9. 聊天界面设定
+        // 9. 表情包（独立入口卡，点进第二页）
+        const packCount = Array.isArray(settings.stickerPackIds) ? settings.stickerPackIds.length : 0;
+        const stickerSummary = packCount ? `已挂载 ${packCount} 组` : (settings.stickerAssocSearch || settings.stickerVision ? '已启用' : '默认');
+        const stickerEntryCardHtml = `
+            <div class="ctd-card">
+                <div class="ctd-row" id="ctdStickerEntryRow">
+                    <div class="ctd-row-left"><div class="ctd-row-title">表情包</div></div>
+                    <div class="ctd-row-right">
+                        <span class="ctd-row-value">${escapeHtml(stickerSummary)}</span>
+                        <span class="ctd-chevron">${SVG_CHEVRON}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // 10. 聊天界面设定（位于表情包下方）
         const themeCardHtml = `
             <div class="ctd-card">
                 <div class="ctd-row" id="ctdThemeEntryRow">
@@ -1569,51 +1717,6 @@
                     <div class="ctd-row-right">
                         <span class="ctd-row-value">${settings.uiHasAvatarFrame || settings.uiHasBubbleImg || settings.uiBubbleFontOther || settings.uiBubbleFontMe ? '已自定义' : '默认'}</span>
                         <span class="ctd-chevron">${SVG_CHEVRON}</span>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        // 10. 表情包区域
-        const packCount = Array.isArray(settings.stickerPackIds) ? settings.stickerPackIds.length : 0;
-        const stickerCardHtml = `
-            <div class="ctd-section-label">表情包</div>
-            <div class="ctd-card">
-                <div class="ctd-row ctd-row-static">
-                    <div class="ctd-row-left"><div class="ctd-row-title">联想搜图</div></div>
-                    <div class="ctd-row-right">
-                        <button type="button" class="ctd-switch ${settings.stickerAssocSearch ? 'on' : ''}" id="ctdStickerAssocSw" aria-label="联想搜图"></button>
-                    </div>
-                </div>
-                <div class="ctd-row" id="ctdStickerPackRow">
-                    <div class="ctd-row-left"><div class="ctd-row-title">挂载表情包</div></div>
-                    <div class="ctd-row-right">
-                        <span class="ctd-row-value">${packCount ? `已选 ${packCount} 组` : '未挂载'}</span>
-                        <span class="ctd-chevron">${SVG_CHEVRON}</span>
-                    </div>
-                </div>
-                <div class="ctd-row ctd-row-static">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">角色读取挂载的表情包</div>
-                        <div class="ctd-token-note">注入表情包索引将增加上下文 Token 消耗</div>
-                    </div>
-                    <div class="ctd-row-right">
-                        <button type="button" class="ctd-switch ${settings.stickerCharRead ? 'on' : ''}" id="ctdStickerReadSw" aria-label="角色读取挂载的表情包"></button>
-                    </div>
-                </div>
-                <div class="ctd-row ctd-row-static">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">表情包识取</div>
-                        <div class="ctd-token-note">需调用视觉识别能力，将额外消耗 Token</div>
-                    </div>
-                    <div class="ctd-row-right">
-                        <button type="button" class="ctd-switch ${settings.stickerVision ? 'on' : ''}" id="ctdStickerVisionSw" aria-label="表情包识取"></button>
-                    </div>
-                </div>
-                <div class="ctd-row ctd-row-static">
-                    <div class="ctd-row-left"><div class="ctd-row-title">允许偷我的表情包</div></div>
-                    <div class="ctd-row-right">
-                        <button type="button" class="ctd-switch ${settings.stickerAllowSteal ? 'on' : ''}" id="ctdStickerStealSw" aria-label="允许偷我的表情包"></button>
                     </div>
                 </div>
             </div>
@@ -1655,21 +1758,56 @@
             </div>
         `;
 
-        scrollEl.innerHTML =
+        bodySlot.innerHTML =
             profileHtml + basicCardHtml + searchCardHtml + realEnvCardHtml +
             apiCardHtml + coreCardHtml + langCardHtml + voiceCardHtml +
-            themeCardHtml + stickerCardHtml + memoryCardHtml + blockCardHtml +
+            stickerEntryCardHtml + themeCardHtml + memoryCardHtml + blockCardHtml +
             ioCardHtml + clearCardHtml;
 
-        bindAllPressed(scrollEl);
+        bindAllPressed(bodySlot);
         bindMainViewEvents(thread);
     }
 
-    function bindMainViewEvents(thread) {
-        document.getElementById('ctdProfileCardEntry').addEventListener('click', () => {
-            renderProfileSubView();
-            openSubPage(subPages.ctDetailsProfileView);
+    function triggerBlockSheet(thread) {
+        const cur = getThreadSettings(currentThreadId);
+        const name = getDisplayName(thread, cur);
+        if (cur.blocked) {
+            openActionSheet({
+                title: '解除拉黑',
+                desc: `确定将「${name}」移出黑名单吗？`,
+                actions: [{ label: '解除拉黑', onClick: () => { updateThreadSettings(currentThreadId, { blocked: false }); renderMainBody(); showToast('已解除拉黑'); } }]
+            });
+        } else {
+            openActionSheet({
+                title: '拉黑联系人',
+                desc: `确定拉黑「${name}」吗？拉黑后将不再向其发送或接收消息。`,
+                actions: [{ label: '确认拉黑', danger: true, onClick: () => { updateThreadSettings(currentThreadId, { blocked: true }); renderMainBody(); showToast('已拉黑该联系人'); } }]
+            });
+        }
+    }
+
+    function triggerClearSheet(thread) {
+        const cur = getThreadSettings(currentThreadId);
+        const name = getDisplayName(thread, cur);
+        openActionSheet({
+            title: '清空聊天记录',
+            desc: `确定清空与「${name}」的全部聊天记录吗？此操作无法撤销。`,
+            checkboxLabel: '同时清空该角色记忆',
+            actions: [{
+                label: '清空聊天记录',
+                danger: true,
+                onClick: (alsoClearMemory) => {
+                    clearThreadMessages();
+                    if (alsoClearMemory) { clearCharMemories(thread); showToast('已清空聊天记录与角色记忆'); }
+                    else showToast('已清空聊天记录');
+                    renderMainBody();
+                }
+            }]
         });
+    }
+
+    function bindMainViewEvents(thread) {
+        document.getElementById('ctdProfileCardEntry').addEventListener('click', () => { renderProfileSubView(); pushSubPage(subPages.ctDetailsProfileView); });
 
         document.getElementById('ctdPinSwitch').addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1700,7 +1838,7 @@
                             if (window.PhoneDB && typeof window.PhoneDB.del === 'function') await window.PhoneDB.del('chat_bg_' + currentThreadId);
                             updateThreadSettings(currentThreadId, { hasBg: false });
                             await syncRoomBackgroundUI();
-                            renderMainView();
+                            renderMainBody();
                             showToast('已恢复默认背景');
                         }
                     }
@@ -1715,7 +1853,7 @@
             calYear = now.getFullYear();
             calMonth = now.getMonth();
             renderSearchView();
-            openSubPage(subPages.ctDetailsSearchView);
+            pushSubPage(subPages.ctDetailsSearchView);
         });
 
         document.getElementById('ctdWeatherSwitch').addEventListener('click', async (e) => {
@@ -1724,18 +1862,11 @@
             const enable = !cur.realWeather;
             updateThreadSettings(currentThreadId, { realWeather: enable });
             e.currentTarget.classList.toggle('on', enable);
-            renderMainView();
+            renderMainBody();
             if (enable) {
-                try {
-                    await refreshRealContext(cur.realLocation, true);
-                    renderMainView();
-                    showToast('已开启实时天气感知');
-                } catch (err) {
-                    showToast('未能获取天气信息');
-                }
-            } else {
-                showToast('已关闭实时天气感知');
-            }
+                try { await refreshRealContext(cur.realLocation, true); renderMainBody(); showToast('已开启实时天气感知'); }
+                catch (err) { showToast('未能获取天气信息'); }
+            } else showToast('已关闭实时天气感知');
         });
 
         document.getElementById('ctdLocationSwitch').addEventListener('click', async (e) => {
@@ -1744,24 +1875,17 @@
             const enable = !cur.realLocation;
             updateThreadSettings(currentThreadId, { realLocation: enable });
             e.currentTarget.classList.toggle('on', enable);
-            renderMainView();
+            renderMainBody();
             if (enable) {
-                try {
-                    await refreshRealContext(true, cur.realWeather);
-                    renderMainView();
-                    showToast('已开启实时地点感知');
-                } catch (err) {
-                    showToast('未能获取位置信息');
-                }
-            } else {
-                showToast('已关闭实时地点感知');
-            }
+                try { await refreshRealContext(true, cur.realWeather); renderMainBody(); showToast('已开启实时地点感知'); }
+                catch (err) { showToast('未能获取位置信息'); }
+            } else showToast('已关闭实时地点感知');
         });
 
-        document.getElementById('ctdApiEntryRow').addEventListener('click', () => { renderApiSubView(); openSubPage(subPages.ctDetailsApiView); });
-        document.getElementById('ctdCotEntryRow').addEventListener('click', () => { renderCotSubView(); openSubPage(subPages.ctDetailsCotView); });
-        document.getElementById('ctdPresetEntryRow').addEventListener('click', () => { renderPresetView(); openSubPage(subPages.ctDetailsPresetView); });
-        document.getElementById('ctdLoreEntryRow').addEventListener('click', () => { renderLoreView(); openSubPage(subPages.ctDetailsLoreView); });
+        document.getElementById('ctdApiEntryRow').addEventListener('click', () => { renderApiSubView(); pushSubPage(subPages.ctDetailsApiView); });
+        document.getElementById('ctdCotEntryRow').addEventListener('click', () => { renderCotSubView(); pushSubPage(subPages.ctDetailsCotView); });
+        document.getElementById('ctdPresetEntryRow').addEventListener('click', () => { renderPresetView(); pushSubPage(subPages.ctDetailsPresetView); });
+        document.getElementById('ctdLoreEntryRow').addEventListener('click', () => { renderLoreView(); pushSubPage(subPages.ctDetailsLoreView); });
 
         document.getElementById('ctdAutoTransSwitch').addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1777,7 +1901,7 @@
                 title: '选择角色输出语言',
                 currentVal: cur.charOutputLang || '跟随预设',
                 extraTopItem: '跟随预设',
-                onSelect: (lang) => { updateThreadSettings(currentThreadId, { charOutputLang: lang }); renderMainView(); }
+                onSelect: (lang) => { updateThreadSettings(currentThreadId, { charOutputLang: lang }); renderMainBody(); }
             });
         });
 
@@ -1787,7 +1911,7 @@
                 title: '选择角色第二语言',
                 currentVal: cur.charSecondLang || '无',
                 extraTopItem: '无',
-                onSelect: (lang) => { updateThreadSettings(currentThreadId, { charSecondLang: lang }); renderMainView(); }
+                onSelect: (lang) => { updateThreadSettings(currentThreadId, { charSecondLang: lang }); renderMainBody(); }
             });
         });
 
@@ -1797,89 +1921,147 @@
                 title: '选择翻译语言',
                 currentVal: cur.translateLang || '简体中文',
                 extraTopItem: null,
-                onSelect: (lang) => { updateThreadSettings(currentThreadId, { translateLang: lang }); renderMainView(); }
+                onSelect: (lang) => { updateThreadSettings(currentThreadId, { translateLang: lang }); renderMainBody(); }
             });
         });
 
-        document.getElementById('ctdVoiceEntryRow').addEventListener('click', () => { renderVoiceSubView(); openSubPage(subPages.ctDetailsVoiceView); });
-        document.getElementById('ctdVoiceLoreEntryRow').addEventListener('click', () => { renderVoiceLoreView(); openSubPage(subPages.ctDetailsVoiceLoreView); });
-        document.getElementById('ctdThemeEntryRow').addEventListener('click', () => { renderThemeSubView(); openSubPage(subPages.ctDetailsThemeView); });
+        document.getElementById('ctdVoiceEntryRow').addEventListener('click', () => { renderVoiceSubView(); pushSubPage(subPages.ctDetailsVoiceView); });
+        document.getElementById('ctdVoiceLoreEntryRow').addEventListener('click', () => { renderVoiceLoreView(); pushSubPage(subPages.ctDetailsVoiceLoreView); });
+        document.getElementById('ctdStickerEntryRow').addEventListener('click', () => { renderStickerSubView(); pushSubPage(subPages.ctDetailsStickerView); });
+        document.getElementById('ctdThemeEntryRow').addEventListener('click', () => { renderThemeSubView(); pushSubPage(subPages.ctDetailsThemeView); });
+        document.getElementById('ctdMemoryEntryRow').addEventListener('click', () => { renderMemorySubView(); pushSubPage(subPages.ctDetailsMemoryView); });
+        document.getElementById('ctdBlockRow').addEventListener('click', () => triggerBlockSheet(thread));
+        document.getElementById('ctdExportRow').addEventListener('click', () => exportThreadMessages(thread));
+        document.getElementById('ctdImportRow').addEventListener('click', () => importThreadMessages());
+        document.getElementById('ctdClearChatRow').addEventListener('click', () => triggerClearSheet(thread));
+    }
 
-        // 表情包 5 项事件
-        document.getElementById('ctdStickerAssocSw').addEventListener('click', (e) => {
+    /* ---------------- 二级页：表情包 ---------------- */
+    function renderStickerSubView() {
+        const scrollEl = document.getElementById('ctdStickerScroll');
+        if (!scrollEl || !currentThreadId) return;
+        const settings = getThreadSettings(currentThreadId);
+        const packCount = Array.isArray(settings.stickerPackIds) ? settings.stickerPackIds.length : 0;
+
+        scrollEl.innerHTML = `
+            <div class="ctd-card">
+                <div class="ctd-row ctd-row-static">
+                    <div class="ctd-row-left"><div class="ctd-row-title">联想搜图</div></div>
+                    <div class="ctd-row-right">
+                        <button type="button" class="ctd-switch ${settings.stickerAssocSearch ? 'on' : ''}" id="ctdSubStickerAssocSw" aria-label="联想搜图"></button>
+                    </div>
+                </div>
+                <div class="ctd-row" id="ctdSubStickerPackRow">
+                    <div class="ctd-row-left"><div class="ctd-row-title">挂载表情包</div></div>
+                    <div class="ctd-row-right">
+                        <span class="ctd-row-value">${packCount ? `已选 ${packCount} 组` : '未挂载'}</span>
+                        <span class="ctd-chevron">${SVG_CHEVRON}</span>
+                    </div>
+                </div>
+                <div class="ctd-row ctd-row-static">
+                    <div class="ctd-row-left">
+                        <div class="ctd-row-title">表情包识取</div>
+                        <div class="ctd-token-note">调用视觉模型识别并理解表情包图片内容，需额外发起一次调用，将产生额外 Token 消耗</div>
+                    </div>
+                    <div class="ctd-row-right">
+                        <button type="button" class="ctd-switch ${settings.stickerVision ? 'on' : ''}" id="ctdSubStickerVisionSw" aria-label="表情包识取"></button>
+                    </div>
+                </div>
+                <div class="ctd-row ctd-row-static">
+                    <div class="ctd-row-left">
+                        <div class="ctd-row-title">角色读取挂载的表情包</div>
+                        <div class="ctd-row-sub">仅读取已挂载表情包的名称与标签清单供角色选用，不解析图片画面</div>
+                    </div>
+                    <div class="ctd-row-right">
+                        <button type="button" class="ctd-switch ${settings.stickerCharRead ? 'on' : ''}" id="ctdSubStickerReadSw" aria-label="角色读取挂载的表情包"></button>
+                    </div>
+                </div>
+                <div class="ctd-row ctd-row-static">
+                    <div class="ctd-row-left"><div class="ctd-row-title">允许偷我的表情包</div></div>
+                    <div class="ctd-row-right">
+                        <button type="button" class="ctd-switch ${settings.stickerAllowSteal ? 'on' : ''}" id="ctdSubStickerStealSw" aria-label="允许偷我的表情包"></button>
+                    </div>
+                </div>
+            </div>
+        `;
+        bindAllPressed(scrollEl);
+
+        document.getElementById('ctdSubStickerAssocSw').addEventListener('click', (e) => {
             e.stopPropagation();
             const cur = getThreadSettings(currentThreadId);
             const next = updateThreadSettings(currentThreadId, { stickerAssocSearch: !cur.stickerAssocSearch });
             e.currentTarget.classList.toggle('on', next.stickerAssocSearch);
         });
-        document.getElementById('ctdStickerPackRow').addEventListener('click', () => {
+        document.getElementById('ctdSubStickerPackRow').addEventListener('click', () => {
             renderStickerPackSubView();
-            openSubPage(subPages.ctDetailsStickerPackView);
+            pushSubPage(subPages.ctDetailsStickerPackView);
         });
-        document.getElementById('ctdStickerReadSw').addEventListener('click', (e) => {
-            e.stopPropagation();
-            const cur = getThreadSettings(currentThreadId);
-            const next = updateThreadSettings(currentThreadId, { stickerCharRead: !cur.stickerCharRead });
-            e.currentTarget.classList.toggle('on', next.stickerCharRead);
-        });
-        document.getElementById('ctdStickerVisionSw').addEventListener('click', (e) => {
+        document.getElementById('ctdSubStickerVisionSw').addEventListener('click', (e) => {
             e.stopPropagation();
             const cur = getThreadSettings(currentThreadId);
             const next = updateThreadSettings(currentThreadId, { stickerVision: !cur.stickerVision });
             e.currentTarget.classList.toggle('on', next.stickerVision);
         });
-        document.getElementById('ctdStickerStealSw').addEventListener('click', (e) => {
+        document.getElementById('ctdSubStickerReadSw').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const cur = getThreadSettings(currentThreadId);
+            const next = updateThreadSettings(currentThreadId, { stickerCharRead: !cur.stickerCharRead });
+            e.currentTarget.classList.toggle('on', next.stickerCharRead);
+        });
+        document.getElementById('ctdSubStickerStealSw').addEventListener('click', (e) => {
             e.stopPropagation();
             const cur = getThreadSettings(currentThreadId);
             const next = updateThreadSettings(currentThreadId, { stickerAllowSteal: !cur.stickerAllowSteal });
             e.currentTarget.classList.toggle('on', next.stickerAllowSteal);
         });
+    }
 
-        document.getElementById('ctdMemoryEntryRow').addEventListener('click', () => { renderMemorySubView(); openSubPage(subPages.ctDetailsMemoryView); });
+    function renderStickerPackSubView() {
+        const scrollEl = document.getElementById('ctdStickerPackScroll');
+        if (!scrollEl || !currentThreadId) return;
+        const settings = getThreadSettings(currentThreadId);
+        const packs = getAvailableStickerPacks();
+        const selectedSet = new Set(Array.isArray(settings.stickerPackIds) ? settings.stickerPackIds : []);
 
-        document.getElementById('ctdBlockRow').addEventListener('click', () => {
-            const cur = getThreadSettings(currentThreadId);
-            const name = getDisplayName(thread, cur);
-            if (cur.blocked) {
-                openActionSheet({
-                    title: '解除拉黑',
-                    desc: `确定将「${name}」移出黑名单吗？`,
-                    actions: [{ label: '解除拉黑', onClick: () => { updateThreadSettings(currentThreadId, { blocked: false }); renderMainView(); showToast('已解除拉黑'); } }]
-                });
-            } else {
-                openActionSheet({
-                    title: '拉黑联系人',
-                    desc: `确定拉黑「${name}」吗？拉黑后将不再向其发送或接收消息。`,
-                    actions: [{ label: '确认拉黑', danger: true, onClick: () => { updateThreadSettings(currentThreadId, { blocked: true }); renderMainView(); showToast('已拉黑该联系人'); } }]
-                });
-            }
-        });
+        if (!packs.length) {
+            scrollEl.innerHTML = `<div class="ctd-empty-hint">暂无已创建的表情包分组</div>`;
+            return;
+        }
 
-        document.getElementById('ctdExportRow').addEventListener('click', () => exportThreadMessages(thread));
-        document.getElementById('ctdImportRow').addEventListener('click', () => importThreadMessages());
+        const rowsHtml = packs.map(p => {
+            const pid = p.id || p.name;
+            const checked = selectedSet.has(pid);
+            const count = Array.isArray(p.items) ? p.items.length : (Array.isArray(p.stickers) ? p.stickers.length : 0);
+            return `
+                <div class="ctd-row ctd-spack-row" data-pack-id="${escapeHtml(pid)}">
+                    <div class="ctd-row-left">
+                        <div class="ctd-row-title">${escapeHtml(p.name || p.title || '表情包')}</div>
+                        ${count ? `<div class="ctd-row-sub">${count} 张表情</div>` : ''}
+                    </div>
+                    <div class="ctd-row-right">
+                        <div class="ctd-check-circle ${checked ? 'checked' : ''}">${checked ? SVG_CHECK : ''}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
 
-        document.getElementById('ctdClearChatRow').addEventListener('click', () => {
-            const cur = getThreadSettings(currentThreadId);
-            const name = getDisplayName(thread, cur);
-            openActionSheet({
-                title: '清空聊天记录',
-                desc: `确定清空与「${name}」的全部聊天记录吗？此操作无法撤销。`,
-                checkboxLabel: '同时清空该角色记忆',
-                actions: [{
-                    label: '清空聊天记录',
-                    danger: true,
-                    onClick: (alsoClearMemory) => {
-                        clearThreadMessages();
-                        if (alsoClearMemory) { clearCharMemories(thread); showToast('已清空聊天记录与角色记忆'); }
-                        else showToast('已清空聊天记录');
-                        renderMainView();
-                    }
-                }]
+        scrollEl.innerHTML = `<div class="ctd-section-label">选择挂载的表情包分组（可多选）</div><div class="ctd-card">${rowsHtml}</div>`;
+        bindAllPressed(scrollEl);
+
+        scrollEl.querySelectorAll('.ctd-spack-row').forEach(row => {
+            row.addEventListener('click', () => {
+                const pid = row.dataset.packId;
+                const cur = getThreadSettings(currentThreadId);
+                const set = new Set(Array.isArray(cur.stickerPackIds) ? cur.stickerPackIds : []);
+                if (set.has(pid)) set.delete(pid);
+                else set.add(pid);
+                updateThreadSettings(currentThreadId, { stickerPackIds: Array.from(set) });
+                renderStickerPackSubView();
             });
         });
     }
 
-    /* ---------------- 二级页：聊天界面设定（完整美化 + 右上角导入） ---------------- */
+    /* ---------------- 二级页：聊天界面设定（1:1 真实气泡预览 + 上传字体） ---------------- */
     function openThemeImportMenu() {
         openActionSheet({
             title: '导入界面素材',
@@ -1981,7 +2163,15 @@
     async function renderThemeSubView() {
         const scrollEl = document.getElementById('ctdThemeScroll');
         if (!scrollEl || !currentThreadId) return;
+        await loadAllUploadedFonts();
+
+        const thread = getThreadById(currentThreadId);
         const s = getThreadSettings(currentThreadId);
+        const c = thread ? getCharById(thread.charId) : null;
+        const customAv = s.hasCustomAvatar ? await loadDBAsset('chat_custom_avatar_' + currentThreadId, customAvatarCache) : '';
+        const otherAv = customAv || getArchiveCharAvatar(c);
+        const otherInitial = getDisplayName(thread, s).slice(0, 1);
+
         const frameUrl = s.uiHasAvatarFrame ? await loadDBAsset('chat_avatar_frame_' + currentThreadId, avatarFrameCache) : '';
         const bubbleImgUrl = s.uiHasBubbleImg ? await loadDBAsset('chat_bubble_img_' + currentThreadId, bubbleImgCache) : '';
 
@@ -1992,17 +2182,20 @@
         const padH = Math.round(12 * scale);
         const bFontSize = s.uiBubbleFontSize > 0 ? `${s.uiBubbleFontSize}px` : 'var(--app-font-size, 15px)';
         const bgStyle = bubbleImgUrl ? `background-image:url('${bubbleImgUrl}');background-size:cover;background-position:center;` : '';
+        const imgCls = bubbleImgUrl ? 'has-img' : '';
 
         const previewHtml = `
             <div class="ctd-theme-preview">
                 <div class="ctd-prev-row">
                     ${s.uiShowAvatar ? `
                         <div class="ctd-prev-av-wrap">
-                            <div class="ctd-prev-av" style="width:${avSize}px;height:${avSize}px;border-radius:${avRadius};">他</div>
+                            <div class="ctd-prev-av" style="width:${avSize}px;height:${avSize}px;border-radius:${avRadius};">
+                                ${otherAv ? `<img src="${escapeHtml(otherAv)}" alt="">` : escapeHtml(otherInitial)}
+                            </div>
                             ${frameUrl ? `<img class="ctd-prev-frame" src="${escapeHtml(frameUrl)}" alt="">` : ''}
                         </div>
                     ` : ''}
-                    <div class="ctd-prev-bubble" style="padding:${padV}px ${padH}px;font-size:${bFontSize};${s.uiBubbleFontOther ? `font-family:${s.uiBubbleFontOther};` : ''}${bgStyle}">对方气泡样式预览</div>
+                    <div class="ctd-prev-bubble ${imgCls}" style="padding:${padV}px ${padH}px;font-size:${bFontSize};${s.uiBubbleFontOther ? `font-family:'${s.uiBubbleFontOther}',sans-serif;` : ''}${bgStyle}">对方气泡样式预览</div>
                 </div>
                 <div class="ctd-prev-row me">
                     ${s.uiShowAvatar ? `
@@ -2011,7 +2204,7 @@
                             ${frameUrl ? `<img class="ctd-prev-frame" src="${escapeHtml(frameUrl)}" alt="">` : ''}
                         </div>
                     ` : ''}
-                    <div class="ctd-prev-bubble" style="padding:${padV}px ${padH}px;font-size:${bFontSize};${s.uiBubbleFontMe ? `font-family:${s.uiBubbleFontMe};` : ''}${bgStyle}">我方气泡样式预览</div>
+                    <div class="ctd-prev-bubble ${imgCls}" style="padding:${padV}px ${padH}px;font-size:${bFontSize};${s.uiBubbleFontMe ? `font-family:'${s.uiBubbleFontMe}',sans-serif;` : ''}${bgStyle}">hi</div>
                 </div>
             </div>
         `;
@@ -2105,9 +2298,7 @@
 
         const avRange = document.getElementById('ctdAvSizeRange');
         if (avRange) {
-            avRange.addEventListener('input', () => {
-                document.getElementById('ctdAvSizeVal').textContent = avRange.value + ' px';
-            });
+            avRange.addEventListener('input', () => { document.getElementById('ctdAvSizeVal').textContent = avRange.value + ' px'; });
             avRange.addEventListener('change', async () => {
                 updateThreadSettings(currentThreadId, { uiAvatarSize: Number(avRange.value) });
                 await applyRoomThemeStyle(currentThreadId);
@@ -2141,48 +2332,15 @@
         }
 
         const scaleRange = document.getElementById('ctdBubbleScaleRange');
-        scaleRange.addEventListener('input', () => {
-            document.getElementById('ctdBubbleScaleVal').textContent = scaleRange.value + '%';
-        });
+        scaleRange.addEventListener('input', () => { document.getElementById('ctdBubbleScaleVal').textContent = scaleRange.value + '%'; });
         scaleRange.addEventListener('change', async () => {
             updateThreadSettings(currentThreadId, { uiBubbleScale: Number(scaleRange.value) });
             await applyRoomThemeStyle(currentThreadId);
             renderThemeSubView();
         });
 
-        document.getElementById('ctdFontOtherRow').addEventListener('click', () => {
-            const cur = getThreadSettings(currentThreadId);
-            const fonts = getAvailableFonts();
-            openActionSheet({
-                title: '选择对方气泡字体',
-                actions: fonts.map(f => ({
-                    label: f.label + (cur.uiBubbleFontOther === f.value ? ' ✓' : ''),
-                    selected: cur.uiBubbleFontOther === f.value,
-                    onClick: async () => {
-                        updateThreadSettings(currentThreadId, { uiBubbleFontOther: f.value });
-                        await applyRoomThemeStyle(currentThreadId);
-                        renderThemeSubView();
-                    }
-                }))
-            });
-        });
-
-        document.getElementById('ctdFontMeRow').addEventListener('click', () => {
-            const cur = getThreadSettings(currentThreadId);
-            const fonts = getAvailableFonts();
-            openActionSheet({
-                title: '选择我方气泡字体',
-                actions: fonts.map(f => ({
-                    label: f.label + (cur.uiBubbleFontMe === f.value ? ' ✓' : ''),
-                    selected: cur.uiBubbleFontMe === f.value,
-                    onClick: async () => {
-                        updateThreadSettings(currentThreadId, { uiBubbleFontMe: f.value });
-                        await applyRoomThemeStyle(currentThreadId);
-                        renderThemeSubView();
-                    }
-                }))
-            });
-        });
+        document.getElementById('ctdFontOtherRow').addEventListener('click', () => openBubbleFontPicker('uiBubbleFontOther', '选择对方气泡字体'));
+        document.getElementById('ctdFontMeRow').addEventListener('click', () => openBubbleFontPicker('uiBubbleFontMe', '选择我方气泡字体'));
 
         const fsRange = document.getElementById('ctdBubbleFsRange');
         fsRange.addEventListener('input', () => {
@@ -2191,60 +2349,13 @@
         });
         fsRange.addEventListener('change', async () => {
             const v = Number(fsRange.value);
-            const finalV = v > 0 ? Math.max(12, v) : 0;
-            updateThreadSettings(currentThreadId, { uiBubbleFontSize: finalV });
+            updateThreadSettings(currentThreadId, { uiBubbleFontSize: v > 0 ? Math.max(12, v) : 0 });
             await applyRoomThemeStyle(currentThreadId);
             renderThemeSubView();
         });
     }
 
-    /* ---------------- 二级页：挂载表情包 ---------------- */
-    function renderStickerPackSubView() {
-        const scrollEl = document.getElementById('ctdStickerPackScroll');
-        if (!scrollEl || !currentThreadId) return;
-        const settings = getThreadSettings(currentThreadId);
-        const packs = getAvailableStickerPacks();
-        const selectedSet = new Set(Array.isArray(settings.stickerPackIds) ? settings.stickerPackIds : []);
-
-        if (!packs.length) {
-            scrollEl.innerHTML = `<div class="ctd-empty-hint">暂无已创建的表情包分组</div>`;
-            return;
-        }
-
-        const rowsHtml = packs.map(p => {
-            const pid = p.id || p.name;
-            const checked = selectedSet.has(pid);
-            const count = Array.isArray(p.items) ? p.items.length : (Array.isArray(p.stickers) ? p.stickers.length : 0);
-            return `
-                <div class="ctd-row ctd-spack-row" data-pack-id="${escapeHtml(pid)}">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">${escapeHtml(p.name || p.title || '表情包')}</div>
-                        ${count ? `<div class="ctd-row-sub">${count} 张表情</div>` : ''}
-                    </div>
-                    <div class="ctd-row-right">
-                        <div class="ctd-check-circle ${checked ? 'checked' : ''}">${checked ? SVG_CHECK : ''}</div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        scrollEl.innerHTML = `<div class="ctd-section-label">选择挂载的表情包分组（可多选）</div><div class="ctd-card">${rowsHtml}</div>`;
-        bindAllPressed(scrollEl);
-
-        scrollEl.querySelectorAll('.ctd-spack-row').forEach(row => {
-            row.addEventListener('click', () => {
-                const pid = row.dataset.packId;
-                const cur = getThreadSettings(currentThreadId);
-                const set = new Set(Array.isArray(cur.stickerPackIds) ? cur.stickerPackIds : []);
-                if (set.has(pid)) set.delete(pid);
-                else set.add(pid);
-                updateThreadSettings(currentThreadId, { stickerPackIds: Array.from(set) });
-                renderStickerPackSubView();
-            });
-        });
-    }
-
-    /* ---------------- 二级页：资料设置 ---------------- */
+    /* ---------------- 其余二级页（资料 / API / 思维链 / 语音 / 语音世界书 / 记忆 / 查找 / 预设 / 世界书） ---------------- */
     async function renderProfileSubView() {
         const scrollEl = document.getElementById('ctdProfileScroll');
         if (!scrollEl || !currentThreadId) return;
@@ -2340,7 +2451,6 @@
         input.click();
     }
 
-    /* ---------------- 二级页：独立 API ---------------- */
     function renderApiSubView() {
         const scrollEl = document.getElementById('ctdApiScroll');
         if (!scrollEl || !currentThreadId) return;
@@ -2352,17 +2462,14 @@
             <div class="ctd-card">
                 <div class="ctd-row" id="ctdApiFollowGlobalRow">
                     <div class="ctd-row-left"><div class="ctd-row-title">跟随全局 API</div></div>
-                    <div class="ctd-row-right">
-                        <div class="ctd-check-circle ${!selectedId ? 'checked' : ''}">${!selectedId ? SVG_CHECK : ''}</div>
-                    </div>
+                    <div class="ctd-row-right"><div class="ctd-check-circle ${!selectedId ? 'checked' : ''}">${!selectedId ? SVG_CHECK : ''}</div></div>
                 </div>
             </div>
         `;
 
         let listHtml = '';
-        if (!bundles.length) {
-            listHtml = `<div class="ctd-empty-hint">暂无已保存的配置组，请先在「API」中添加</div>`;
-        } else {
+        if (!bundles.length) listHtml = `<div class="ctd-empty-hint">暂无已保存的配置组，请先在「API」中添加</div>`;
+        else {
             const rowsHtml = bundles.map(b => {
                 const isSel = selectedId === b.id;
                 return `
@@ -2371,9 +2478,7 @@
                             <div class="ctd-row-title">${escapeHtml(b.name || '未命名配置')}</div>
                             ${b.model ? `<div class="ctd-row-sub">${escapeHtml(b.model)}</div>` : ''}
                         </div>
-                        <div class="ctd-row-right">
-                            <div class="ctd-check-circle ${isSel ? 'checked' : ''}">${isSel ? SVG_CHECK : ''}</div>
-                        </div>
+                        <div class="ctd-row-right"><div class="ctd-check-circle ${isSel ? 'checked' : ''}">${isSel ? SVG_CHECK : ''}</div></div>
                     </div>
                 `;
             }).join('');
@@ -2382,22 +2487,12 @@
 
         scrollEl.innerHTML = followHtml + listHtml;
         bindAllPressed(scrollEl);
-
-        document.getElementById('ctdApiFollowGlobalRow').addEventListener('click', () => {
-            updateThreadSettings(currentThreadId, { apiBundleId: '' });
-            renderApiSubView();
-            showToast('已恢复跟随全局 API');
-        });
+        document.getElementById('ctdApiFollowGlobalRow').addEventListener('click', () => { updateThreadSettings(currentThreadId, { apiBundleId: '' }); renderApiSubView(); showToast('已恢复跟随全局 API'); });
         scrollEl.querySelectorAll('.ctd-api-bundle-row').forEach(row => {
-            row.addEventListener('click', () => {
-                updateThreadSettings(currentThreadId, { apiBundleId: row.dataset.bundleId || '' });
-                renderApiSubView();
-                showToast('已指定独立 API');
-            });
+            row.addEventListener('click', () => { updateThreadSettings(currentThreadId, { apiBundleId: row.dataset.bundleId || '' }); renderApiSubView(); showToast('已指定独立 API'); });
         });
     }
 
-    /* ---------------- 二级页：专属思维链 ---------------- */
     function renderCotSubView() {
         const scrollEl = document.getElementById('ctdCotScroll');
         if (!scrollEl || !currentThreadId) return;
@@ -2406,13 +2501,8 @@
         scrollEl.innerHTML = `
             <div class="ctd-card">
                 <div class="ctd-row ctd-row-static">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">显示思维链</div>
-                        <div class="ctd-token-note">输出思考过程将显著增加 Token 消耗</div>
-                    </div>
-                    <div class="ctd-row-right">
-                        <button type="button" class="ctd-switch ${settings.cotShow ? 'on' : ''}" id="ctdCotShowSwitch" aria-label="显示思维链"></button>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">显示思维链</div></div>
+                    <div class="ctd-row-right"><button type="button" class="ctd-switch ${settings.cotShow ? 'on' : ''}" id="ctdCotShowSwitch" aria-label="显示思维链"></button></div>
                 </div>
             </div>
             <div class="ctd-card ctd-field-card">
@@ -2430,7 +2520,6 @@
             e.currentTarget.classList.toggle('on', next.cotShow);
             showToast(next.cotShow ? '已开启显示思维链' : '已关闭显示思维链');
         });
-
         document.getElementById('ctdCotSaveBtn').addEventListener('click', () => {
             const ta = document.getElementById('ctdCotTextarea');
             const val = ta.value.trim();
@@ -2440,7 +2529,6 @@
         });
     }
 
-    /* ---------------- 二级页：启用语音模型（含一键拉取模型） ---------------- */
     function renderVoiceSubView() {
         const scrollEl = document.getElementById('ctdVoiceScroll');
         if (!scrollEl || !currentThreadId) return;
@@ -2468,24 +2556,15 @@
             <div class="ctd-card">
                 <div class="ctd-row ctd-row-static">
                     <div class="ctd-row-left"><div class="ctd-row-title">允许发送语音</div></div>
-                    <div class="ctd-row-right">
-                        <button type="button" class="ctd-switch ${settings.voiceEnabled ? 'on' : ''}" id="ctdVoiceEnableSw" aria-label="允许发送语音"></button>
-                    </div>
+                    <div class="ctd-row-right"><button type="button" class="ctd-switch ${settings.voiceEnabled ? 'on' : ''}" id="ctdVoiceEnableSw" aria-label="允许发送语音"></button></div>
                 </div>
                 <div class="ctd-row ctd-row-static">
                     <div class="ctd-row-left"><div class="ctd-row-title">自动播放</div></div>
-                    <div class="ctd-row-right">
-                        <button type="button" class="ctd-switch ${settings.voiceAutoPlay ? 'on' : ''}" id="ctdVoiceAutoSw" aria-label="自动播放"></button>
-                    </div>
+                    <div class="ctd-row-right"><button type="button" class="ctd-switch ${settings.voiceAutoPlay ? 'on' : ''}" id="ctdVoiceAutoSw" aria-label="自动播放"></button></div>
                 </div>
                 <div class="ctd-row ctd-row-static">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">自动标注情绪</div>
-                        <div class="ctd-token-note">附加情绪标签将略微增加输出 Token 消耗</div>
-                    </div>
-                    <div class="ctd-row-right">
-                        <button type="button" class="ctd-switch ${settings.voiceEmotionTag ? 'on' : ''}" id="ctdVoiceEmotionSw" aria-label="自动标注情绪"></button>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">自动标注情绪</div></div>
+                    <div class="ctd-row-right"><button type="button" class="ctd-switch ${settings.voiceEmotionTag ? 'on' : ''}" id="ctdVoiceEmotionSw" aria-label="自动标注情绪"></button></div>
                 </div>
             </div>
 
@@ -2493,24 +2572,18 @@
                 <div class="ctd-field-label">模型配置</div>
                 <div class="ctd-provider-grid">${providerGridHtml}</div>
                 ${regionHtml}
-
                 <div class="ctd-input-label">接口地址（支持修改为第三方中转）</div>
                 <input type="text" class="ctd-input-clean" id="ctdVoiceUrlInput" placeholder="https://..." value="${escapeHtml(settings.voiceApiUrl || '')}">
-
                 <div class="ctd-input-label">API Key</div>
                 <input type="password" class="ctd-input-clean" id="ctdVoiceKeyInput" placeholder="输入 API Key" value="${escapeHtml(settings.voiceApiKey || '')}">
-
                 ${groupIdHtml}
-
                 <div class="ctd-input-label">模型名称</div>
                 <div class="ctd-inline-input-row">
                     <input type="text" class="ctd-input-clean" id="ctdVoiceModelInput" placeholder="输入或拉取模型名" value="${escapeHtml(settings.voiceModel || '')}">
                     <button type="button" class="ctd-fetch-btn" id="ctdVoiceFetchBtn">拉取</button>
                 </div>
-
                 <div class="ctd-input-label">音色 ID</div>
                 <input type="text" class="ctd-input-clean" id="ctdVoiceIdInput" placeholder="${escapeHtml(provider.voicePlaceholder)}" value="${escapeHtml(settings.voiceVoiceId || '')}">
-
                 <div class="ctd-input-label">语速</div>
                 <input type="text" class="ctd-input-clean" id="ctdVoiceSpeedInput" placeholder="1.0" value="${escapeHtml(settings.voiceSpeed || '1.0')}">
             </div>
@@ -2545,11 +2618,7 @@
                 const cur = getThreadSettings(currentThreadId);
                 let autoUrl = meta.defaultUrl || '';
                 if (pid === 'minimax') autoUrl = (cur.voiceMinimaxRegion === 'intl') ? meta.intlUrl : meta.cnUrl;
-                updateThreadSettings(currentThreadId, {
-                    voiceProvider: pid,
-                    voiceApiUrl: autoUrl,
-                    voiceModel: meta.defaultModel || ''
-                });
+                updateThreadSettings(currentThreadId, { voiceProvider: pid, voiceApiUrl: autoUrl, voiceModel: meta.defaultModel || '' });
                 renderVoiceSubView();
             });
         });
@@ -2558,15 +2627,11 @@
             btn.addEventListener('click', () => {
                 const reg = btn.dataset.mmRegion;
                 const meta = getProviderMeta('minimax');
-                updateThreadSettings(currentThreadId, {
-                    voiceMinimaxRegion: reg,
-                    voiceApiUrl: reg === 'intl' ? meta.intlUrl : meta.cnUrl
-                });
+                updateThreadSettings(currentThreadId, { voiceMinimaxRegion: reg, voiceApiUrl: reg === 'intl' ? meta.intlUrl : meta.cnUrl });
                 renderVoiceSubView();
             });
         });
 
-        // 拉取模型列表
         const fetchBtn = document.getElementById('ctdVoiceFetchBtn');
         fetchBtn.addEventListener('click', async () => {
             if (document.activeElement) document.activeElement.blur();
@@ -2577,10 +2642,7 @@
             fetchBtn.disabled = true;
             try {
                 const { models, source } = await fetchVoiceModelsList(provider.id, curUrl, curKey);
-                if (!models.length) {
-                    showToast('未拉取到模型，请核对接口地址与 API Key');
-                    return;
-                }
+                if (!models.length) { showToast('未拉取到模型，请核对接口地址与 API Key'); return; }
                 openActionSheet({
                     title: source === 'remote' ? '选择拉取的模型' : '选择官方常用模型',
                     searchable: models.length > 6,
@@ -2616,7 +2678,6 @@
         });
     }
 
-    /* ---------------- 二级页：语音模型世界书 ---------------- */
     function renderVoiceLoreView() {
         const scrollEl = document.getElementById('ctdVoiceLoreScroll');
         if (!scrollEl || !currentThreadId) return;
@@ -2627,21 +2688,15 @@
         const toggleHtml = `
             <div class="ctd-card">
                 <div class="ctd-row ctd-row-static">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">启用语音模型世界书</div>
-                        <div class="ctd-token-note">挂载语音词条将增加上下文 Token 消耗</div>
-                    </div>
-                    <div class="ctd-row-right">
-                        <button type="button" class="ctd-switch ${settings.voiceLoreOverride ? 'on' : ''}" id="ctdVoiceLoreSwitch" aria-label="启用语音模型世界书"></button>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">启用语音模型世界书</div></div>
+                    <div class="ctd-row-right"><button type="button" class="ctd-switch ${settings.voiceLoreOverride ? 'on' : ''}" id="ctdVoiceLoreSwitch" aria-label="启用语音模型世界书"></button></div>
                 </div>
             </div>
         `;
 
         let booksHtml = '';
-        if (!books.length) {
-            booksHtml = `<div class="ctd-empty-hint">暂无可用世界书，请先在「世界书」中添加</div>`;
-        } else {
+        if (!books.length) booksHtml = `<div class="ctd-empty-hint">暂无可用世界书，请先在「世界书」中添加</div>`;
+        else {
             const rowsHtml = books.map(b => {
                 const checked = selectedSet.has(b.id);
                 const entryCount = Array.isArray(b.entries) ? b.entries.length : 0;
@@ -2651,9 +2706,7 @@
                             <div class="ctd-row-title">${escapeHtml(b.name || b.title || '未命名世界书')}</div>
                             ${entryCount ? `<div class="ctd-row-sub">${entryCount} 条词条</div>` : ''}
                         </div>
-                        <div class="ctd-row-right">
-                            <div class="ctd-check-circle ${checked ? 'checked' : ''}">${checked ? SVG_CHECK : ''}</div>
-                        </div>
+                        <div class="ctd-row-right"><div class="ctd-check-circle ${checked ? 'checked' : ''}">${checked ? SVG_CHECK : ''}</div></div>
                     </div>
                 `;
             }).join('');
@@ -2662,7 +2715,6 @@
 
         scrollEl.innerHTML = toggleHtml + booksHtml;
         bindAllPressed(scrollEl);
-
         document.getElementById('ctdVoiceLoreSwitch').addEventListener('click', (e) => {
             e.stopPropagation();
             const cur = getThreadSettings(currentThreadId);
@@ -2670,22 +2722,18 @@
             renderVoiceLoreView();
             showToast(next.voiceLoreOverride ? '已启用语音模型世界书' : '已关闭语音模型世界书');
         });
-
         scrollEl.querySelectorAll('.ctd-vlore-book-row').forEach(row => {
             row.addEventListener('click', () => {
                 const bid = row.dataset.bookId;
-                if (!bid) return;
                 const cur = getThreadSettings(currentThreadId);
                 const set = new Set(Array.isArray(cur.voiceLoreIds) ? cur.voiceLoreIds : []);
-                if (set.has(bid)) set.delete(bid);
-                else set.add(bid);
+                if (set.has(bid)) set.delete(bid); else set.add(bid);
                 updateThreadSettings(currentThreadId, { voiceLoreOverride: true, voiceLoreIds: Array.from(set) });
                 renderVoiceLoreView();
             });
         });
     }
 
-    /* ---------------- 二级页：记忆宫殿 ---------------- */
     function renderMemorySubView() {
         const scrollEl = document.getElementById('ctdMemoryScroll');
         if (!scrollEl || !currentThreadId) return;
@@ -2693,9 +2741,8 @@
         const memories = getCharMemories(thread);
 
         let listHtml = '';
-        if (!memories.length) {
-            listHtml = `<div class="ctd-empty-hint">当前角色暂无长期记忆</div>`;
-        } else {
+        if (!memories.length) listHtml = `<div class="ctd-empty-hint">当前角色暂无长期记忆</div>`;
+        else {
             listHtml = `<div class="ctd-msg-list">` + memories.map(m => `
                 <div class="ctd-msg-item">
                     <div class="ctd-msg-meta">
@@ -2717,18 +2764,13 @@
             ${listHtml}
         `;
         bindAllPressed(scrollEl);
-
         document.getElementById('ctdOpenMemoryAppRow').addEventListener('click', () => {
             closeDetails();
             if (typeof window.openApp === 'function') window.openApp('memory');
-            else {
-                const icon = document.querySelector('[data-app="memory"]');
-                if (icon) icon.click();
-            }
+            else { const icon = document.querySelector('[data-app="memory"]'); if (icon) icon.click(); }
         });
     }
 
-    /* ---------------- 二级页：查找聊天记录 ---------------- */
     function renderSearchView() {
         const scrollEl = document.getElementById('ctdSearchScroll');
         if (!scrollEl || !currentThreadId) return;
@@ -2744,9 +2786,7 @@
             <div class="ctd-card">
                 <div class="ctd-row ctd-row-static">
                     <div class="ctd-row-left"><div class="ctd-row-title">感知真实时间</div></div>
-                    <div class="ctd-row-right">
-                        <button type="button" class="ctd-switch ${realTimeOn ? 'on' : ''}" id="ctdRealTimeSwitch" aria-label="感知真实时间"></button>
-                    </div>
+                    <div class="ctd-row-right"><button type="button" class="ctd-switch ${realTimeOn ? 'on' : ''}" id="ctdRealTimeSwitch" aria-label="感知真实时间"></button></div>
                 </div>
             </div>
             <div class="ctd-calendar-wrap" id="ctdCalendarSlot"></div>
@@ -2756,8 +2796,6 @@
 
         const inputEl = document.getElementById('ctdSearchInput');
         const clearBtn = document.getElementById('ctdSearchClear');
-        const rtSwitch = document.getElementById('ctdRealTimeSwitch');
-
         inputEl.addEventListener('input', () => {
             searchKeyword = inputEl.value.trim();
             clearBtn.classList.toggle('visible', Boolean(searchKeyword));
@@ -2770,11 +2808,11 @@
             inputEl.focus();
             renderSearchBody();
         });
-        rtSwitch.addEventListener('click', (e) => {
+        document.getElementById('ctdRealTimeSwitch').addEventListener('click', (e) => {
             e.stopPropagation();
             const cur = getThreadSettings(currentThreadId);
             const next = updateThreadSettings(currentThreadId, { realTime: !cur.realTime });
-            rtSwitch.classList.toggle('on', next.realTime);
+            e.currentTarget.classList.toggle('on', next.realTime);
             selectedDateStr = '';
             renderSearchBody();
         });
@@ -2802,14 +2840,10 @@
                 </div>
             `;
             bindAllPressed(calSlot);
-            document.getElementById('ctdClearDateBtn').addEventListener('click', () => {
-                selectedDateStr = '';
-                renderSearchBody();
-            });
+            document.getElementById('ctdClearDateBtn').addEventListener('click', () => { selectedDateStr = ''; renderSearchBody(); });
         } else {
             const msgDates = new Set();
             msgs.forEach(m => { const ds = getMsgDateStr(m); if (ds) msgDates.add(ds); });
-
             const firstDay = new Date(calYear, calMonth, 1).getDay();
             const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
             let daysHtml = '';
@@ -2830,25 +2864,15 @@
                         </div>
                     </div>
                     <div class="ctd-cal-weekdays">
-                        <span class="ctd-cal-weekday">日</span>
-                        <span class="ctd-cal-weekday">一</span>
-                        <span class="ctd-cal-weekday">二</span>
-                        <span class="ctd-cal-weekday">三</span>
-                        <span class="ctd-cal-weekday">四</span>
-                        <span class="ctd-cal-weekday">五</span>
-                        <span class="ctd-cal-weekday">六</span>
+                        <span class="ctd-cal-weekday">日</span><span class="ctd-cal-weekday">一</span><span class="ctd-cal-weekday">二</span>
+                        <span class="ctd-cal-weekday">三</span><span class="ctd-cal-weekday">四</span><span class="ctd-cal-weekday">五</span><span class="ctd-cal-weekday">六</span>
                     </div>
                     <div class="ctd-cal-grid">${daysHtml}</div>
                 </div>
             `;
             bindAllPressed(calSlot);
-
-            document.getElementById('ctdCalPrev').addEventListener('click', () => {
-                calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderSearchBody();
-            });
-            document.getElementById('ctdCalNext').addEventListener('click', () => {
-                calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderSearchBody();
-            });
+            document.getElementById('ctdCalPrev').addEventListener('click', () => { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderSearchBody(); });
+            document.getElementById('ctdCalNext').addEventListener('click', () => { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderSearchBody(); });
             calSlot.querySelectorAll('.ctd-cal-day.has-msg').forEach(el => {
                 el.addEventListener('click', () => { selectedDateStr = el.dataset.date; renderSearchBody(); });
             });
@@ -2893,11 +2917,9 @@
         bindAllPressed(resultSlot);
     }
 
-    /* ---------------- 二级页：专属预设 / 单独挂载世界书 ---------------- */
     function renderPresetView() {
         const scrollEl = document.getElementById('ctdPresetScroll');
         if (!scrollEl || !currentThreadId) return;
-
         const settings = getThreadSettings(currentThreadId);
         const presets = getAvailableOnlinePresets();
         const globalPreset = getGlobalActivePreset();
@@ -2911,17 +2933,14 @@
                         <div class="ctd-row-title">跟随全局预设</div>
                         <div class="ctd-row-sub">当前全局：${escapeHtml(globalName)}</div>
                     </div>
-                    <div class="ctd-row-right">
-                        <div class="ctd-check-circle ${!selectedId ? 'checked' : ''}">${!selectedId ? SVG_CHECK : ''}</div>
-                    </div>
+                    <div class="ctd-row-right"><div class="ctd-check-circle ${!selectedId ? 'checked' : ''}">${!selectedId ? SVG_CHECK : ''}</div></div>
                 </div>
             </div>
         `;
 
         let listHtml = '';
-        if (!presets.length) {
-            listHtml = `<div class="ctd-empty-hint">暂无可用预设，请先在「预设」中添加</div>`;
-        } else {
+        if (!presets.length) listHtml = `<div class="ctd-empty-hint">暂无可用预设，请先在「预设」中添加</div>`;
+        else {
             const rowsHtml = presets.map(p => {
                 const isSelected = selectedId === p.id;
                 const count = Array.isArray(p.prompts) ? p.prompts.length : (Array.isArray(p.items) ? p.items.length : 0);
@@ -2931,9 +2950,7 @@
                             <div class="ctd-row-title">${escapeHtml(p.name || '未命名预设')}</div>
                             ${count ? `<div class="ctd-row-sub">${count} 条提示词</div>` : ''}
                         </div>
-                        <div class="ctd-row-right">
-                            <div class="ctd-check-circle ${isSelected ? 'checked' : ''}">${isSelected ? SVG_CHECK : ''}</div>
-                        </div>
+                        <div class="ctd-row-right"><div class="ctd-check-circle ${isSelected ? 'checked' : ''}">${isSelected ? SVG_CHECK : ''}</div></div>
                     </div>
                 `;
             }).join('');
@@ -2942,25 +2959,15 @@
 
         scrollEl.innerHTML = followHtml + listHtml;
         bindAllPressed(scrollEl);
-
-        document.getElementById('ctdPresetFollowGlobalRow').addEventListener('click', () => {
-            updateThreadSettings(currentThreadId, { presetId: '' });
-            renderPresetView();
-            showToast('已恢复跟随全局预设');
-        });
+        document.getElementById('ctdPresetFollowGlobalRow').addEventListener('click', () => { updateThreadSettings(currentThreadId, { presetId: '' }); renderPresetView(); showToast('已恢复跟随全局预设'); });
         scrollEl.querySelectorAll('.ctd-preset-item-row').forEach(row => {
-            row.addEventListener('click', () => {
-                updateThreadSettings(currentThreadId, { presetId: row.dataset.presetId || '' });
-                renderPresetView();
-                showToast('已指定专属预设');
-            });
+            row.addEventListener('click', () => { updateThreadSettings(currentThreadId, { presetId: row.dataset.presetId || '' }); renderPresetView(); showToast('已指定专属预设'); });
         });
     }
 
     function renderLoreView() {
         const scrollEl = document.getElementById('ctdLoreScroll');
         if (!scrollEl || !currentThreadId) return;
-
         const settings = getThreadSettings(currentThreadId);
         const books = getAvailableLorebooks();
         const selectedSet = new Set(Array.isArray(settings.loreIds) ? settings.loreIds : []);
@@ -2968,21 +2975,15 @@
         const toggleHtml = `
             <div class="ctd-card">
                 <div class="ctd-row ctd-row-static">
-                    <div class="ctd-row-left">
-                        <div class="ctd-row-title">启用单独挂载</div>
-                        <div class="ctd-token-note">挂载词条数量较多时将增加上下文 Token 消耗</div>
-                    </div>
-                    <div class="ctd-row-right">
-                        <button type="button" class="ctd-switch ${settings.loreOverride ? 'on' : ''}" id="ctdLoreOverrideSwitch" aria-label="启用单独挂载"></button>
-                    </div>
+                    <div class="ctd-row-left"><div class="ctd-row-title">启用单独挂载</div></div>
+                    <div class="ctd-row-right"><button type="button" class="ctd-switch ${settings.loreOverride ? 'on' : ''}" id="ctdLoreOverrideSwitch" aria-label="启用单独挂载"></button></div>
                 </div>
             </div>
         `;
 
         let booksHtml = '';
-        if (!books.length) {
-            booksHtml = `<div class="ctd-empty-hint">暂无可用世界书，请先在「世界书」中添加</div>`;
-        } else {
+        if (!books.length) booksHtml = `<div class="ctd-empty-hint">暂无可用世界书，请先在「世界书」中添加</div>`;
+        else {
             const rowsHtml = books.map(b => {
                 const checked = selectedSet.has(b.id);
                 const entryCount = Array.isArray(b.entries) ? b.entries.length : 0;
@@ -2992,9 +2993,7 @@
                             <div class="ctd-row-title">${escapeHtml(b.name || b.title || '未命名世界书')}</div>
                             ${entryCount ? `<div class="ctd-row-sub">${entryCount} 条词条</div>` : ''}
                         </div>
-                        <div class="ctd-row-right">
-                            <div class="ctd-check-circle ${checked ? 'checked' : ''}">${checked ? SVG_CHECK : ''}</div>
-                        </div>
+                        <div class="ctd-row-right"><div class="ctd-check-circle ${checked ? 'checked' : ''}">${checked ? SVG_CHECK : ''}</div></div>
                     </div>
                 `;
             }).join('');
@@ -3003,7 +3002,6 @@
 
         scrollEl.innerHTML = toggleHtml + booksHtml;
         bindAllPressed(scrollEl);
-
         document.getElementById('ctdLoreOverrideSwitch').addEventListener('click', (e) => {
             e.stopPropagation();
             const cur = getThreadSettings(currentThreadId);
@@ -3014,11 +3012,9 @@
         scrollEl.querySelectorAll('.ctd-lore-book-row').forEach(row => {
             row.addEventListener('click', () => {
                 const bid = row.dataset.bookId;
-                if (!bid) return;
                 const cur = getThreadSettings(currentThreadId);
                 const set = new Set(Array.isArray(cur.loreIds) ? cur.loreIds : []);
-                if (set.has(bid)) set.delete(bid);
-                else set.add(bid);
+                if (set.has(bid)) set.delete(bid); else set.add(bid);
                 updateThreadSettings(currentThreadId, { loreOverride: true, loreIds: Array.from(set) });
                 renderLoreView();
             });
@@ -3041,11 +3037,9 @@
                     if (window.PhoneDB && typeof window.PhoneDB.set === 'function') await window.PhoneDB.set('chat_bg_' + currentThreadId, dataUrl);
                     updateThreadSettings(currentThreadId, { hasBg: true });
                     await syncRoomBackgroundUI();
-                    renderMainView();
+                    renderMainBody();
                     showToast('已更新聊天背景');
-                } catch (e) {
-                    showToast('背景保存失败');
-                }
+                } catch (e) { showToast('背景保存失败'); }
             };
             reader.readAsDataURL(file);
         };
@@ -3094,9 +3088,7 @@
                         saveJSON(THREADS_KEY, threads);
                     }
                     showToast(`已导入 ${arr.length} 条记录`);
-                } catch (e) {
-                    showToast('导入文件解析失败');
-                }
+                } catch (e) { showToast('导入文件解析失败'); }
             };
             reader.readAsText(file);
         };
@@ -3143,9 +3135,8 @@
             const row = e.target.closest('#app-chat .ct-flat-list > *');
             if (row) {
                 const tid = row.dataset.threadId || row.dataset.id || '';
-                if (tid) {
-                    currentThreadId = tid;
-                } else {
+                if (tid) currentThreadId = tid;
+                else {
                     const nameEl = row.querySelector('.ct-chat-name, .ct-name');
                     const rowName = nameEl ? nameEl.textContent.trim() : '';
                     const allSettings = getAllSettings();
@@ -3182,9 +3173,7 @@
 
         const roomBackBtn = document.getElementById('ctRoomBackBtn');
         if (roomBackBtn) {
-            roomBackBtn.addEventListener('click', () => {
-                setTimeout(() => syncHomeListUI(), 60);
-            });
+            roomBackBtn.addEventListener('click', () => setTimeout(() => syncHomeListUI(), 60));
         }
     }
 
@@ -3233,13 +3222,11 @@
     function init() {
         setupKeyboardViewportFix();
         setupObserversAndHooks();
+        loadAllUploadedFonts();
         sortThreadsByPin();
         syncRoomTitleAndBellUI();
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
 })();
