@@ -2,6 +2,7 @@
   const STORAGE_KEY = 'phone_presets_list_v1';
   const ACTIVE_ONLINE_KEY = 'phone_presets_active_online_v1';
   const ACTIVE_OFFLINE_KEY = 'phone_presets_active_offline_v1';
+  const VIEW_MODE_KEY = 'phone_presets_view_mode_v1';
 
   const SLOT_TYPES = [
     { id: 'text', label: '普通提示词' },
@@ -11,10 +12,29 @@
     { id: 'history', label: '聊天记录插槽' }
   ];
 
+  const SVG_VIEW_LIST = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="4.5" cy="6.5" r="1.1" fill="currentColor" stroke="none"/>
+      <circle cx="4.5" cy="12" r="1.1" fill="currentColor" stroke="none"/>
+      <circle cx="4.5" cy="17.5" r="1.1" fill="currentColor" stroke="none"/>
+      <line x1="9" y1="6.5" x2="20" y2="6.5"/>
+      <line x1="9" y1="12" x2="20" y2="12"/>
+      <line x1="9" y1="17.5" x2="20" y2="17.5"/>
+    </svg>`;
+
+  const SVG_VIEW_GRID = `
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/>
+      <rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/>
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/>
+      <rect x="13.5" y="13.5" width="7" height="7" rx="1.6"/>
+    </svg>`;
+
   let presets = [];
   let activeOnlineId = '';
   let activeOfflineId = '';
   let currentTab = 'online'; // 'online' | 'offline'
+  let viewMode = localStorage.getItem(VIEW_MODE_KEY) === 'list' ? 'list' : 'grid';
   let searchKeyword = '';
   let editingId = null;
   let expandedEntryId = null;
@@ -139,6 +159,13 @@
     `;
   }
 
+  function updateViewToggleBtn() {
+    const btn = document.getElementById('prViewToggleBtn');
+    if (!btn) return;
+    btn.innerHTML = viewMode === 'list' ? SVG_VIEW_GRID : SVG_VIEW_LIST;
+    btn.setAttribute('aria-label', viewMode === 'list' ? '切换图标视图' : '切换列表视图');
+  }
+
   function renderDOM() {
     const root = document.getElementById('app-presets');
     if (!root) return;
@@ -153,6 +180,7 @@
             <div class="pr-title" id="prPageTitle">预设</div>
           </div>
           <div class="pr-topbar-actions">
+            <button class="pr-icon-btn" id="prViewToggleBtn" type="button" aria-label="切换列表视图"></button>
             <button class="pr-pill-btn" id="prImportBtn" type="button">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               导入
@@ -226,11 +254,13 @@
       </div>
     `;
 
+    updateViewToggleBtn();
     bindBaseEvents(root);
     renderList();
   }
 
   function bindBaseEvents(root) {
+    const viewToggleBtn = root.querySelector('#prViewToggleBtn');
     const newBtn = root.querySelector('#prNewBtn');
     const newModal = root.querySelector('#prNewModal');
     const newModalTitle = root.querySelector('#prNewModalTitle');
@@ -244,7 +274,16 @@
     const exportBtn = root.querySelector('#prExportBtn');
     const closeDetailBtn = root.querySelector('#prCloseDetailBtn');
 
-    [newBtn, importBtn, closeModalBtn, createConfirmBtn, exportBtn, closeDetailBtn].forEach(bindPress);
+    [viewToggleBtn, newBtn, importBtn, closeModalBtn, createConfirmBtn, exportBtn, closeDetailBtn].forEach(bindPress);
+
+    if (viewToggleBtn) {
+      viewToggleBtn.addEventListener('click', () => {
+        viewMode = viewMode === 'list' ? 'grid' : 'list';
+        localStorage.setItem(VIEW_MODE_KEY, viewMode);
+        updateViewToggleBtn();
+        renderList();
+      });
+    }
 
     root.querySelectorAll('.pr-tab-btn').forEach(btn => {
       bindPress(btn);
@@ -415,6 +454,80 @@
     ctxTargetId = null;
   }
 
+  function bindFolderItemInteractions(el) {
+    let holdTimer = null;
+    let longPressed = false;
+    let moved = false;
+    let sx = 0;
+    let sy = 0;
+
+    el.addEventListener('touchstart', (e) => {
+      longPressed = false;
+      moved = false;
+      if (e.touches && e.touches[0]) {
+        sx = e.touches[0].clientX;
+        sy = e.touches[0].clientY;
+      }
+      el.classList.add('is-pressed');
+      holdTimer = setTimeout(() => {
+        longPressed = true;
+        el.classList.remove('is-pressed');
+        el.classList.add('is-holding');
+        if (navigator.vibrate) {
+          try { navigator.vibrate(14); } catch (err) {}
+        }
+        openFolderMenu(el.getAttribute('data-id'));
+      }, 380);
+    }, { passive: true });
+
+    el.addEventListener('touchmove', (e) => {
+      if (!e.touches || !e.touches[0]) return;
+      if (Math.abs(e.touches[0].clientX - sx) > 8 || Math.abs(e.touches[0].clientY - sy) > 8) {
+        moved = true;
+        if (holdTimer) {
+          clearTimeout(holdTimer);
+          holdTimer = null;
+        }
+        el.classList.remove('is-pressed', 'is-holding');
+      }
+    }, { passive: true });
+
+    el.addEventListener('touchend', () => {
+      if (holdTimer) {
+        clearTimeout(holdTimer);
+        holdTimer = null;
+      }
+      el.classList.remove('is-pressed', 'is-holding');
+    }, { passive: true });
+
+    el.addEventListener('touchcancel', () => {
+      if (holdTimer) {
+        clearTimeout(holdTimer);
+        holdTimer = null;
+      }
+      el.classList.remove('is-pressed', 'is-holding');
+    }, { passive: true });
+
+    el.addEventListener('mousedown', () => el.classList.add('is-pressed'));
+    el.addEventListener('mouseup', () => el.classList.remove('is-pressed'));
+    el.addEventListener('mouseleave', () => el.classList.remove('is-pressed'));
+
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      openFolderMenu(el.getAttribute('data-id'));
+    });
+
+    el.addEventListener('click', (e) => {
+      if (longPressed || moved) {
+        longPressed = false;
+        moved = false;
+        e.preventDefault();
+        return;
+      }
+      openDetail(el.getAttribute('data-id'));
+    });
+  }
+
   function renderList() {
     const container = document.getElementById('prListScroll');
     const searchWrap = document.getElementById('prSearchWrap');
@@ -456,6 +569,35 @@
       return;
     }
 
+    if (viewMode === 'list') {
+      container.innerHTML = `<div class="pr-file-list">${list.map((p, idx) => {
+        const isActive = p.id === activeForScene;
+        const totalCount = (p.entries || []).length;
+        const totalTok = calcPresetTokens(p);
+        const subText = isActive
+          ? `当前启用 · ${totalTok.toLocaleString()} tok · ${totalCount} 项`
+          : `${totalTok.toLocaleString()} tok · ${totalCount} 项`;
+
+        return `
+          <div class="pr-list-row" data-id="${escapeHtml(p.id)}">
+            <span class="pr-list-chevron">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </span>
+            <div class="pr-list-folder-wrap">
+              ${renderFolderSvg('ls_' + p.id.replace(/[^a-zA-Z0-9]/g, '') + '_' + idx)}
+            </div>
+            <div class="pr-list-info">
+              <div class="pr-list-name">${escapeHtml(p.name || '未命名预设')}</div>
+              <div class="pr-list-sub ${isActive ? 'is-active-text' : ''}">${escapeHtml(subText)}</div>
+            </div>
+          </div>
+        `;
+      }).join('')}</div>`;
+
+      container.querySelectorAll('.pr-list-row').forEach(bindFolderItemInteractions);
+      return;
+    }
+
     container.innerHTML = `<div class="pr-file-grid">${list.map((p, idx) => {
       const isActive = p.id === activeForScene;
       const totalCount = (p.entries || []).length;
@@ -474,79 +616,7 @@
       `;
     }).join('')}</div>`;
 
-    container.querySelectorAll('.pr-folder-item').forEach(folder => {
-      let holdTimer = null;
-      let longPressed = false;
-      let moved = false;
-      let sx = 0;
-      let sy = 0;
-
-      folder.addEventListener('touchstart', (e) => {
-        longPressed = false;
-        moved = false;
-        if (e.touches && e.touches[0]) {
-          sx = e.touches[0].clientX;
-          sy = e.touches[0].clientY;
-        }
-        folder.classList.add('is-pressed');
-        holdTimer = setTimeout(() => {
-          longPressed = true;
-          folder.classList.remove('is-pressed');
-          folder.classList.add('is-holding');
-          if (navigator.vibrate) {
-            try { navigator.vibrate(14); } catch (err) {}
-          }
-          openFolderMenu(folder.getAttribute('data-id'));
-        }, 380);
-      }, { passive: true });
-
-      folder.addEventListener('touchmove', (e) => {
-        if (!e.touches || !e.touches[0]) return;
-        if (Math.abs(e.touches[0].clientX - sx) > 8 || Math.abs(e.touches[0].clientY - sy) > 8) {
-          moved = true;
-          if (holdTimer) {
-            clearTimeout(holdTimer);
-            holdTimer = null;
-          }
-          folder.classList.remove('is-pressed', 'is-holding');
-        }
-      }, { passive: true });
-
-      folder.addEventListener('touchend', () => {
-        if (holdTimer) {
-          clearTimeout(holdTimer);
-          holdTimer = null;
-        }
-        folder.classList.remove('is-pressed', 'is-holding');
-      }, { passive: true });
-
-      folder.addEventListener('touchcancel', () => {
-        if (holdTimer) {
-          clearTimeout(holdTimer);
-          holdTimer = null;
-        }
-        folder.classList.remove('is-pressed', 'is-holding');
-      }, { passive: true });
-
-      folder.addEventListener('mousedown', () => folder.classList.add('is-pressed'));
-      folder.addEventListener('mouseup', () => folder.classList.remove('is-pressed'));
-      folder.addEventListener('mouseleave', () => folder.classList.remove('is-pressed'));
-
-      folder.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        openFolderMenu(folder.getAttribute('data-id'));
-      });
-
-      folder.addEventListener('click', (e) => {
-        if (longPressed || moved) {
-          longPressed = false;
-          moved = false;
-          e.preventDefault();
-          return;
-        }
-        openDetail(folder.getAttribute('data-id'));
-      });
-    });
+    container.querySelectorAll('.pr-folder-item').forEach(bindFolderItemInteractions);
   }
 
   function openDetail(id) {
@@ -1044,10 +1114,23 @@
     calcPresetTokens: calcPresetTokens
   };
 
-  loadData();
-  if (document.getElementById('app-presets')) {
+  function boot() {
+    const root = document.getElementById('app-presets');
+    if (!root) return;
+    loadData();
     renderDOM();
+    const obs = new MutationObserver(() => {
+      if (root.classList.contains('open')) {
+        loadData();
+        renderList();
+      }
+    });
+    obs.observe(root, { attributes: true, attributeFilter: ['class'] });
+  }
+
+  if (document.getElementById('app-presets')) {
+    boot();
   } else {
-    document.addEventListener('DOMContentLoaded', renderDOM);
+    document.addEventListener('DOMContentLoaded', boot);
   }
 })();
