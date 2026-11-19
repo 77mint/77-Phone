@@ -1,4 +1,4 @@
-/* apps/chat-details.js - 微信 Chat 聊天室右上角「···」详情页（全局 #f2f2f7 + 纯白卡片） */
+/* apps/chat-details.js - 微信 Chat 聊天室右上角「···」详情页（全局 #f2f2f7 + 宽松白卡） */
 (function () {
   'use strict';
 
@@ -7,21 +7,22 @@
   var MSGS_PREFIX = 'chat_msgs_v1_';
 
   var SVG_MUTE_BELL =
-    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M18 16.5H6c.9-1.1 1.4-2.4 1.4-4V10a4.6 4.6 0 0 1 9.2 0v2.5c0 1.6.5 2.9 1.4 4z"/>' +
-      '<path d="M10.3 19a1.8 1.8 0 0 0 3.4 0"/>' +
-      '<line x1="4" y1="4" x2="20" y2="20"/>' +
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M18.2 16.6H5.8c1-1.1 1.6-2.4 1.6-4.1V10.2c0-2.7 2-4.7 4.6-4.7s4.6 2 4.6 4.7v2.3c0 1.7.6 3 1.6 4.1z"/>' +
+      '<path d="M10.4 18.8a1.7 1.7 0 0 0 3.2 0"/>' +
+      '<line x1="4.2" y1="4.2" x2="19.8" y2="19.8"/>' +
     '</svg>';
 
   var activeThreadId = null;
   var lastContactId = null;
   var detailsEl = null;
   var searchEl = null;
-  var loreEl = null;
+  var aiEl = null;
 
   var calYear = new Date().getFullYear();
   var calMonth = new Date().getMonth();
   var selectedDateStr = '';
+  var calendarCollapsed = false;
   var syncingBell = false;
 
   function loadJSON(key, fallback) {
@@ -360,11 +361,16 @@
             '<h1 class="ct-details-title">查找聊天记录</h1>' +
           '</div>' +
         '</div>' +
-        '<div class="ct-dt-search-box-wrap">' +
+        '<div class="ct-dt-search-top">' +
           '<div class="ct-dt-search-box">' +
             '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
             '<input class="ct-dt-search-input" id="ctDtSearchInput" type="search" placeholder="输入关键词搜索消息" autocomplete="off" />' +
           '</div>' +
+          '<div class="ct-dt-rt-bar" id="ctDtSearchRtRow">' +
+            '<span class="ct-dt-rt-label">感知真实时间</span>' +
+            '<button class="ct-dt-switch" id="ctDtSearchRtSwitch" type="button" aria-label="感知真实时间"><span class="ct-dt-switch-thumb"></span></button>' +
+          '</div>' +
+          '<div class="ct-dt-cal-wrap" id="ctDtCalWrap"></div>' +
         '</div>' +
         '<div class="ct-dt-search-list" id="ctDtSearchList"></div>';
       appContainer.appendChild(searchEl);
@@ -373,36 +379,58 @@
         searchEl.classList.remove('is-open');
       });
 
-      document.getElementById('ctDtSearchInput').addEventListener('input', renderSearchView);
+      bindPress(document.getElementById('ctDtSearchRtRow'), function () {
+        if (!activeThreadId) return;
+        var cur = getThreadSettings(activeThreadId);
+        var next = !cur.realTime;
+        setThreadSettings(activeThreadId, { realTime: next });
+        if (!next) {
+          selectedDateStr = '';
+          calendarCollapsed = false;
+        } else {
+          calendarCollapsed = false;
+        }
+        renderSearchView();
+      });
+
+      document.getElementById('ctDtSearchInput').addEventListener('input', renderSearchMessagesOnly);
     } else {
       searchEl = document.getElementById('ctDetailsSearchView');
     }
 
-    if (!document.getElementById('ctDetailsLoreView')) {
-      loreEl = document.createElement('div');
-      loreEl.id = 'ctDetailsLoreView';
-      loreEl.className = 'ct-dt-subview';
-      loreEl.innerHTML =
+    if (!document.getElementById('ctDetailsAiView')) {
+      aiEl = document.createElement('div');
+      aiEl.id = 'ctDetailsAiView';
+      aiEl.className = 'ct-dt-subview';
+      aiEl.innerHTML =
         '<div class="ct-details-topbar">' +
           '<div class="ct-details-topbar-left">' +
-            '<button class="ct-details-back" id="ctDtLoreBackBtn" type="button" aria-label="返回">' +
+            '<button class="ct-details-back" id="ctDtAiBackBtn" type="button" aria-label="返回">' +
               '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>' +
             '</button>' +
-            '<h1 class="ct-details-title">单独挂载世界书</h1>' +
+            '<h1 class="ct-details-title">AI 感知与设定</h1>' +
           '</div>' +
         '</div>' +
-        '<div class="ct-details-scroll" id="ctDtLoreScroll"></div>';
-      appContainer.appendChild(loreEl);
+        '<div class="ct-details-scroll" id="ctDtAiScroll"></div>';
+      appContainer.appendChild(aiEl);
 
-      bindPress(document.getElementById('ctDtLoreBackBtn'), function () {
-        loreEl.classList.remove('is-open');
+      bindPress(document.getElementById('ctDtAiBackBtn'), function () {
+        aiEl.classList.remove('is-open');
         renderDetailsBody();
       });
     } else {
-      loreEl = document.getElementById('ctDetailsLoreView');
+      aiEl = document.getElementById('ctDetailsAiView');
     }
 
     return true;
+  }
+
+  function getAiSummaryText(settings) {
+    var parts = [];
+    if (settings.realWeather) parts.push('天气');
+    if (settings.realLocation) parts.push('地点');
+    if (settings.loreOverride) parts.push('单独世界书(' + settings.loreIds.length + ')');
+    return parts.length ? parts.join(' · ') : '天气、地点、预设与世界书';
   }
 
   function renderDetailsBody() {
@@ -463,16 +491,6 @@
         '</div>';
     }
 
-    var presetName = '未设置';
-    if (window.PhonePresets && typeof window.PhonePresets.getActivePreset === 'function') {
-      var p = window.PhonePresets.getActivePreset('online');
-      if (p && p.name) presetName = p.name;
-    }
-
-    var loreSub = settings.loreOverride
-      ? ('已开启 · 已选 ' + settings.loreIds.length + ' 本')
-      : '跟随全局世界书';
-
     var chevronSvg = '<svg class="ct-dt-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>';
 
     scroll.innerHTML =
@@ -506,34 +524,10 @@
         ) : '') +
       '</div>' +
       '<div class="ct-dt-card">' +
-        '<div class="ct-dt-row" id="ctDtRealTimeRow">' +
+        '<div class="ct-dt-row" id="ctDtAiRow">' +
           '<div class="ct-dt-row-left">' +
-            '<div class="ct-dt-row-label">感知真实时间</div>' +
-            '<div class="ct-dt-row-sub">开启后聊天记录支持按日期查看</div>' +
-          '</div>' +
-          '<button class="ct-dt-switch' + (settings.realTime ? ' is-on' : '') + '" type="button" aria-label="感知真实时间"><span class="ct-dt-switch-thumb"></span></button>' +
-        '</div>' +
-        '<div class="ct-dt-row" id="ctDtRealWeatherRow">' +
-          '<div class="ct-dt-row-left"><div class="ct-dt-row-label">感知真实天气</div></div>' +
-          '<button class="ct-dt-switch' + (settings.realWeather ? ' is-on' : '') + '" type="button" aria-label="感知真实天气"><span class="ct-dt-switch-thumb"></span></button>' +
-        '</div>' +
-        '<div class="ct-dt-row" id="ctDtRealLocRow">' +
-          '<div class="ct-dt-row-left"><div class="ct-dt-row-label">感知真实地点</div></div>' +
-          '<button class="ct-dt-switch' + (settings.realLocation ? ' is-on' : '') + '" type="button" aria-label="感知真实地点"><span class="ct-dt-switch-thumb"></span></button>' +
-        '</div>' +
-      '</div>' +
-      '<div class="ct-dt-card">' +
-        '<div class="ct-dt-row">' +
-          '<div class="ct-dt-row-left">' +
-            '<div class="ct-dt-row-label">当前线上预设</div>' +
-            '<div class="ct-dt-row-sub">在「预设」App 中切换</div>' +
-          '</div>' +
-          '<div class="ct-dt-row-right"><span>' + escapeHtml(presetName) + '</span></div>' +
-        '</div>' +
-        '<div class="ct-dt-row" id="ctDtLoreRow">' +
-          '<div class="ct-dt-row-left">' +
-            '<div class="ct-dt-row-label">启用单独挂载世界书</div>' +
-            '<div class="ct-dt-row-sub">' + escapeHtml(loreSub) + '</div>' +
+            '<div class="ct-dt-row-label">AI 感知与设定</div>' +
+            '<div class="ct-dt-row-sub">' + escapeHtml(getAiSummaryText(settings)) + '</div>' +
           '</div>' +
           '<div class="ct-dt-row-right">' + chevronSvg + '</div>' +
         '</div>' +
@@ -566,6 +560,7 @@
       var inp = document.getElementById('ctDtSearchInput');
       if (inp) inp.value = '';
       selectedDateStr = '';
+      calendarCollapsed = false;
       var now = new Date();
       calYear = now.getFullYear();
       calMonth = now.getMonth();
@@ -588,27 +583,9 @@
       renderDetailsBody();
     });
 
-    bindPress(document.getElementById('ctDtRealTimeRow'), function () {
-      var cur = getThreadSettings(thread.id);
-      setThreadSettings(thread.id, { realTime: !cur.realTime });
-      renderDetailsBody();
-    });
-
-    bindPress(document.getElementById('ctDtRealWeatherRow'), function () {
-      var cur = getThreadSettings(thread.id);
-      setThreadSettings(thread.id, { realWeather: !cur.realWeather });
-      renderDetailsBody();
-    });
-
-    bindPress(document.getElementById('ctDtRealLocRow'), function () {
-      var cur = getThreadSettings(thread.id);
-      setThreadSettings(thread.id, { realLocation: !cur.realLocation });
-      renderDetailsBody();
-    });
-
-    bindPress(document.getElementById('ctDtLoreRow'), function () {
-      renderLoreView();
-      loreEl.classList.add('is-open');
+    bindPress(document.getElementById('ctDtAiRow'), function () {
+      renderAiView();
+      aiEl.classList.add('is-open');
     });
 
     bindPress(document.getElementById('ctDtBgRow'), function () {
@@ -649,144 +626,17 @@
     });
   }
 
-  function renderSearchView() {
-    var listEl = document.getElementById('ctDtSearchList');
-    var inp = document.getElementById('ctDtSearchInput');
-    if (!listEl || !activeThreadId) return;
-
-    var settings = getThreadSettings(activeThreadId);
-    var kw = inp ? inp.value.trim().toLowerCase() : '';
-    var msgs = loadJSON(MSGS_PREFIX + activeThreadId, []);
-    if (!Array.isArray(msgs)) msgs = [];
-
-    var activeDates = {};
-    msgs.forEach(function (m) {
-      var ds = getMsgDateStr(m);
-      if (ds) activeDates[ds] = true;
-    });
-
-    var headerHtml = '';
-    if (settings.realTime) {
-      var firstDay = new Date(calYear, calMonth, 1).getDay();
-      var daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-      var cells = [];
-      for (var e = 0; e < firstDay; e++) {
-        cells.push('<div class="ct-dt-cal-day is-empty"></div>');
-      }
-      for (var d = 1; d <= daysInMonth; d++) {
-        var ds = calYear + '-' + String(calMonth + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
-        var hasMsg = !!activeDates[ds];
-        var isSel = selectedDateStr === ds;
-        var cls = 'ct-dt-cal-day' + (hasMsg ? ' has-msg' : ' is-disabled') + (isSel ? ' is-selected' : '');
-        cells.push('<button class="' + cls + '" data-cal-date="' + ds + '" type="button">' + d + '</button>');
-      }
-
-      headerHtml +=
-        '<div class="ct-dt-cal-card">' +
-          '<div class="ct-dt-cal-head">' +
-            '<span class="ct-dt-cal-month">' + calYear + '年' + (calMonth + 1) + '月</span>' +
-            '<div class="ct-dt-cal-nav">' +
-              '<button class="ct-dt-cal-btn" id="ctDtCalPrev" type="button" aria-label="上个月">' +
-                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>' +
-              '</button>' +
-              '<button class="ct-dt-cal-btn" id="ctDtCalNext" type="button" aria-label="下个月">' +
-                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>' +
-              '</button>' +
-            '</div>' +
-          '</div>' +
-          '<div class="ct-dt-cal-week"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>' +
-          '<div class="ct-dt-cal-grid">' + cells.join('') + '</div>' +
-        '</div>';
-
-      if (selectedDateStr) {
-        headerHtml +=
-          '<div class="ct-dt-date-bar">' +
-            '<span>已筛选：' + escapeHtml(selectedDateStr) + '</span>' +
-            '<button class="ct-dt-date-clear" id="ctDtDateClear" type="button">查看全部</button>' +
-          '</div>';
-      }
-    }
-
-    var filtered = msgs.slice();
-    if (settings.realTime && selectedDateStr) {
-      filtered = filtered.filter(function (m) {
-        return getMsgDateStr(m) === selectedDateStr;
-      });
-    }
-    if (kw) {
-      filtered = filtered.filter(function (m) {
-        var txt = String(m.text || m.transcript || '').toLowerCase();
-        return txt.indexOf(kw) !== -1;
-      });
-    } else if (!selectedDateStr) {
-      filtered = filtered.slice(-30).reverse();
-    }
-
-    var chars = getArchiveChars();
-    var listHtml = !filtered.length
-      ? '<div class="ct-dt-empty">' + (kw || selectedDateStr ? '没有找到匹配的聊天记录' : '暂无聊天记录') + '</div>'
-      : filtered.map(function (m) {
-          var senderName = '我';
-          if (m.sender !== 'me') {
-            var c = chars.find(function (item) { return item.id === m.charId; });
-            senderName = c ? (c.name || c.nickname || '对方') : '对方';
-          }
-          var dStr = settings.realTime ? getMsgDateStr(m) : '';
-          var timeLabel = dStr ? (dStr.slice(5) + ' ' + (m.time || '')) : (m.time || '');
-          return (
-            '<div class="ct-dt-search-item">' +
-              '<div class="ct-dt-search-meta">' +
-                '<span class="ct-dt-search-sender">' + escapeHtml(senderName) + '</span>' +
-                '<span>' + escapeHtml(timeLabel) + '</span>' +
-              '</div>' +
-              '<div class="ct-dt-search-text">' + escapeHtml(m.text || m.transcript || '') + '</div>' +
-            '</div>'
-          );
-        }).join('');
-
-    listEl.innerHTML = headerHtml + listHtml;
-
-    if (settings.realTime) {
-      var prevBtn = document.getElementById('ctDtCalPrev');
-      var nextBtn = document.getElementById('ctDtCalNext');
-      var clearBtn = document.getElementById('ctDtDateClear');
-      bindPress(prevBtn, function () {
-        calMonth -= 1;
-        if (calMonth < 0) {
-          calMonth = 11;
-          calYear -= 1;
-        }
-        renderSearchView();
-      });
-      bindPress(nextBtn, function () {
-        calMonth += 1;
-        if (calMonth > 11) {
-          calMonth = 0;
-          calYear += 1;
-        }
-        renderSearchView();
-      });
-      if (clearBtn) {
-        bindPress(clearBtn, function () {
-          selectedDateStr = '';
-          renderSearchView();
-        });
-      }
-      listEl.querySelectorAll('.ct-dt-cal-day.has-msg').forEach(function (dayBtn) {
-        bindPress(dayBtn, function () {
-          var ds = dayBtn.getAttribute('data-cal-date');
-          selectedDateStr = selectedDateStr === ds ? '' : ds;
-          renderSearchView();
-        });
-      });
-    }
-  }
-
-  function renderLoreView() {
-    var scroll = document.getElementById('ctDtLoreScroll');
+  function renderAiView() {
+    var scroll = document.getElementById('ctDtAiScroll');
     if (!scroll || !activeThreadId) return;
 
     var settings = getThreadSettings(activeThreadId);
+    var presetName = '未设置';
+    if (window.PhonePresets && typeof window.PhonePresets.getActivePreset === 'function') {
+      var p = window.PhonePresets.getActivePreset('online');
+      if (p && p.name) presetName = p.name;
+    }
+
     var books = getLorebooks();
     var checkSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 
@@ -810,22 +660,51 @@
 
     scroll.innerHTML =
       '<div class="ct-dt-card">' +
+        '<div class="ct-dt-row" id="ctDtRealWeatherRow">' +
+          '<div class="ct-dt-row-left"><div class="ct-dt-row-label">感知真实天气</div></div>' +
+          '<button class="ct-dt-switch' + (settings.realWeather ? ' is-on' : '') + '" type="button" aria-label="感知真实天气"><span class="ct-dt-switch-thumb"></span></button>' +
+        '</div>' +
+        '<div class="ct-dt-row" id="ctDtRealLocRow">' +
+          '<div class="ct-dt-row-left"><div class="ct-dt-row-label">感知真实地点</div></div>' +
+          '<button class="ct-dt-switch' + (settings.realLocation ? ' is-on' : '') + '" type="button" aria-label="感知真实地点"><span class="ct-dt-switch-thumb"></span></button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ct-dt-card">' +
+        '<div class="ct-dt-row">' +
+          '<div class="ct-dt-row-left">' +
+            '<div class="ct-dt-row-label">当前线上预设</div>' +
+            '<div class="ct-dt-row-sub">在「预设」App 中切换</div>' +
+          '</div>' +
+          '<div class="ct-dt-row-right"><span>' + escapeHtml(presetName) + '</span></div>' +
+        '</div>' +
         '<div class="ct-dt-row" id="ctDtLoreOverrideRow">' +
           '<div class="ct-dt-row-left">' +
             '<div class="ct-dt-row-label">启用单独挂载世界书</div>' +
-            '<div class="ct-dt-row-sub">开启后不随全局，仅启用下方勾选的世界书</div>' +
+            '<div class="ct-dt-row-sub">开启后不随全局，勾几个启用几个</div>' +
           '</div>' +
           '<button class="ct-dt-switch' + (settings.loreOverride ? ' is-on' : '') + '" type="button" aria-label="启用单独挂载世界书"><span class="ct-dt-switch-thumb"></span></button>' +
         '</div>' +
       '</div>' +
-      '<div class="ct-dt-card ct-dt-lore-list-wrap' + (settings.loreOverride ? '' : ' is-disabled') + '">' +
-        booksHtml +
+      '<div class="ct-dt-lore-collapse' + (settings.loreOverride ? ' is-open' : '') + '">' +
+        '<div class="ct-dt-card">' + booksHtml + '</div>' +
       '</div>';
+
+    bindPress(document.getElementById('ctDtRealWeatherRow'), function () {
+      var cur = getThreadSettings(activeThreadId);
+      setThreadSettings(activeThreadId, { realWeather: !cur.realWeather });
+      renderAiView();
+    });
+
+    bindPress(document.getElementById('ctDtRealLocRow'), function () {
+      var cur = getThreadSettings(activeThreadId);
+      setThreadSettings(activeThreadId, { realLocation: !cur.realLocation });
+      renderAiView();
+    });
 
     bindPress(document.getElementById('ctDtLoreOverrideRow'), function () {
       var cur = getThreadSettings(activeThreadId);
       setThreadSettings(activeThreadId, { loreOverride: !cur.loreOverride });
-      renderLoreView();
+      renderAiView();
     });
 
     scroll.querySelectorAll('[data-pick-lore]').forEach(function (row) {
@@ -837,9 +716,172 @@
         if (pos === -1) ids.push(bid);
         else ids.splice(pos, 1);
         setThreadSettings(activeThreadId, { loreIds: ids });
-        renderLoreView();
+        renderAiView();
       });
     });
+  }
+
+  function renderSearchView() {
+    if (!activeThreadId) return;
+    var settings = getThreadSettings(activeThreadId);
+    var rtSwitch = document.getElementById('ctDtSearchRtSwitch');
+    var calWrap = document.getElementById('ctDtCalWrap');
+
+    if (rtSwitch) rtSwitch.classList.toggle('is-on', !!settings.realTime);
+
+    if (calWrap) {
+      if (!settings.realTime) {
+        calWrap.classList.remove('is-open');
+      } else {
+        var msgs = loadJSON(MSGS_PREFIX + activeThreadId, []);
+        if (!Array.isArray(msgs)) msgs = [];
+        var activeDates = {};
+        msgs.forEach(function (m) {
+          var ds = getMsgDateStr(m);
+          if (ds) activeDates[ds] = true;
+        });
+
+        if (selectedDateStr && calendarCollapsed) {
+          calWrap.innerHTML =
+            '<div class="ct-dt-date-pill" id="ctDtDateExpandPill">' +
+              '<span>日期：' + escapeHtml(selectedDateStr) + '</span>' +
+              '<div class="ct-dt-date-pill-actions">' +
+                '<button class="ct-dt-date-clear" id="ctDtDateClear" type="button">全部</button>' +
+                '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>' +
+              '</div>' +
+            '</div>';
+          bindPress(document.getElementById('ctDtDateExpandPill'), function (e) {
+            if (e.target && e.target.closest('#ctDtDateClear')) return;
+            calendarCollapsed = false;
+            renderSearchView();
+          });
+          bindPress(document.getElementById('ctDtDateClear'), function (e) {
+            e.stopPropagation();
+            selectedDateStr = '';
+            calendarCollapsed = false;
+            renderSearchView();
+          });
+        } else {
+          var firstDay = new Date(calYear, calMonth, 1).getDay();
+          var daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+          var cells = [];
+          for (var e = 0; e < firstDay; e++) {
+            cells.push('<div class="ct-dt-cal-day is-empty"></div>');
+          }
+          for (var d = 1; d <= daysInMonth; d++) {
+            var ds = calYear + '-' + String(calMonth + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+            var hasMsg = !!activeDates[ds];
+            var isSel = selectedDateStr === ds;
+            var cls = 'ct-dt-cal-day' + (hasMsg ? ' has-msg' : ' is-disabled') + (isSel ? ' is-selected' : '');
+            cells.push('<button class="' + cls + '" data-cal-date="' + ds + '" type="button">' + d + '</button>');
+          }
+
+          calWrap.innerHTML =
+            '<div class="ct-dt-cal-card">' +
+              '<div class="ct-dt-cal-head">' +
+                '<span class="ct-dt-cal-month">' + calYear + '年' + (calMonth + 1) + '月</span>' +
+                '<div class="ct-dt-cal-nav">' +
+                  '<button class="ct-dt-cal-btn" id="ctDtCalPrev" type="button" aria-label="上个月">' +
+                    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>' +
+                  '</button>' +
+                  '<button class="ct-dt-cal-btn" id="ctDtCalNext" type="button" aria-label="下个月">' +
+                    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>' +
+                  '</button>' +
+                '</div>' +
+              '</div>' +
+              '<div class="ct-dt-cal-week"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>' +
+              '<div class="ct-dt-cal-grid">' + cells.join('') + '</div>' +
+            '</div>';
+
+          bindPress(document.getElementById('ctDtCalPrev'), function () {
+            calMonth -= 1;
+            if (calMonth < 0) {
+              calMonth = 11;
+              calYear -= 1;
+            }
+            renderSearchView();
+          });
+          bindPress(document.getElementById('ctDtCalNext'), function () {
+            calMonth += 1;
+            if (calMonth > 11) {
+              calMonth = 0;
+              calYear += 1;
+            }
+            renderSearchView();
+          });
+          calWrap.querySelectorAll('.ct-dt-cal-day.has-msg').forEach(function (dayBtn) {
+            bindPress(dayBtn, function () {
+              var ds = dayBtn.getAttribute('data-cal-date');
+              if (selectedDateStr === ds) {
+                selectedDateStr = '';
+                calendarCollapsed = false;
+              } else {
+                selectedDateStr = ds;
+                calendarCollapsed = true;
+              }
+              renderSearchView();
+            });
+          });
+        }
+
+        requestAnimationFrame(function () {
+          calWrap.classList.add('is-open');
+        });
+      }
+    }
+
+    renderSearchMessagesOnly();
+  }
+
+  function renderSearchMessagesOnly() {
+    var listEl = document.getElementById('ctDtSearchList');
+    var inp = document.getElementById('ctDtSearchInput');
+    if (!listEl || !activeThreadId) return;
+
+    var settings = getThreadSettings(activeThreadId);
+    var kw = inp ? inp.value.trim().toLowerCase() : '';
+    var msgs = loadJSON(MSGS_PREFIX + activeThreadId, []);
+    if (!Array.isArray(msgs)) msgs = [];
+
+    var filtered = msgs.slice();
+    if (settings.realTime && selectedDateStr) {
+      filtered = filtered.filter(function (m) {
+        return getMsgDateStr(m) === selectedDateStr;
+      });
+    }
+    if (kw) {
+      filtered = filtered.filter(function (m) {
+        var txt = String(m.text || m.transcript || '').toLowerCase();
+        return txt.indexOf(kw) !== -1;
+      });
+    } else if (!selectedDateStr) {
+      filtered = filtered.slice(-30).reverse();
+    }
+
+    if (!filtered.length) {
+      listEl.innerHTML = '<div class="ct-dt-empty">' + (kw || selectedDateStr ? '没有找到匹配的聊天记录' : '暂无聊天记录') + '</div>';
+      return;
+    }
+
+    var chars = getArchiveChars();
+    listEl.innerHTML = filtered.map(function (m) {
+      var senderName = '我';
+      if (m.sender !== 'me') {
+        var c = chars.find(function (item) { return item.id === m.charId; });
+        senderName = c ? (c.name || c.nickname || '对方') : '对方';
+      }
+      var dStr = settings.realTime ? getMsgDateStr(m) : '';
+      var timeLabel = dStr ? (dStr.slice(5) + ' ' + (m.time || '')) : (m.time || '');
+      return (
+        '<div class="ct-dt-search-item">' +
+          '<div class="ct-dt-search-meta">' +
+            '<span class="ct-dt-search-sender">' + escapeHtml(senderName) + '</span>' +
+            '<span>' + escapeHtml(timeLabel) + '</span>' +
+          '</div>' +
+          '<div class="ct-dt-search-text">' + escapeHtml(m.text || m.transcript || '') + '</div>' +
+        '</div>'
+      );
+    }).join('');
   }
 
   function openDetails() {
@@ -850,7 +892,7 @@
   }
 
   function closeDetails() {
-    if (loreEl) loreEl.classList.remove('is-open');
+    if (aiEl) aiEl.classList.remove('is-open');
     if (searchEl) searchEl.classList.remove('is-open');
     if (detailsEl) detailsEl.classList.remove('is-open');
   }
