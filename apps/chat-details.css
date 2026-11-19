@@ -50,7 +50,7 @@
     pointer-events: auto;
 }
 
-.ctd-page.ctd-page-root.is-behind {
+.ctd-page.is-behind {
     transform: translate3d(-24%, 0, 0);
     opacity: 0.92;
     pointer-events: none;
@@ -162,7 +162,7 @@
     flex-shrink: 0;
 }
 
-/* 联系人 / 群聊资料卡（小圆角头像与聊天界面一致） */
+/* 联系人 / 群聊资料卡（小圆角与聊天界面一致） */
 .ctd-profile-card {
     padding: 16px;
     display: flex;
@@ -332,13 +332,13 @@
 .ctd-row-sub {
     font-size: calc(var(--app-font-size, 15px) - 2.5px);
     color: #8e8e93;
-    line-height: 1.35;
+    line-height: 1.38;
 }
 
 .ctd-token-note {
-    font-size: calc(var(--app-font-size, 15px) - 3px);
+    font-size: calc(var(--app-font-size, 15px) - 2.5px);
     color: #9a6b2f;
-    line-height: 1.35;
+    line-height: 1.38;
 }
 
 .ctd-row-right {
@@ -427,7 +427,7 @@
     transform: translateX(20px) scale(0.95);
 }
 
-/* 滑块行（界面设定用） */
+/* 滑块行 */
 .ctd-slider-row {
     display: flex;
     flex-direction: column;
@@ -665,20 +665,20 @@
     opacity: 0.88;
 }
 
-/* 界面设定预览框 */
+/* 1:1 复刻真实聊天界面气泡预览 */
 .ctd-theme-preview {
-    padding: 16px;
+    padding: 16px 14px;
     background: #ededed;
     border-radius: 18px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 14px;
 }
 
 .ctd-prev-row {
     display: flex;
     align-items: flex-start;
-    gap: 9px;
+    gap: 10px;
 }
 
 .ctd-prev-row.me {
@@ -691,13 +691,20 @@
 }
 
 .ctd-prev-av {
-    background: #d8d8de;
+    background: #ffffff;
     color: #1c1c1e;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 600;
     overflow: hidden;
+}
+
+.ctd-prev-av img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
 .ctd-prev-frame {
@@ -710,18 +717,45 @@
 }
 
 .ctd-prev-bubble {
+    position: relative;
     background: #ffffff;
     color: #1c1c1e;
-    border-radius: 8px;
+    border-radius: 4px;
     line-height: 1.45;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    word-break: break-word;
+}
+
+.ctd-prev-bubble::before {
+    content: "";
+    position: absolute;
+    top: 13px;
+    left: -5px;
+    width: 0;
+    height: 0;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-right: 6px solid #ffffff;
 }
 
 .ctd-prev-row.me .ctd-prev-bubble {
     background: #95ec69;
 }
 
-/* 查找聊天记录页 */
+.ctd-prev-row.me .ctd-prev-bubble::before {
+    left: auto;
+    right: -5px;
+    border-right: none;
+    border-left: 6px solid #95ec69;
+}
+
+.ctd-prev-bubble.has-img::before,
+.ctd-prev-bubble.has-img::after {
+    display: none !important;
+    content: none !important;
+    border: none !important;
+}
+
+/* 搜索框（通用：详情主搜索 + 查找聊天记录） */
 .ctd-search-box {
     background: #ffffff;
     border-radius: 20px;
