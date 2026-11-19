@@ -1,11 +1,9 @@
 /* =========================================================
    Chat 聊天详情页 (apps/chat-details.js)
    - 拦截 #ctRoomMoreBtn，不改动 apps/chat.js / apps/chat.css
-   - 包含：资料设置（聊天独立备注/头像）、置顶/免打扰铃铛/聊天背景、
-     查找聊天记录（无圆点黑色日期筛选）、天气/地点感知、独立API、
-     专属思维链、专属预设、单独挂载世界书、语言与翻译（24种语言含简繁/粤语/沪语）、
-     语音模型（6大入口自动匹配URL + MiniMax国内/国际站 + 第三方）、
-     聊天界面设定、记忆宫殿、拉黑、红字导出/导入、清空（含清空记忆勾选项）
+   - 修复 iOS Safari 键盘弹起遮挡输入框与卡死问题（visualViewport 实时适配）
+   - 新增「语音模型世界书」（主界面紧接「启用语音模型」下方）
+   - 内置 110+ 全球语言与各地方言（含简繁/粤语/沪语及别名搜索 + 自由输入）
    ========================================================= */
 
 (function () {
@@ -18,16 +16,139 @@
     const API_CONFIG_KEY = 'phone_api_config_v2';
     const API_BUNDLES_KEY = 'phone_api_bundle_presets';
 
-    const BASE_LANGUAGES = [
-        '简体中文', '繁体中文', '粤语', '沪语',
-        '英语', '日语', '韩语', '法语', '德语', '西班牙语',
-        '俄语', '意大利语', '葡萄牙语', '泰语', '越南语',
-        '阿拉伯语', '印尼语', '马来语', '荷兰语', '土耳其语',
-        '波兰语', '瑞典语', '印地语', '拉丁语'
+    // 110+ 全球语言与中国各地方言（含别名关键词检索）
+    const ALL_LANGUAGES = [
+        // 中文与国内方言
+        { name: '简体中文', alias: '普通话 国语 中文 简中 zh-cn' },
+        { name: '繁体中文', alias: '正体中文 中文 繁中 港台 zh-tw zh-hk' },
+        { name: '文言文', alias: '古文 古汉语 古代中文' },
+        { name: '粤语', alias: '广东话 广府话 白话 香港粤语 港普 cantonese yue' },
+        { name: '沪语', alias: '上海话 吴语 shanghainese' },
+        { name: '吴语（苏州话）', alias: '苏白 苏州话 吴语' },
+        { name: '吴语（杭州话）', alias: '杭州话 吴语' },
+        { name: '吴语（宁波话）', alias: '宁波话 吴语' },
+        { name: '温州话', alias: '瓯语 温州话 吴语' },
+        { name: '四川话', alias: '川渝话 成都话 西南官话 椒盐普通话' },
+        { name: '重庆话', alias: '渝语 川渝话 西南官话' },
+        { name: '东北话', alias: '东北官话 沈阳话 哈尔滨话' },
+        { name: '北京话', alias: '京片子 儿化音 北京官话' },
+        { name: '天津话', alias: '卫嘴子 天津方言' },
+        { name: '山东话', alias: '青岛话 济南话 胶辽官话 冀鲁官话' },
+        { name: '河南话', alias: '中原官话 郑州话' },
+        { name: '陕西话', alias: '关中话 西安话 秦腔' },
+        { name: '山西话', alias: '晋语 太原话' },
+        { name: '武汉话', alias: '湖北话 楚语 西南官话' },
+        { name: '南京话', alias: '江淮官话 南京方言' },
+        { name: '长沙话', alias: '湖南话 湘语' },
+        { name: '南昌话', alias: '江西话 赣语' },
+        { name: '闽南语（台语）', alias: '台语 福建话 泉漳话 厦门话 hokkien minnan' },
+        { name: '潮汕话', alias: '潮州话 汕头话 闽南语' },
+        { name: '福州话', alias: '闽东语 福建话' },
+        { name: '莆仙话', alias: '兴化话 莆田话' },
+        { name: '海南话', alias: '琼语 海南闽语' },
+        { name: '客家话', alias: '客语 梅州话 hakka' },
+        { name: '徽语', alias: '徽州话 安徽方言' },
+        { name: '云南话', alias: '昆明话 西南官话' },
+        { name: '贵州话', alias: '贵阳话 西南官话' },
+        { name: '广西白话', alias: '南宁白话 桂柳话 粤语' },
+        { name: '甘肃话', alias: '兰州话 西北方言' },
+        { name: '青海话', alias: '西宁话 西北方言' },
+        { name: '新疆话', alias: '乌鲁木齐话 兰银官话' },
+        { name: '维吾尔语', alias: '维语 uyghur' },
+        { name: '藏语', alias: '西藏话 tibetan' },
+        { name: '蒙古语', alias: '蒙语 mongolian' },
+        { name: '壮语', alias: '广西壮语 zhuang' },
+        { name: '朝鲜语（延边）', alias: '延边话 朝语' },
+
+        // 常见外语与地区变体
+        { name: '英语', alias: '英文 美式英语 english en' },
+        { name: '英语（英式）', alias: '英音 英国英语 british uk en-gb' },
+        { name: '英语（美式）', alias: '美音 美国英语 american us en-us' },
+        { name: '英语（澳式）', alias: '澳音 澳洲英语 australian' },
+        { name: '日语', alias: '日文 东京话 japanese ja jp' },
+        { name: '日语（关西腔）', alias: '大阪话 京都话 关西弁 kansai' },
+        { name: '韩语', alias: '韩文 首尔话 韩国语 korean ko kr' },
+        { name: '韩语（釜山方言）', alias: '庆尚道方言 釜山话 busan' },
+        { name: '法语', alias: '法文 french fr' },
+        { name: '法语（魁北克）', alias: '加拿大法语 quebec' },
+        { name: '德语', alias: '德文 german de' },
+        { name: '德语（奥地利/瑞士）', alias: '瑞士德语 奥地利德语' },
+        { name: '西班牙语', alias: '西语 spanish es' },
+        { name: '西班牙语（拉美）', alias: '墨西哥西语 拉丁美洲' },
+        { name: '俄语', alias: '俄文 russian ru' },
+        { name: '意大利语', alias: '意语 italian it' },
+        { name: '葡萄牙语', alias: '葡语 portuguese pt' },
+        { name: '葡萄牙语（巴西）', alias: '巴西葡语 pt-br' },
+        { name: '泰语', alias: '泰国话 thai th' },
+        { name: '越南语', alias: '越语 vietnamese vi' },
+        { name: '阿拉伯语', alias: '阿语 arabic ar' },
+        { name: '印尼语', alias: '印度尼西亚语 indonesian id' },
+        { name: '马来语', alias: '马来西亚语 malay ms' },
+        { name: '菲律宾语', alias: '他加禄语 tagalog filipino' },
+        { name: '缅甸语', alias: 'burmese myanmar' },
+        { name: '高棉语', alias: '柬埔寨语 khmer' },
+        { name: '老挝语', alias: '寮语 lao' },
+
+        // 欧洲其他语言
+        { name: '荷兰语', alias: 'dutch nl' },
+        { name: '土耳其语', alias: 'turkish tr' },
+        { name: '波兰语', alias: 'polish pl' },
+        { name: '瑞典语', alias: 'swedish sv' },
+        { name: '挪威语', alias: 'norwegian no' },
+        { name: '丹麦语', alias: 'danish da' },
+        { name: '芬兰语', alias: 'finnish fi' },
+        { name: '冰岛语', alias: 'icelandic is' },
+        { name: '希腊语', alias: 'greek el' },
+        { name: '捷克语', alias: 'czech cs' },
+        { name: '斯洛伐克语', alias: 'slovak sk' },
+        { name: '匈牙利语', alias: 'hungarian hu' },
+        { name: '罗马尼亚语', alias: 'romanian ro' },
+        { name: '保加利亚语', alias: 'bulgarian bg' },
+        { name: '乌克兰语', alias: 'ukrainian uk' },
+        { name: '白俄罗斯语', alias: 'belarusian be' },
+        { name: '塞尔维亚语', alias: 'serbian sr' },
+        { name: '克罗地亚语', alias: 'croatian hr' },
+        { name: '斯洛文尼亚语', alias: 'slovenian sl' },
+        { name: '立陶宛语', alias: 'lithuanian lt' },
+        { name: '拉脱维亚语', alias: 'latvian lv' },
+        { name: '爱沙尼亚语', alias: 'estonian et' },
+        { name: '爱尔兰语', alias: 'irish ga' },
+        { name: '苏格兰盖尔语', alias: 'scottish gaelic' },
+        { name: '威尔士语', alias: 'welsh cy' },
+        { name: '加泰罗尼亚语', alias: 'catalan ca' },
+        { name: '巴斯克语', alias: 'basque eu' },
+        { name: '加利西亚语', alias: 'galician gl' },
+        { name: '阿尔巴尼亚语', alias: 'albanian sq' },
+        { name: '马耳他语', alias: 'maltese mt' },
+
+        // 南亚 / 中东 / 中亚 / 非洲 / 古语
+        { name: '印地语', alias: '印度语 hindi hi' },
+        { name: '乌尔都语', alias: '巴基斯坦语 urdu ur' },
+        { name: '孟加拉语', alias: 'bengali bn' },
+        { name: '泰米尔语', alias: 'tamil ta' },
+        { name: '泰卢固语', alias: 'telugu te' },
+        { name: '旁遮普语', alias: 'punjabi pa' },
+        { name: '尼泊尔语', alias: 'nepali ne' },
+        { name: '僧伽罗语', alias: '斯里兰卡语 sinhala' },
+        { name: '波斯语', alias: '伊朗语 persian farsi fa' },
+        { name: '希伯来语', alias: '以色列语 hebrew he' },
+        { name: '哈萨克语', alias: 'kazakh kk' },
+        { name: '乌兹别克语', alias: 'uzbek uz' },
+        { name: '格鲁吉亚语', alias: 'georgian ka' },
+        { name: '亚美尼亚语', alias: 'armenian hy' },
+        { name: '阿塞拜疆语', alias: 'azerbaijani az' },
+        { name: '斯瓦希里语', alias: 'swahili sw' },
+        { name: '阿姆哈拉语', alias: '埃塞俄比亚语 amharic' },
+        { name: '南非荷兰语', alias: 'afrikaans af' },
+        { name: '豪萨语', alias: 'hausa' },
+        { name: '约鲁巴语', alias: 'yoruba' },
+        { name: '拉丁语', alias: '拉丁文 latin la' },
+        { name: '古希腊语', alias: 'ancient greek' },
+        { name: '梵语', alias: 'sanskrit' },
+        { name: '世界语', alias: 'esperanto eo' },
+        { name: '毛利语', alias: 'maori' },
+        { name: '夏威夷语', alias: 'hawaiian' }
     ];
-    const LANG_OPTIONS = ['跟随预设'].concat(BASE_LANGUAGES);
-    const SECOND_LANG_OPTIONS = ['无'].concat(BASE_LANGUAGES);
-    const TRANS_LANG_OPTIONS = BASE_LANGUAGES.slice();
 
     // 6 个语音模型配置预设
     const VOICE_PROVIDERS = [
@@ -54,7 +175,7 @@
             defaultUrl: 'https://api.fish.audio/v1/tts',
             defaultModel: 's2-pro',
             needGroupId: false,
-            voicePlaceholder: 'Reference ID / 模型音色 ID'
+            voicePlaceholder: 'Reference ID / 音色 ID'
         },
         {
             id: 'openai',
@@ -88,6 +209,8 @@
     let subPages = {};
     let toastEl = null;
     let toastTimer = null;
+    let activeInputEl = null;
+    let blurResetTimer = null;
 
     const customAvatarCache = new Map();
 
@@ -105,7 +228,6 @@
     const SVG_CHECK = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`;
     const SVG_GROUP = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
 
-    // p2 样式免打扰小铃铛（100% 不透明实色，交叉无叠色暗点）
     const SVG_MUTE_BELL = `
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M10.4 5.2a1.6 1.6 0 0 1 3.2 0"/>
@@ -113,6 +235,101 @@
             <path d="M10.2 17.5a1.8 1.8 0 0 0 3.6 0"/>
             <line x1="4.2" y1="4.2" x2="19.8" y2="19.8"/>
         </svg>`;
+
+    /* ---------------- iOS Safari 键盘防遮挡与防卡死适配 ---------------- */
+    function isCtdInput(el) {
+        if (!el) return false;
+        const tag = el.tagName;
+        if (tag !== 'INPUT' && tag !== 'TEXTAREA') return false;
+        return Boolean(el.closest('#ctDetailsOverlay, .ctd-sheet-backdrop, .ctd-modal-backdrop'));
+    }
+
+    function syncViewportForKeyboard() {
+        const vv = window.visualViewport;
+        const h = vv ? vv.height : window.innerHeight;
+        const isKeyboardLikelyOpen = vv ? (window.innerHeight - vv.height > 90) : false;
+
+        if (activeInputEl && isKeyboardLikelyOpen) {
+            window.scrollTo(0, 0);
+            if (overlayEl && overlayEl.classList.contains('open')) {
+                overlayEl.style.top = '0px';
+                overlayEl.style.bottom = 'auto';
+                overlayEl.style.height = h + 'px';
+            }
+            document.querySelectorAll('.ctd-sheet-backdrop.open, .ctd-modal-backdrop.open').forEach(el => {
+                el.style.top = '0px';
+                el.style.height = h + 'px';
+            });
+            ensureInputVisibleInScroll(activeInputEl);
+        } else if (!activeInputEl) {
+            resetViewportContainers();
+        }
+    }
+
+    function resetViewportContainers() {
+        if (overlayEl) {
+            overlayEl.style.top = '';
+            overlayEl.style.bottom = '';
+            overlayEl.style.height = '';
+        }
+        document.querySelectorAll('.ctd-sheet-backdrop, .ctd-modal-backdrop').forEach(el => {
+            el.style.top = '';
+            el.style.height = '';
+        });
+        window.scrollTo(0, 0);
+    }
+
+    function ensureInputVisibleInScroll(inputEl) {
+        if (!inputEl) return;
+        const scrollEl = inputEl.closest('.ctd-scroll');
+        if (!scrollEl) return;
+        requestAnimationFrame(() => {
+            const containerRect = scrollEl.getBoundingClientRect();
+            const inputRect = inputEl.getBoundingClientRect();
+            const margin = 24;
+            if (inputRect.bottom > containerRect.bottom - margin || inputRect.top < containerRect.top + margin) {
+                const targetTop = scrollEl.scrollTop + (inputRect.top - containerRect.top) - Math.max(24, (containerRect.height - inputRect.height) * 0.35);
+                scrollEl.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
+            }
+        });
+    }
+
+    function setupKeyboardViewportFix() {
+        document.addEventListener('focusin', (e) => {
+            if (!isCtdInput(e.target)) return;
+            clearTimeout(blurResetTimer);
+            activeInputEl = e.target;
+            setTimeout(() => {
+                syncViewportForKeyboard();
+                ensureInputVisibleInScroll(activeInputEl);
+            }, 80);
+            setTimeout(() => {
+                syncViewportForKeyboard();
+                ensureInputVisibleInScroll(activeInputEl);
+            }, 300);
+        });
+
+        document.addEventListener('focusout', (e) => {
+            if (!isCtdInput(e.target)) return;
+            clearTimeout(blurResetTimer);
+            blurResetTimer = setTimeout(() => {
+                if (!isCtdInput(document.activeElement)) {
+                    activeInputEl = null;
+                    resetViewportContainers();
+                }
+            }, 140);
+        });
+
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', syncViewportForKeyboard);
+            window.visualViewport.addEventListener('scroll', () => {
+                if (activeInputEl) {
+                    window.scrollTo(0, 0);
+                    syncViewportForKeyboard();
+                }
+            });
+        }
+    }
 
     /* ---------------- 基础工具 ---------------- */
     function loadJSON(key, fallback) {
@@ -200,6 +417,8 @@
             voiceModel: 'speech-02-hd',
             voiceVoiceId: '',
             voiceSpeed: '1.0',
+            voiceLoreOverride: false,
+            voiceLoreIds: [],
             chatTheme: 'default',
             blocked: false,
             hasBg: false
@@ -694,8 +913,8 @@
         return null;
     }
 
-    /* ---------------- 弹窗与动作菜单（支持搜索过滤 & 复选框） ---------------- */
-    function openActionSheet({ title, desc, checkboxLabel, searchable, actions }) {
+    /* ---------------- 弹窗与动作菜单（支持别名检索 + 自由选用 + 防键盘遮挡） ---------------- */
+    function openActionSheet({ title, desc, checkboxLabel, searchable, allowCustomInput, onCustomSelect, actions }) {
         const backdrop = document.createElement('div');
         backdrop.className = 'ctd-sheet-backdrop';
         let isChecked = false;
@@ -709,13 +928,13 @@
 
         const searchHtml = searchable ? `
             <div class="ctd-sheet-search-wrap">
-                <input type="text" class="ctd-sheet-search-input" id="ctdSheetSearchInput" placeholder="搜索语言...">
+                <input type="text" class="ctd-sheet-search-input" id="ctdSheetSearchInput" placeholder="搜索任意语言或方言...">
             </div>
         ` : '';
 
         backdrop.innerHTML = `
             <div class="ctd-sheet-box">
-                <div class="ctd-sheet-group">
+                <div class="ctd-sheet-group ctd-sheet-main">
                     ${title ? `
                         <div class="ctd-sheet-header">
                             <div class="ctd-sheet-title">${escapeHtml(title)}</div>
@@ -726,7 +945,7 @@
                     ${searchHtml}
                     <div class="ctd-sheet-list" id="ctdSheetList"></div>
                 </div>
-                <div class="ctd-sheet-group">
+                <div class="ctd-sheet-group ctd-sheet-cancel">
                     <button type="button" class="ctd-sheet-btn cancel" data-cancel="1">取消</button>
                 </div>
             </div>
@@ -734,18 +953,29 @@
 
         const listBox = backdrop.querySelector('#ctdSheetList');
         function renderList(filterText) {
-            const kw = (filterText || '').trim().toLowerCase();
+            const rawKw = (filterText || '').trim();
+            const kw = rawKw.toLowerCase();
             const items = actions
                 .map((a, idx) => ({ a, idx }))
-                .filter(({ a }) => !kw || a.label.toLowerCase().includes(kw));
+                .filter(({ a }) => {
+                    if (!kw) return true;
+                    const hay = ((a.label || '') + ' ' + (a.keywords || '')).toLowerCase();
+                    return hay.includes(kw);
+                });
 
-            if (!items.length) {
-                listBox.innerHTML = `<div class="ctd-empty-hint" style="padding:16px;">无匹配项</div>`;
-                return;
-            }
-            listBox.innerHTML = items.map(({ a, idx }) => `
+            let html = items.map(({ a, idx }) => `
                 <button type="button" class="ctd-sheet-btn ${a.danger ? 'danger' : ''} ${a.selected ? 'selected' : ''}" data-idx="${idx}">${escapeHtml(a.label)}</button>
             `).join('');
+
+            const exactMatch = items.some(({ a }) => (a.rawName || a.label).toLowerCase() === kw);
+            if (allowCustomInput && rawKw && !exactMatch) {
+                html += `<button type="button" class="ctd-sheet-btn selected" data-custom-val="${escapeHtml(rawKw)}">使用「${escapeHtml(rawKw)}」</button>`;
+            }
+
+            if (!html) {
+                html = `<div class="ctd-empty-hint" style="padding:16px;">无匹配项</div>`;
+            }
+            listBox.innerHTML = html;
             bindAllPressed(listBox);
         }
 
@@ -769,13 +999,25 @@
         }
 
         function close() {
+            if (document.activeElement && backdrop.contains(document.activeElement)) {
+                document.activeElement.blur();
+            }
+            activeInputEl = null;
+            resetViewportContainers();
             backdrop.classList.remove('open');
-            setTimeout(() => backdrop.remove(), 260);
+            setTimeout(() => backdrop.remove(), 240);
         }
 
         backdrop.addEventListener('click', (e) => {
             if (e.target === backdrop || e.target.closest('[data-cancel="1"]')) {
                 close();
+                return;
+            }
+            const customBtn = e.target.closest('[data-custom-val]');
+            if (customBtn) {
+                const val = customBtn.dataset.customVal;
+                close();
+                if (typeof onCustomSelect === 'function') onCustomSelect(val);
                 return;
             }
             const actBtn = e.target.closest('[data-idx]');
@@ -786,6 +1028,36 @@
                     actions[idx].onClick(isChecked);
                 }
             }
+        });
+    }
+
+    function openLanguagePicker({ title, currentVal, extraTopItem, onSelect }) {
+        const items = [];
+        if (extraTopItem) {
+            items.push({
+                rawName: extraTopItem,
+                label: extraTopItem + (currentVal === extraTopItem ? ' ✓' : ''),
+                keywords: extraTopItem,
+                selected: currentVal === extraTopItem,
+                onClick: () => onSelect(extraTopItem)
+            });
+        }
+        ALL_LANGUAGES.forEach(lang => {
+            items.push({
+                rawName: lang.name,
+                label: lang.name + (currentVal === lang.name ? ' ✓' : ''),
+                keywords: lang.alias || '',
+                selected: currentVal === lang.name,
+                onClick: () => onSelect(lang.name)
+            });
+        });
+
+        openActionSheet({
+            title,
+            searchable: true,
+            allowCustomInput: true,
+            onCustomSelect: (val) => onSelect(val),
+            actions: items
         });
     }
 
@@ -813,6 +1085,9 @@
         });
 
         function close() {
+            if (input) input.blur();
+            activeInputEl = null;
+            resetViewportContainers();
             backdrop.classList.remove('open');
             setTimeout(() => backdrop.remove(), 220);
         }
@@ -866,6 +1141,7 @@
             ${buildSubPage('ctDetailsPresetView', '专属预设', 'ctdPresetScroll')}
             ${buildSubPage('ctDetailsLoreView', '单独挂载世界书', 'ctdLoreScroll')}
             ${buildSubPage('ctDetailsVoiceView', '启用语音模型', 'ctdVoiceScroll')}
+            ${buildSubPage('ctDetailsVoiceLoreView', '语音模型世界书', 'ctdVoiceLoreScroll')}
             ${buildSubPage('ctDetailsThemeView', '聊天界面设定', 'ctdThemeScroll')}
             ${buildSubPage('ctDetailsMemoryView', '记忆宫殿', 'ctdMemoryScroll')}
         `;
@@ -875,7 +1151,8 @@
         [
             'ctDetailsProfileView', 'ctDetailsSearchView', 'ctDetailsApiView',
             'ctDetailsCotView', 'ctDetailsPresetView', 'ctDetailsLoreView',
-            'ctDetailsVoiceView', 'ctDetailsThemeView', 'ctDetailsMemoryView'
+            'ctDetailsVoiceView', 'ctDetailsVoiceLoreView', 'ctDetailsThemeView',
+            'ctDetailsMemoryView'
         ].forEach(id => {
             subPages[id] = document.getElementById(id);
         });
@@ -895,6 +1172,11 @@
 
     function closeSubPage(pageEl) {
         if (!pageEl) return;
+        if (document.activeElement && pageEl.contains(document.activeElement)) {
+            document.activeElement.blur();
+        }
+        activeInputEl = null;
+        resetViewportContainers();
         pageEl.classList.remove('open');
         rootPageEl.classList.remove('is-behind');
         renderMainView();
@@ -912,6 +1194,11 @@
 
     function closeDetails() {
         if (!overlayEl) return;
+        if (document.activeElement && overlayEl.contains(document.activeElement)) {
+            document.activeElement.blur();
+        }
+        activeInputEl = null;
+        resetViewportContainers();
         overlayEl.classList.remove('open');
         Object.values(subPages).forEach(p => p.classList.remove('open'));
         rootPageEl.classList.remove('is-behind');
@@ -1011,7 +1298,7 @@
             </div>
         `;
 
-        // 4. 感知真实天气 & 地点（开启时仅显示简短同步结果）
+        // 4. 感知真实天气 & 地点
         const weatherSub = settings.realWeather ? (cache.weatherText || '同步中...') : '';
         const locationSub = settings.realLocation ? (cache.locationText || '同步中...') : '';
 
@@ -1116,15 +1403,24 @@
             </div>
         `;
 
-        // 8. 启用语音模型（独立小卡片）
+        // 8. 启用语音模型 + 语音模型世界书（主界面直接入口）
         const providerMeta = getProviderMeta(settings.voiceProvider);
         const voiceStatus = settings.voiceEnabled ? providerMeta.label : '未开启';
+        const voiceLoreCount = Array.isArray(settings.voiceLoreIds) ? settings.voiceLoreIds.length : 0;
+        const voiceLoreStatus = settings.voiceLoreOverride ? `已选 ${voiceLoreCount} 本` : '未挂载';
         const voiceCardHtml = `
             <div class="ctd-card">
                 <div class="ctd-row" id="ctdVoiceEntryRow">
                     <div class="ctd-row-left"><div class="ctd-row-title">启用语音模型</div></div>
                     <div class="ctd-row-right">
                         <span class="ctd-row-value">${escapeHtml(voiceStatus)}</span>
+                        <span class="ctd-chevron">${SVG_CHEVRON}</span>
+                    </div>
+                </div>
+                <div class="ctd-row" id="ctdVoiceLoreEntryRow">
+                    <div class="ctd-row-left"><div class="ctd-row-title">语音模型世界书</div></div>
+                    <div class="ctd-row-right">
+                        <span class="ctd-row-value">${escapeHtml(voiceLoreStatus)}</span>
                         <span class="ctd-chevron">${SVG_CHEVRON}</span>
                     </div>
                 </div>
@@ -1329,55 +1625,51 @@
 
         document.getElementById('ctdOutLangRow').addEventListener('click', () => {
             const cur = getThreadSettings(currentThreadId);
-            openActionSheet({
+            openLanguagePicker({
                 title: '选择角色输出语言',
-                searchable: true,
-                actions: LANG_OPTIONS.map(lang => ({
-                    label: lang + (cur.charOutputLang === lang ? ' ✓' : ''),
-                    selected: cur.charOutputLang === lang,
-                    onClick: () => {
-                        updateThreadSettings(currentThreadId, { charOutputLang: lang });
-                        renderMainView();
-                    }
-                }))
+                currentVal: cur.charOutputLang || '跟随预设',
+                extraTopItem: '跟随预设',
+                onSelect: (lang) => {
+                    updateThreadSettings(currentThreadId, { charOutputLang: lang });
+                    renderMainView();
+                }
             });
         });
 
         document.getElementById('ctdSecondLangRow').addEventListener('click', () => {
             const cur = getThreadSettings(currentThreadId);
-            openActionSheet({
+            openLanguagePicker({
                 title: '选择角色第二语言',
-                searchable: true,
-                actions: SECOND_LANG_OPTIONS.map(lang => ({
-                    label: lang + (cur.charSecondLang === lang ? ' ✓' : ''),
-                    selected: cur.charSecondLang === lang,
-                    onClick: () => {
-                        updateThreadSettings(currentThreadId, { charSecondLang: lang });
-                        renderMainView();
-                    }
-                }))
+                currentVal: cur.charSecondLang || '无',
+                extraTopItem: '无',
+                onSelect: (lang) => {
+                    updateThreadSettings(currentThreadId, { charSecondLang: lang });
+                    renderMainView();
+                }
             });
         });
 
         document.getElementById('ctdTransLangRow').addEventListener('click', () => {
             const cur = getThreadSettings(currentThreadId);
-            openActionSheet({
+            openLanguagePicker({
                 title: '选择翻译语言',
-                searchable: true,
-                actions: TRANS_LANG_OPTIONS.map(lang => ({
-                    label: lang + (cur.translateLang === lang ? ' ✓' : ''),
-                    selected: cur.translateLang === lang,
-                    onClick: () => {
-                        updateThreadSettings(currentThreadId, { translateLang: lang });
-                        renderMainView();
-                    }
-                }))
+                currentVal: cur.translateLang || '简体中文',
+                extraTopItem: null,
+                onSelect: (lang) => {
+                    updateThreadSettings(currentThreadId, { translateLang: lang });
+                    renderMainView();
+                }
             });
         });
 
         document.getElementById('ctdVoiceEntryRow').addEventListener('click', () => {
             renderVoiceSubView();
             openSubPage(subPages.ctDetailsVoiceView);
+        });
+
+        document.getElementById('ctdVoiceLoreEntryRow').addEventListener('click', () => {
+            renderVoiceLoreView();
+            openSubPage(subPages.ctDetailsVoiceLoreView);
         });
 
         document.getElementById('ctdThemeEntryRow').addEventListener('click', () => {
@@ -1639,13 +1931,15 @@
         });
 
         document.getElementById('ctdCotSaveBtn').addEventListener('click', () => {
-            const val = document.getElementById('ctdCotTextarea').value.trim();
+            const ta = document.getElementById('ctdCotTextarea');
+            const val = ta.value.trim();
+            ta.blur();
             updateThreadSettings(currentThreadId, { cotCustom: val });
             showToast('已保存思维链设置');
         });
     }
 
-    /* ---------------- 二级页：启用语音模型（6口子自动匹配 + MiniMax国内/国际站 + 第三方） ---------------- */
+    /* ---------------- 二级页：启用语音模型 ---------------- */
     function renderVoiceSubView() {
         const scrollEl = document.getElementById('ctdVoiceScroll');
         if (!scrollEl || !currentThreadId) return;
@@ -1737,7 +2031,6 @@
             e.currentTarget.classList.toggle('on', next.voiceEmotionTag);
         });
 
-        // 切换 6 个厂商口子，自动匹配 URL 与默认模型
         scrollEl.querySelectorAll('.ctd-provider-pill').forEach(btn => {
             btn.addEventListener('click', () => {
                 const pid = btn.dataset.provider;
@@ -1756,7 +2049,6 @@
             });
         });
 
-        // MiniMax 国内站 / 国际站切换
         scrollEl.querySelectorAll('.ctd-region-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const reg = btn.dataset.mmRegion;
@@ -1770,6 +2062,7 @@
         });
 
         document.getElementById('ctdVoiceSaveBtn').addEventListener('click', () => {
+            if (document.activeElement) document.activeElement.blur();
             const groupInput = document.getElementById('ctdVoiceGroupInput');
             updateThreadSettings(currentThreadId, {
                 voiceApiUrl: document.getElementById('ctdVoiceUrlInput').value.trim(),
@@ -1780,6 +2073,73 @@
                 voiceSpeed: document.getElementById('ctdVoiceSpeedInput').value.trim() || '1.0'
             });
             showToast('语音模型配置已保存');
+        });
+    }
+
+    /* ---------------- 二级页：语音模型世界书 ---------------- */
+    function renderVoiceLoreView() {
+        const scrollEl = document.getElementById('ctdVoiceLoreScroll');
+        if (!scrollEl || !currentThreadId) return;
+
+        const settings = getThreadSettings(currentThreadId);
+        const books = getAvailableLorebooks();
+        const selectedSet = new Set(Array.isArray(settings.voiceLoreIds) ? settings.voiceLoreIds : []);
+
+        const toggleHtml = `
+            <div class="ctd-card">
+                <div class="ctd-row ctd-row-static">
+                    <div class="ctd-row-left"><div class="ctd-row-title">启用语音模型世界书</div></div>
+                    <div class="ctd-row-right">
+                        <button type="button" class="ctd-switch ${settings.voiceLoreOverride ? 'on' : ''}" id="ctdVoiceLoreSwitch" aria-label="启用语音模型世界书"></button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        let booksHtml = '';
+        if (!books.length) {
+            booksHtml = `<div class="ctd-empty-hint">暂无可用世界书，请先在「世界书」中添加</div>`;
+        } else {
+            const rowsHtml = books.map(b => {
+                const checked = selectedSet.has(b.id);
+                const entryCount = Array.isArray(b.entries) ? b.entries.length : 0;
+                return `
+                    <div class="ctd-row ctd-vlore-book-row" data-book-id="${escapeHtml(b.id)}">
+                        <div class="ctd-row-left">
+                            <div class="ctd-row-title">${escapeHtml(b.name || b.title || '未命名世界书')}</div>
+                            ${entryCount ? `<div class="ctd-row-sub">${entryCount} 条词条</div>` : ''}
+                        </div>
+                        <div class="ctd-row-right">
+                            <div class="ctd-check-circle ${checked ? 'checked' : ''}">${checked ? SVG_CHECK : ''}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            booksHtml = `<div class="ctd-section-label">选择语音专属世界书（可多选）</div><div class="ctd-card" style="${settings.voiceLoreOverride ? '' : 'opacity:0.55;'}">${rowsHtml}</div>`;
+        }
+
+        scrollEl.innerHTML = toggleHtml + booksHtml;
+        bindAllPressed(scrollEl);
+
+        document.getElementById('ctdVoiceLoreSwitch').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const cur = getThreadSettings(currentThreadId);
+            const next = updateThreadSettings(currentThreadId, { voiceLoreOverride: !cur.voiceLoreOverride });
+            renderVoiceLoreView();
+            showToast(next.voiceLoreOverride ? '已启用语音模型世界书' : '已关闭语音模型世界书');
+        });
+
+        scrollEl.querySelectorAll('.ctd-vlore-book-row').forEach(row => {
+            row.addEventListener('click', () => {
+                const bid = row.dataset.bookId;
+                if (!bid) return;
+                const cur = getThreadSettings(currentThreadId);
+                const set = new Set(Array.isArray(cur.voiceLoreIds) ? cur.voiceLoreIds : []);
+                if (set.has(bid)) set.delete(bid);
+                else set.add(bid);
+                updateThreadSettings(currentThreadId, { voiceLoreOverride: true, voiceLoreIds: Array.from(set) });
+                renderVoiceLoreView();
+            });
         });
     }
 
@@ -2345,6 +2705,11 @@
             if (!s.loreOverride) return null;
             return Array.isArray(s.loreIds) ? s.loreIds : [];
         },
+        getEffectiveVoiceLorebookIds: function (threadId) {
+            const s = getThreadSettings(threadId || resolveActiveThreadId());
+            if (!s.voiceLoreOverride) return [];
+            return Array.isArray(s.voiceLoreIds) ? s.voiceLoreIds : [];
+        },
         getRealContext: async function (threadId) {
             const s = getThreadSettings(threadId || resolveActiveThreadId());
             const cache = getRealContextCache();
@@ -2368,15 +2733,16 @@
         }
     };
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            setupObserversAndHooks();
-            sortThreadsByPin();
-            syncRoomTitleAndBellUI();
-        });
-    } else {
+    function init() {
+        setupKeyboardViewportFix();
         setupObserversAndHooks();
         sortThreadsByPin();
         syncRoomTitleAndBellUI();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
     }
 })();
