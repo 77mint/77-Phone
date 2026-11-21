@@ -1,5 +1,7 @@
 /* =========================================================
-   Chat 我的页（仿微信「我」独立模块，纯白主背景 + 上缘对齐 + p2 彩色图标）
+   Chat 我的页（仿微信「我」独立模块 + 全套二级子页）
+   - 不改动 apps/chat.css / apps/chat.js
+   - 纯白主背景 + 上缘对齐 + p2 彩色图标 + iOS 分组卡片子页
    ========================================================= */
 #app-chat .ct-app.is-me-tab {
   --ctme-bg: #ffffff;
@@ -25,14 +27,22 @@
   min-height: 100%;
   background: #ffffff;
   padding-bottom: 96px;
+  font-family: var(--app-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif);
 }
 
 .ctme-profile {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 14px;
-  padding: calc(env(safe-area-inset-top) + 26px) 18px 24px;
+  padding: calc(env(safe-area-inset-top) + 26px) 16px 24px 18px;
   background: var(--ctme-row-bg);
+  cursor: pointer;
+  transition: background 0.14s ease;
+}
+
+.ctme-profile:active,
+.ctme-profile.is-pressed {
+  background: #f7f7f7;
 }
 
 .ctme-avatar {
@@ -46,7 +56,7 @@
   justify-content: center;
   flex-shrink: 0;
   overflow: hidden;
-  font-size: 20px;
+  font-size: calc(var(--app-font-size, 15px) + 5px);
   font-weight: 600;
 }
 
@@ -63,7 +73,9 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  padding-top: 1px;
+  align-self: flex-start;
+  padding-top: 2px;
+  gap: 6px;
 }
 
 .ctme-name {
@@ -71,6 +83,17 @@
   font-weight: 600;
   line-height: 1.15;
   color: var(--ctme-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ctme-sub-id {
+  font-size: calc(var(--app-font-size, 15px) - 2px);
+  color: var(--ctme-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ctme-gap {
@@ -93,9 +116,12 @@
   justify-content: space-between;
   padding: 15px 16px;
   background: var(--ctme-row-bg);
+  cursor: pointer;
+  transition: background 0.14s ease;
 }
 
-.ctme-row:active {
+.ctme-row:active,
+.ctme-row.is-pressed {
   background: #f7f7f7;
 }
 
@@ -119,6 +145,23 @@
   gap: 14px;
   color: var(--ctme-text);
   font-size: calc(var(--app-font-size, 15px) + 1px);
+  min-width: 0;
+}
+
+.ctme-row-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.ctme-row-meta {
+  font-size: calc(var(--app-font-size, 15px) - 2px);
+  color: var(--ctme-muted);
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ctme-row-icon {
@@ -134,4 +177,1091 @@
   color: #c7c7cc;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
+}
+
+/* =========================================================
+   二级子页浮层（iOS 原生卡片风格）
+   ========================================================= */
+.ctme-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 46;
+  background: #f2f2f7;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: translateX(100%);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.34s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.24s ease;
+  font-family: var(--app-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif);
+  color: #111111;
+}
+
+.ctme-overlay.is-open {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ctme-sub-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: calc(env(safe-area-inset-top) + 10px) 16px 10px;
+  background: #f2f2f7;
+  flex-shrink: 0;
+}
+
+.ctme-sub-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ctme-back-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: #ffffff;
+  color: #111111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: transform 0.14s ease, background 0.14s ease;
+}
+
+.ctme-back-btn:active,
+.ctme-back-btn.is-pressed {
+  transform: scale(0.92);
+  background: #ebebef;
+}
+
+.ctme-sub-title {
+  font-size: calc(var(--app-font-size, 15px) + 7px);
+  font-weight: 700;
+  color: #111111;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ctme-sub-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ctme-pill-btn {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: none;
+  background: #ffffff;
+  color: #111111;
+  font-size: calc(var(--app-font-size, 15px) - 1px);
+  font-weight: 600;
+  font-family: inherit;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: transform 0.14s ease, background 0.14s ease;
+}
+
+.ctme-pill-btn.is-primary {
+  background: #111111;
+  color: #ffffff;
+}
+
+.ctme-pill-btn:active,
+.ctme-pill-btn.is-pressed {
+  transform: scale(0.95);
+  opacity: 0.85;
+}
+
+.ctme-sub-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 6px 16px calc(env(safe-area-inset-bottom) + 34px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ctme-sub-scroll > * {
+  flex-shrink: 0;
+}
+
+/* 卡片与表单基础 */
+.ctme-card {
+  background: #ffffff;
+  border-radius: 22px;
+  overflow: hidden;
+}
+
+.ctme-card-pad {
+  padding: 16px;
+}
+
+.ctme-section-label {
+  font-size: calc(var(--app-font-size, 15px) - 2px);
+  font-weight: 600;
+  color: #8e8e93;
+  padding: 4px 8px 0;
+}
+
+.ctme-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: background 0.14s ease;
+}
+
+.ctme-item:active,
+.ctme-item.is-pressed {
+  background: #f5f5f7;
+}
+
+.ctme-item::after {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 0;
+  height: 0.5px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.ctme-item:last-child::after {
+  display: none;
+}
+
+.ctme-item-label {
+  font-size: var(--app-font-size, 15px);
+  color: #111111;
+  font-weight: 500;
+}
+
+.ctme-item-desc {
+  font-size: calc(var(--app-font-size, 15px) - 3px);
+  color: #8e8e93;
+  margin-top: 2px;
+  line-height: 1.35;
+}
+
+.ctme-item-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #8e8e93;
+  font-size: calc(var(--app-font-size, 15px) - 1px);
+  flex-shrink: 0;
+}
+
+.ctme-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.ctme-field:last-child {
+  margin-bottom: 0;
+}
+
+.ctme-field-label {
+  font-size: calc(var(--app-font-size, 15px) - 2px);
+  font-weight: 600;
+  color: #636366;
+}
+
+.ctme-input,
+.ctme-textarea,
+.ctme-select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  background: #f7f7fa;
+  color: #111111;
+  font-family: inherit;
+  font-size: max(16px, var(--app-font-size, 15px));
+  padding: 11px 13px;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.ctme-input:focus,
+.ctme-textarea:focus,
+.ctme-select:focus {
+  border-color: #111111;
+  background: #ffffff;
+}
+
+.ctme-textarea {
+  min-height: 92px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+/* 开关 */
+.ctme-switch {
+  position: relative;
+  width: 48px;
+  height: 28px;
+  border-radius: 999px;
+  background: #d1d1d6;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.22s ease;
+}
+
+.ctme-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.16);
+  transition: transform 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ctme-switch.is-on {
+  background: #111111;
+}
+
+.ctme-switch.is-on::after {
+  transform: translateX(20px);
+}
+
+/* 按钮 */
+.ctme-btn-row {
+  display: flex;
+  gap: 10px;
+}
+
+.ctme-btn {
+  flex: 1;
+  height: 44px;
+  border-radius: 14px;
+  border: none;
+  font-family: inherit;
+  font-size: var(--app-font-size, 15px);
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: transform 0.14s ease, opacity 0.14s ease;
+}
+
+.ctme-btn:active,
+.ctme-btn.is-pressed {
+  transform: scale(0.97);
+  opacity: 0.86;
+}
+
+.ctme-btn-dark {
+  background: #111111;
+  color: #ffffff;
+}
+
+.ctme-btn-light {
+  background: #f2f2f7;
+  color: #111111;
+}
+
+.ctme-btn-green {
+  background: #07c160;
+  color: #ffffff;
+}
+
+.ctme-btn-danger {
+  background: #fff1f0;
+  color: #ff3b30;
+}
+
+/* 个人资料头像编辑 */
+.ctme-profile-edit-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 16px;
+}
+
+.ctme-avatar-lg {
+  width: 80px;
+  height: 80px;
+  border-radius: 14px;
+  background: #f2f2f7;
+  color: #111111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-size: calc(var(--app-font-size, 15px) + 10px);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ctme-avatar-lg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ctme-avatar-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.ctme-mini-pill {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: none;
+  background: #f2f2f7;
+  color: #111111;
+  font-size: calc(var(--app-font-size, 15px) - 2px);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.ctme-mini-pill.is-danger {
+  background: #fff1f0;
+  color: #ff3b30;
+}
+
+.ctme-mini-pill:active,
+.ctme-mini-pill.is-pressed {
+  opacity: 0.78;
+}
+
+/* 钱包卡片 */
+.ctme-wallet-hero {
+  background: linear-gradient(135deg, #07c160 0%, #059b4c 100%);
+  color: #ffffff;
+  border-radius: 22px;
+  padding: 22px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ctme-wallet-label {
+  font-size: calc(var(--app-font-size, 15px) - 1px);
+  opacity: 0.88;
+}
+
+.ctme-wallet-amount {
+  font-size: calc(var(--app-font-size, 15px) + 19px);
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+
+.ctme-wallet-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.ctme-wallet-btn {
+  flex: 1;
+  height: 40px;
+  border-radius: 12px;
+  border: none;
+  font-family: inherit;
+  font-size: var(--app-font-size, 15px);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.14s ease, opacity 0.14s ease;
+}
+
+.ctme-wallet-btn.is-white {
+  background: #ffffff;
+  color: #069c4d;
+}
+
+.ctme-wallet-btn.is-ghost {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.ctme-wallet-btn:active,
+.ctme-wallet-btn.is-pressed {
+  transform: scale(0.96);
+}
+
+.ctme-chip-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ctme-chip {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: none;
+  background: #ffffff;
+  color: #636366;
+  font-family: inherit;
+  font-size: calc(var(--app-font-size, 15px) - 2px);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ctme-chip.is-active {
+  background: #111111;
+  color: #ffffff;
+}
+
+.ctme-bill-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 13px 16px;
+  position: relative;
+}
+
+.ctme-bill-row::after {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 0;
+  height: 0.5px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.ctme-bill-row:last-child::after {
+  display: none;
+}
+
+.ctme-bill-title {
+  font-size: var(--app-font-size, 15px);
+  font-weight: 500;
+  color: #111111;
+}
+
+.ctme-bill-time {
+  font-size: calc(var(--app-font-size, 15px) - 3px);
+  color: #8e8e93;
+  margin-top: 2px;
+}
+
+.ctme-bill-val {
+  font-size: calc(var(--app-font-size, 15px) + 1px);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.ctme-bill-val.is-in {
+  color: #07c160;
+}
+
+.ctme-bill-val.is-out {
+  color: #111111;
+}
+
+/* 搜索框 */
+.ctme-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 0 12px;
+  height: 42px;
+}
+
+.ctme-search-box svg {
+  color: #8e8e93;
+  flex-shrink: 0;
+}
+
+.ctme-search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: inherit;
+  font-size: max(16px, var(--app-font-size, 15px));
+  color: #111111;
+}
+
+/* 收藏卡片 */
+.ctme-fav-card {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+  transition: background 0.14s ease;
+}
+
+.ctme-fav-card:active,
+.ctme-fav-card.is-pressed {
+  background: #f5f5f7;
+}
+
+.ctme-fav-title {
+  font-size: var(--app-font-size, 15px);
+  font-weight: 600;
+  color: #111111;
+}
+
+.ctme-fav-body {
+  font-size: calc(var(--app-font-size, 15px) - 1px);
+  color: #3a3a3c;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.ctme-fav-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: calc(var(--app-font-size, 15px) - 3px);
+  color: #8e8e93;
+  margin-top: 2px;
+}
+
+/* 表情包分组 & 宫格 */
+.ctme-pack-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.14s ease;
+}
+
+.ctme-pack-row:active,
+.ctme-pack-row.is-pressed {
+  background: #f5f5f7;
+}
+
+.ctme-pack-row::after {
+  content: "";
+  position: absolute;
+  left: 76px;
+  right: 16px;
+  bottom: 0;
+  height: 0.5px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.ctme-pack-row:last-child::after {
+  display: none;
+}
+
+.ctme-pack-thumb {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  background: #f2f2f7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  color: #8e8e93;
+}
+
+.ctme-pack-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ctme-pack-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ctme-pack-name {
+  font-size: var(--app-font-size, 15px);
+  font-weight: 600;
+  color: #111111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ctme-pack-count {
+  font-size: calc(var(--app-font-size, 15px) - 2px);
+  color: #8e8e93;
+  margin-top: 2px;
+}
+
+.ctme-sticker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding: 14px;
+}
+
+.ctme-sticker-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.ctme-sticker-img-wrap {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  background: #f5f5f7;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.14s ease;
+}
+
+.ctme-sticker-cell:active .ctme-sticker-img-wrap,
+.ctme-sticker-cell.is-pressed .ctme-sticker-img-wrap {
+  transform: scale(0.93);
+}
+
+.ctme-sticker-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.ctme-sticker-label {
+  width: 100%;
+  text-align: center;
+  font-size: calc(var(--app-font-size, 15px) - 4px);
+  color: #636366;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ctme-pack-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 朋友圈相册 */
+.ctme-album-cover {
+  position: relative;
+  height: 184px;
+  border-radius: 22px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #2c3e50 0%, #4b6584 100%);
+  cursor: pointer;
+}
+
+.ctme-album-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ctme-album-cover-mask {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.08) 60%);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 16px;
+  color: #ffffff;
+}
+
+.ctme-album-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ctme-album-ava {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+}
+
+.ctme-album-ava img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ctme-album-hint {
+  font-size: calc(var(--app-font-size, 15px) - 3px);
+  background: rgba(0, 0, 0, 0.36);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.ctme-moment-row {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+}
+
+.ctme-moment-row::after {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 0;
+  height: 0.5px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.ctme-moment-row:last-child::after {
+  display: none;
+}
+
+.ctme-moment-text {
+  font-size: var(--app-font-size, 15px);
+  color: #111111;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.ctme-moment-time {
+  font-size: calc(var(--app-font-size, 15px) - 3px);
+  color: #8e8e93;
+}
+
+/* 切换账号卡片 */
+.ctme-acc-card {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1.5px solid transparent;
+}
+
+.ctme-acc-card.is-current {
+  border-color: #111111;
+}
+
+.ctme-acc-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.ctme-acc-ava {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  background: #f2f2f7;
+  color: #111111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+.ctme-acc-ava img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ctme-acc-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ctme-acc-name-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ctme-acc-name {
+  font-size: var(--app-font-size, 15px);
+  font-weight: 600;
+  color: #111111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ctme-acc-badge {
+  font-size: calc(var(--app-font-size, 15px) - 4px);
+  font-weight: 600;
+  background: #111111;
+  color: #ffffff;
+  padding: 2px 7px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.ctme-acc-meta {
+  font-size: calc(var(--app-font-size, 15px) - 3px);
+  color: #8e8e93;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ctme-acc-actions {
+  display: flex;
+  gap: 8px;
+  border-top: 0.5px solid rgba(0, 0, 0, 0.06);
+  padding-top: 10px;
+}
+
+/* 空状态 */
+.ctme-empty {
+  padding: 44px 20px;
+  text-align: center;
+  color: #8e8e93;
+  font-size: calc(var(--app-font-size, 15px) - 1px);
+  line-height: 1.5;
+}
+
+/* 底部弹窗 / ActionSheet */
+.ctme-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.38);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease;
+  font-family: var(--app-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif);
+}
+
+.ctme-modal-backdrop.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ctme-sheet {
+  width: 100%;
+  max-width: 480px;
+  max-height: 86%;
+  background: #ffffff;
+  border-radius: 24px 24px 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ctme-modal-backdrop.is-open .ctme-sheet {
+  transform: translateY(0);
+}
+
+.ctme-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px 12px;
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+}
+
+.ctme-sheet-title {
+  font-size: calc(var(--app-font-size, 15px) + 2px);
+  font-weight: 700;
+  color: #111111;
+}
+
+.ctme-sheet-close {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: #f2f2f7;
+  color: #636366;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ctme-sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 18px calc(env(safe-area-inset-bottom) + 20px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ctme-sheet-body > * {
+  flex-shrink: 0;
+}
+
+.ctme-action-btn {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: none;
+  background: #f5f5f7;
+  color: #111111;
+  font-family: inherit;
+  font-size: var(--app-font-size, 15px);
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.14s ease, transform 0.14s ease;
+}
+
+.ctme-action-btn.is-primary {
+  background: #111111;
+  color: #ffffff;
+}
+
+.ctme-action-btn.is-danger {
+  background: #fff1f0;
+  color: #ff3b30;
+}
+
+.ctme-action-btn:active,
+.ctme-action-btn.is-pressed {
+  transform: scale(0.98);
+  opacity: 0.85;
+}
+
+.ctme-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ctme-quick-amt {
+  height: 38px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #f7f7fa;
+  color: #111111;
+  font-family: inherit;
+  font-size: calc(var(--app-font-size, 15px) - 1px);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ctme-quick-amt:active,
+.ctme-quick-amt.is-pressed {
+  background: #111111;
+  color: #ffffff;
+}
+
+.ctme-sticker-preview-box {
+  width: 128px;
+  height: 128px;
+  margin: 4px auto;
+  border-radius: 16px;
+  background: #f5f5f7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.ctme-sticker-preview-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* 轻提示 */
+.ctme-toast {
+  position: fixed;
+  left: 50%;
+  top: calc(env(safe-area-inset-top) + 60px);
+  transform: translate(-50%, -10px);
+  z-index: 10001;
+  background: rgba(17, 17, 17, 0.9);
+  color: #ffffff;
+  font-family: var(--app-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif);
+  font-size: calc(var(--app-font-size, 15px) - 1px);
+  font-weight: 500;
+  padding: 9px 16px;
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.22s ease;
+  max-width: 82%;
+  text-align: center;
+}
+
+.ctme-toast.is-show {
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
