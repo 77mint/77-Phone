@@ -67,7 +67,7 @@
     flex-shrink: 0;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     padding: calc(env(safe-area-inset-top, 0px) + 12px) 18px 12px;
     background: #f2f2f7;
 }
@@ -107,9 +107,16 @@
     text-overflow: ellipsis;
 }
 
+.ctd-top-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
 .ctd-top-action-btn {
     height: 34px;
-    padding: 0 14px;
+    padding: 0 13px;
     border-radius: 17px;
     border: none;
     background: #ffffff;
@@ -123,13 +130,23 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    transition: transform 0.16s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.16s ease;
+    transition: transform 0.16s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.16s ease, opacity 0.16s ease;
     -webkit-tap-highlight-color: transparent;
+}
+
+.ctd-top-action-btn.primary {
+    background: #1c1c1e;
+    color: #ffffff;
 }
 
 .ctd-top-action-btn.is-pressed {
     transform: scale(0.94);
     background: #e5e5ea;
+}
+
+.ctd-top-action-btn.primary.is-pressed {
+    background: #1c1c1e;
+    opacity: 0.84;
 }
 
 /* 主滚动区 */
@@ -162,7 +179,7 @@
     flex-shrink: 0;
 }
 
-/* 联系人 / 群聊资料卡（小圆角与聊天界面一致） */
+/* 联系人 / 群聊资料卡 */
 .ctd-profile-card {
     padding: 16px;
     display: flex;
@@ -344,7 +361,7 @@
 .ctd-row-right {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     flex-shrink: 0;
 }
 
@@ -361,6 +378,68 @@
     color: #c7c7cc;
     display: flex;
     align-items: center;
+}
+
+.ctd-icon-more-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: #f2f2f7;
+    color: #636366;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform 0.16s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.16s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ctd-icon-more-btn.is-pressed {
+    transform: scale(0.9);
+    background: #e5e5ea;
+}
+
+/* 颜色选择器控件 */
+.ctd-color-picker {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1.5px solid #d1d1d6;
+    padding: 0;
+    background: transparent;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.ctd-color-picker::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.ctd-color-picker::-webkit-color-swatch {
+    border: none;
+    border-radius: 50%;
+}
+
+.ctd-mini-reset {
+    border: none;
+    background: #f2f2f7;
+    color: #636366;
+    font-family: inherit;
+    font-size: calc(var(--app-font-size, 15px) - 3px);
+    font-weight: 500;
+    padding: 4px 9px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.ctd-mini-reset.is-pressed {
+    transform: scale(0.93);
+    background: #e5e5ea;
 }
 
 /* 居中操作行 & 红色操作行 */
@@ -483,6 +562,16 @@
     background-size: cover !important;
     background-position: center !important;
     background-repeat: no-repeat !important;
+}
+
+/* 跳转定位高亮闪烁 */
+@keyframes ctdMsgFlashAnim {
+    0% { background-color: rgba(28, 28, 30, 0.14); border-radius: 12px; }
+    100% { background-color: transparent; }
+}
+
+.ctd-msg-flash {
+    animation: ctdMsgFlashAnim 1.5s ease-out;
 }
 
 /* 语音厂商 6 宫格小口子 & 站区切换 */
@@ -718,8 +807,8 @@
 
 .ctd-prev-bubble {
     position: relative;
-    background: #ffffff;
-    color: #1c1c1e;
+    background: var(--ctd-prev-bg, #ffffff);
+    color: var(--ctd-prev-color, #1c1c1e);
     border-radius: 4px;
     line-height: 1.45;
     word-break: break-word;
@@ -734,18 +823,18 @@
     height: 0;
     border-top: 5px solid transparent;
     border-bottom: 5px solid transparent;
-    border-right: 6px solid #ffffff;
+    border-right: 6px solid var(--ctd-prev-bg, #ffffff);
 }
 
 .ctd-prev-row.me .ctd-prev-bubble {
-    background: #95ec69;
+    background: var(--ctd-prev-bg, #95ec69);
 }
 
 .ctd-prev-row.me .ctd-prev-bubble::before {
     left: auto;
     right: -5px;
     border-right: none;
-    border-left: 6px solid #95ec69;
+    border-left: 6px solid var(--ctd-prev-bg, #95ec69);
 }
 
 .ctd-prev-bubble.has-img::before,
@@ -755,7 +844,7 @@
     border: none !important;
 }
 
-/* 搜索框（通用：详情主搜索 + 查找聊天记录） */
+/* 搜索框 */
 .ctd-search-box {
     background: #ffffff;
     border-radius: 20px;
@@ -1182,6 +1271,8 @@
     text-align: center;
     cursor: pointer;
     position: relative;
+    user-select: none;
+    -webkit-user-select: none;
     transition: background-color 0.15s ease;
     -webkit-tap-highlight-color: transparent;
 }
