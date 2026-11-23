@@ -78,6 +78,13 @@
   gap: 6px;
 }
 
+.ctme-name-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
 .ctme-name {
   font-size: calc(var(--app-font-size, 15px) + 4px);
   font-weight: 600;
@@ -86,6 +93,21 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.ctme-role-tag {
+  font-size: calc(var(--app-font-size, 15px) - 4px);
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #f2f2f7;
+  color: #636366;
+  flex-shrink: 0;
+}
+
+.ctme-role-tag.is-char {
+  background: #eef2ff;
+  color: #4f5d95;
 }
 
 .ctme-sub-id {
@@ -236,7 +258,7 @@
   flex-shrink: 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   cursor: pointer;
-  transition: transform 0.14s ease, background 0.14s ease;
+  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1), background 0.14s ease;
 }
 
 .ctme-back-btn:active,
@@ -278,7 +300,7 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
-  transition: transform 0.14s ease, background 0.14s ease;
+  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1), background 0.14s ease;
 }
 
 .ctme-pill-btn.is-primary {
@@ -288,7 +310,7 @@
 
 .ctme-pill-btn:active,
 .ctme-pill-btn.is-pressed {
-  transform: scale(0.95);
+  transform: scale(0.94);
   opacity: 0.85;
 }
 
@@ -413,6 +435,12 @@
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
+.ctme-input::placeholder,
+.ctme-textarea::placeholder {
+  font-size: var(--app-font-size, 15px);
+  color: #aeaeb2;
+}
+
 .ctme-input:focus,
 .ctme-textarea:focus,
 .ctme-select:focus {
@@ -437,7 +465,11 @@
   padding: 0;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.22s ease;
+  transition: background 0.22s ease, transform 0.18s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ctme-switch:active {
+  transform: scale(0.95);
 }
 
 .ctme-switch::after {
@@ -480,12 +512,12 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  transition: transform 0.14s ease, opacity 0.14s ease;
+  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.14s ease;
 }
 
 .ctme-btn:active,
 .ctme-btn.is-pressed {
-  transform: scale(0.97);
+  transform: scale(0.96);
   opacity: 0.86;
 }
 
@@ -556,6 +588,10 @@
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.14s ease;
 }
 
 .ctme-mini-pill.is-danger {
@@ -565,6 +601,7 @@
 
 .ctme-mini-pill:active,
 .ctme-mini-pill.is-pressed {
+  transform: scale(0.94);
   opacity: 0.78;
 }
 
@@ -605,7 +642,7 @@
   font-size: var(--app-font-size, 15px);
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.14s ease, opacity 0.14s ease;
+  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.14s ease;
 }
 
 .ctme-wallet-btn.is-white {
@@ -640,6 +677,11 @@
   font-size: calc(var(--app-font-size, 15px) - 2px);
   font-weight: 600;
   cursor: pointer;
+  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ctme-chip.is-pressed {
+  transform: scale(0.94);
 }
 
 .ctme-chip.is-active {
@@ -721,6 +763,11 @@
   font-family: inherit;
   font-size: max(16px, var(--app-font-size, 15px));
   color: #111111;
+}
+
+.ctme-search-input::placeholder {
+  font-size: var(--app-font-size, 15px);
+  color: #aeaeb2;
 }
 
 /* 收藏卡片 */
@@ -860,7 +907,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.14s ease;
+  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .ctme-sticker-cell:active .ctme-sticker-img-wrap,
@@ -985,7 +1032,7 @@
   color: #8e8e93;
 }
 
-/* 切换账号卡片 */
+/* 切换账号卡片（面具主号 / 小号 / Char 账号） */
 .ctme-acc-card {
   background: #ffffff;
   border-radius: 20px;
@@ -994,6 +1041,7 @@
   flex-direction: column;
   gap: 12px;
   border: 1.5px solid transparent;
+  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .ctme-acc-card.is-current {
@@ -1018,6 +1066,7 @@
   justify-content: center;
   overflow: hidden;
   flex-shrink: 0;
+  font-size: calc(var(--app-font-size, 15px) + 2px);
   font-weight: 700;
 }
 
@@ -1036,6 +1085,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 .ctme-acc-name {
@@ -1057,10 +1107,30 @@
   flex-shrink: 0;
 }
 
+.ctme-acc-badge.is-mask {
+  background: #f2f2f7;
+  color: #3a3a3c;
+}
+
+.ctme-acc-badge.is-alt {
+  background: #f5f5f7;
+  color: #8e8e93;
+}
+
+.ctme-acc-badge.is-char {
+  background: #eef2ff;
+  color: #4f5d95;
+}
+
+.ctme-acc-badge.is-locked {
+  background: #fff4e5;
+  color: #c26d00;
+}
+
 .ctme-acc-meta {
   font-size: calc(var(--app-font-size, 15px) - 3px);
   color: #8e8e93;
-  margin-top: 2px;
+  margin-top: 3px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1069,8 +1139,77 @@
 .ctme-acc-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
   border-top: 0.5px solid rgba(0, 0, 0, 0.06);
   padding-top: 10px;
+}
+
+/* 未建社媒号的面具快速建立提示卡 */
+.ctme-mask-quick {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px dashed rgba(0, 0, 0, 0.16);
+  border-radius: 18px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1), background 0.14s ease;
+}
+
+.ctme-mask-quick:active,
+.ctme-mask-quick.is-pressed {
+  transform: scale(0.98);
+  background: #ffffff;
+}
+
+.ctme-lock-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #8e8e93;
+  flex-shrink: 0;
+}
+
+.ctme-pwd-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ctme-pwd-wrap .ctme-input {
+  padding-right: 44px;
+}
+
+.ctme-pwd-eye {
+  position: absolute;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #8e8e93;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.ctme-pwd-err {
+  font-size: calc(var(--app-font-size, 15px) - 2px);
+  color: #ff3b30;
+  min-height: 18px;
+  padding-left: 2px;
+}
+
+.ctme-hint-box {
+  background: #f5f6fa;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: calc(var(--app-font-size, 15px) - 2px);
+  color: #636366;
+  line-height: 1.5;
 }
 
 /* 空状态 */
@@ -1179,7 +1318,7 @@
   font-weight: 600;
   text-align: center;
   cursor: pointer;
-  transition: background 0.14s ease, transform 0.14s ease;
+  transition: background 0.14s ease, transform 0.18s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .ctme-action-btn.is-primary {
@@ -1194,7 +1333,7 @@
 
 .ctme-action-btn:active,
 .ctme-action-btn.is-pressed {
-  transform: scale(0.98);
+  transform: scale(0.97);
   opacity: 0.85;
 }
 
