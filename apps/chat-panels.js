@@ -1,7 +1,8 @@
 /* =========================================================
-   Chat 输入扩展面板、发照片 & 转账模块（独立模块化，不修改 chat.js）
+   Chat 输入扩展面板、发照片、转账 & 微信礼物模块（独立模块化，不修改 chat.js）
    - 照片：支持单张无框图 + 多张合并叠卡（展开后竖排一张一张显示）
    - 转账：默认 6 位密码支付（任意 6 位数字）、双方交互收款/退还、褪色气泡、iOS 按键手感
+   - 礼物：1:1 微信蓝底星点金丝带礼物卡（送出弹窗 + 实时预览 + 拆礼物详情）
    ========================================================= */
 (function () {
   var STORAGE_THREADS_KEY = 'chat_threads_v1';
@@ -10,6 +11,8 @@
 
   var SVG_PHOTO = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M21 5v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM6 17h12l-3.8-5-2.9 3.6-2-2.4L6 17zm2.5-7a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/></svg>';
   var SVG_TRANSFER_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h14l-4-4"/><path d="M19 15H5l4 4"/></svg>';
+  var SVG_GIFT_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.95" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C9.5 3 12 8 12 8s2.5-5 4.5-5a2.5 2.5 0 0 1 0 5"/></svg>';
+  var SVG_GIFT_BOW = '<svg width="34" height="34" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 19C17 12.5 12.2 10.5 9.2 12.5C6.5 14.3 7.2 18.8 11.2 19.6C14.2 20.2 17.5 19.6 20 19Z"/><path d="M20 19C23 12.5 27.8 10.5 30.8 12.5C33.5 14.3 32.8 18.8 28.8 19.6C25.8 20.2 22.5 19.6 20 19Z"/><path d="M20 19L10.5 30.5"/><path d="M20 19L29.5 30.5"/></svg>';
   var SVG_TR_ARROWS = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9h12l-3.5-3.5"/><path d="M18 15H6l3.5 3.5"/></svg>';
   var SVG_TR_CHECK = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 12.5 10 17.5 19 7.5"/></svg>';
   var SVG_TR_REFUND = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>';
@@ -31,6 +34,74 @@
   var isPwdMode = true;
   var payPassword = '';
   var detailMsgId = '';
+  var detailGiftMsgId = '';
+
+  function ensureGiftExtraStyles() {
+    if (document.getElementById('ctpGiftExtraStyle')) return;
+    var st = document.createElement('style');
+    st.id = 'ctpGiftExtraStyle';
+    st.textContent =
+      '.ctp-gift-mask {' +
+        'position: absolute; inset: 0; z-index: 66;' +
+        'background: rgba(0, 0, 0, 0.36);' +
+        'display: flex; align-items: center; justify-content: center; padding: 20px;' +
+        'opacity: 0; pointer-events: none;' +
+        'transition: opacity 0.24s cubic-bezier(0.32, 0.72, 0, 1);' +
+      '}' +
+      '.ctp-gift-mask.open { opacity: 1; pointer-events: auto; }' +
+      '.ctp-gift-modal {' +
+        'width: 100%; max-width: 312px; border-radius: 24px; overflow: hidden;' +
+        'background: #ffffff; color: #111111;' +
+        'box-shadow: 0 22px 48px rgba(0, 0, 0, 0.24);' +
+        'font-family: var(--app-font, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif);' +
+        'transform: translateY(14px) scale(0.92);' +
+        'transition: transform 0.3s cubic-bezier(0.34, 1.38, 0.64, 1);' +
+      '}' +
+      '.ctp-gift-mask.open .ctp-gift-modal { transform: translateY(0) scale(1); }' +
+      '.ctp-gift-banner {' +
+        'position: relative; padding: 22px 18px 16px;' +
+        'background-color: #16468a;' +
+        'background-image:' +
+          'radial-gradient(1.4px 1.4px at 14% 24%, rgba(255,255,255,0.85) 0, transparent 100%),' +
+          'radial-gradient(1px 1px at 32% 76%, rgba(255,255,255,0.55) 0, transparent 100%),' +
+          'radial-gradient(1.5px 1.5px at 54% 18%, rgba(255,255,255,0.78) 0, transparent 100%),' +
+          'radial-gradient(1.2px 1.2px at 78% 34%, rgba(255,255,255,0.8) 0, transparent 100%),' +
+          'radial-gradient(1px 1px at 86% 78%, rgba(255,255,255,0.55) 0, transparent 100%),' +
+          'linear-gradient(160deg, #1b4f99 0%, #144080 58%, #10366e 100%);' +
+        'color: #f4dfb4; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px;' +
+      '}' +
+      '.ctp-gift-banner-bow { color: #ebd3a3; display: flex; align-items: center; justify-content: center; }' +
+      '.ctp-gift-banner-title { font-size: calc(var(--app-font-size, 15px) + 2px); font-weight: 700; color: #f4dfb4; line-height: 1.3; word-break: break-word; }' +
+      '.ctp-gift-banner-sub { font-size: calc(var(--app-font-size, 15px) - 3px); color: rgba(255,255,255,0.76); }' +
+      '.ctp-gift-form { padding: 16px; display: flex; flex-direction: column; gap: 11px; }' +
+      '.ctp-gift-field-label { font-size: calc(var(--app-font-size, 15px) - 2px); font-weight: 600; color: #8e8e93; margin-bottom: 4px; }' +
+      '.ctp-gift-inp {' +
+        'width: 100%; box-sizing: border-box; border: none; outline: none;' +
+        'background: #f2f2f7; color: #111111; border-radius: 14px; padding: 10px 12px;' +
+        'font-family: inherit; font-size: max(16px, var(--app-font-size, 15px));' +
+      '}' +
+      '.ctp-gift-inp::placeholder { color: #aeaeb2; font-size: calc(var(--app-font-size, 15px) - 1px); }' +
+      '.ctp-gift-actions { display: flex; gap: 10px; padding: 4px 16px 16px; }' +
+      '.ctp-gift-btn {' +
+        'flex: 1; height: 42px; border-radius: 14px; border: none;' +
+        'font-family: inherit; font-size: var(--app-font-size, 15px); font-weight: 600;' +
+        'cursor: pointer; -webkit-tap-highlight-color: transparent;' +
+        'transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.16s ease;' +
+      '}' +
+      '.ctp-gift-btn.is-pressed { transform: scale(0.93); opacity: 0.86; }' +
+      '.ctp-gift-btn.is-cancel { background: #f2f2f7; color: #111111; }' +
+      '.ctp-gift-btn.is-send { background: linear-gradient(160deg, #1b4f99 0%, #123b78 100%); color: #f4dfb4; }' +
+      '.ctp-gift-detail-body { padding: 18px 18px 8px; text-align: center; display: flex; flex-direction: column; gap: 6px; }' +
+      '.ctp-gift-detail-item { font-size: calc(var(--app-font-size, 15px) + 1px); font-weight: 600; color: #111111; word-break: break-word; }' +
+      '.ctp-gift-detail-meta { font-size: calc(var(--app-font-size, 15px) - 3px); color: #8e8e93; }' +
+      '@media (prefers-color-scheme: dark) {' +
+        '.ctp-gift-modal { background: #1c1c1e; color: #f2f2f7; }' +
+        '.ctp-gift-inp { background: #2c2c2e; color: #f2f2f7; }' +
+        '.ctp-gift-btn.is-cancel { background: #2c2c2e; color: #f2f2f7; }' +
+        '.ctp-gift-detail-item { color: #f2f2f7; }' +
+      '}';
+    document.head.appendChild(st);
+  }
 
   function loadJSON(key, fb) {
     try {
@@ -234,11 +305,32 @@
   function renderBubbleEl(bubble, msg) {
     if (!bubble || !msg) return;
 
-    if (msg.type === 'transfer_tip') {
+    if (msg.type === 'transfer_tip' || msg.type === 'gift_tip') {
       var group = bubble.closest('.ct-msg-group');
       if (group) {
         group.innerHTML = '<div class="ctp-sys-tip">' + escapeHtml(msg.text || '') + '</div>';
       }
+      return;
+    }
+
+    if (msg.type === 'gift') {
+      var isClaimed = msg.status === 'claimed';
+      var giftTitle = msg.title || '送你一份心意';
+      var giftFoot = isClaimed ? '礼物 · 已领取' : '礼物';
+
+      bubble.classList.remove('ctp-img-bubble', 'ctp-transfer-bubble', 'is-faded');
+      bubble.classList.add('ctp-gift-bubble');
+      bubble.classList.toggle('is-claimed', isClaimed);
+      bubble.dataset.ctpRendered = '1';
+      bubble.setAttribute('data-ctp-gift', msg.id);
+      bubble.innerHTML =
+        '<div class="ct-gift-main">' +
+          '<div class="ct-gift-ribbon">' + SVG_GIFT_BOW + '</div>' +
+          '<div class="ct-gift-text-wrap">' +
+            '<div class="ct-gift-title">' + escapeHtml(giftTitle) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="ct-gift-foot">' + escapeHtml(giftFoot) + '</div>';
       return;
     }
 
@@ -264,7 +356,7 @@
         iconSvg = SVG_TR_ARROWS;
       }
 
-      bubble.classList.remove('ctp-img-bubble');
+      bubble.classList.remove('ctp-img-bubble', 'ctp-gift-bubble', 'is-claimed');
       bubble.classList.add('ctp-transfer-bubble');
       bubble.classList.toggle('is-faded', isFaded);
       bubble.dataset.ctpRendered = '1';
@@ -285,7 +377,7 @@
     var imgs = Array.isArray(msg.images) ? msg.images : [];
     if (!imgs.length) return;
 
-    bubble.classList.remove('ctp-transfer-bubble', 'is-faded');
+    bubble.classList.remove('ctp-transfer-bubble', 'is-faded', 'ctp-gift-bubble', 'is-claimed');
     bubble.classList.add('ctp-img-bubble');
     bubble.dataset.ctpRendered = '1';
 
@@ -337,7 +429,7 @@
     box.querySelectorAll('.ct-msg-group[data-msg-id]').forEach(function (group) {
       var mid = group.getAttribute('data-msg-id');
       var m = map[mid];
-      if (!m || (m.type !== 'image' && m.type !== 'image_bundle' && m.type !== 'transfer' && m.type !== 'transfer_tip')) return;
+      if (!m || (m.type !== 'image' && m.type !== 'image_bundle' && m.type !== 'transfer' && m.type !== 'transfer_tip' && m.type !== 'gift' && m.type !== 'gift_tip')) return;
       var bubble = group.querySelector('.ct-msg-bubble');
       if (bubble && bubble.dataset.ctpRendered !== '1') {
         renderBubbleEl(bubble, m);
@@ -362,6 +454,81 @@
     }
     if (sendEl) sendEl.textContent = '发送 (' + pendingPhotos.length + ')';
     document.getElementById('ctpMultiMask').classList.add('open');
+  }
+
+  /* 微信礼物：打开送礼弹窗 */
+  function openGiftSendModal() {
+    setDrawerOpen(false);
+    var titleInp = document.getElementById('ctpGiftTitleInp');
+    var itemInp = document.getElementById('ctpGiftItemInp');
+    var previewTitle = document.getElementById('ctpGiftPreviewTitle');
+    titleInp.value = '';
+    itemInp.value = '';
+    previewTitle.textContent = '送你一份心意';
+    document.getElementById('ctpGiftSendMask').classList.add('open');
+  }
+
+  function openGiftDetailModal(msgId) {
+    var tid = resolveCurrentThreadId();
+    if (!tid) return;
+    var msgs = loadJSON(STORAGE_MSGS_PREFIX + tid, []);
+    var m = msgs.find(function (item) { return item.id === msgId; });
+    if (!m) return;
+
+    detailGiftMsgId = msgId;
+    var isMe = m.sender === 'me';
+    var isClaimed = m.status === 'claimed';
+    document.getElementById('ctpGiftDetailTitle').textContent = m.title || '送你一份心意';
+    document.getElementById('ctpGiftDetailSub').textContent = isClaimed
+      ? (isMe ? '对方已收下这份心意' : '已收下这份心意')
+      : (isMe ? '等待对方拆开礼物' : '对方送你了一份礼物');
+    document.getElementById('ctpGiftDetailItem').textContent = m.giftName ? ('礼物内容：' + m.giftName) : '一份神秘心意';
+    document.getElementById('ctpGiftDetailMeta').textContent = m.time ? ('送出时间：' + m.time) : '';
+
+    var claimBtn = document.getElementById('ctpGiftClaimBtn');
+    claimBtn.style.display = (!isMe && !isClaimed) ? '' : 'none';
+    document.getElementById('ctpGiftDetailMask').classList.add('open');
+  }
+
+  function claimIncomingGift(msgId) {
+    var tid = resolveCurrentThreadId();
+    if (!tid || !msgId) return;
+    var msgs = loadJSON(STORAGE_MSGS_PREFIX + tid, []);
+    var target = msgs.find(function (m) { return m.id === msgId; });
+    if (!target || target.sender === 'me' || target.status === 'claimed') return;
+
+    target.status = 'claimed';
+    var tipText = '你收下了对方的礼物' + (target.giftName ? ('「' + target.giftName + '」') : '');
+    var tipMsg = {
+      id: 'm-gtip-' + Date.now(),
+      sender: 'me',
+      type: 'gift_tip',
+      text: tipText,
+      time: ''
+    };
+    msgs.push(tipMsg);
+    saveJSON(STORAGE_MSGS_PREFIX + tid, msgs);
+
+    var bubble = document.querySelector('#ctRoomMessages .ct-msg-group[data-msg-id="' + msgId + '"] .ct-msg-bubble');
+    if (bubble) {
+      bubble.dataset.ctpRendered = '';
+      renderBubbleEl(bubble, target);
+    }
+
+    var box = document.getElementById('ctRoomMessages');
+    if (box) {
+      var tipEl = document.createElement('div');
+      tipEl.className = 'ct-msg-group me';
+      tipEl.setAttribute('data-msg-id', tipMsg.id);
+      tipEl.innerHTML = '<div class="ctp-sys-tip">' + escapeHtml(tipText) + '</div>';
+      box.appendChild(tipEl);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    document.getElementById('ctpGiftDetailMask').classList.remove('open');
+    window.dispatchEvent(new CustomEvent('phone-chat-gift-action', {
+      detail: { threadId: tid, msgId: msgId, action: 'claimed', giftName: target.giftName || '' }
+    }));
   }
 
   function syncTransferUI() {
@@ -560,7 +727,6 @@
     amtEl.textContent = '¥' + Number(m.amount || 0).toFixed(2);
     noteEl.textContent = m.note || '';
     noteEl.style.display = m.note ? 'block' : 'none';
-    // 我发出的不能由我手动标记对方已收款；只有对方发来的待收款才能点收款/退还
     actionsEl.style.display = (!isMe && st === 'pending') ? 'flex' : 'none';
     timeEl.textContent = m.time ? ('转账时间：' + m.time) : '';
 
@@ -570,6 +736,7 @@
   function ensureUI() {
     var room = document.getElementById('ctRoomView');
     if (!room || document.getElementById('ctpDrawer')) return;
+    ensureGiftExtraStyles();
 
     var drawer = document.createElement('div');
     drawer.className = 'ctp-drawer';
@@ -584,12 +751,56 @@
           '<div class="ctp-item-icon">' + SVG_TRANSFER_TILE + '</div>' +
           '<div class="ctp-item-label">转账</div>' +
         '</button>' +
+        '<button class="ctp-item" id="ctpBtnGift">' +
+          '<div class="ctp-item-icon">' + SVG_GIFT_TILE + '</div>' +
+          '<div class="ctp-item-label">礼物</div>' +
+        '</button>' +
       '</div>';
     room.appendChild(drawer);
 
     var extra = document.createElement('div');
     extra.innerHTML =
       '<input type="file" id="ctpPhotoInput" accept="image/*" multiple style="display:none;">' +
+      '<div class="ctp-gift-mask" id="ctpGiftSendMask">' +
+        '<div class="ctp-gift-modal">' +
+          '<div class="ctp-gift-banner">' +
+            '<div class="ctp-gift-banner-bow">' + SVG_GIFT_BOW + '</div>' +
+            '<div class="ctp-gift-banner-title" id="ctpGiftPreviewTitle">送你一份心意</div>' +
+            '<div class="ctp-gift-banner-sub">微信礼物</div>' +
+          '</div>' +
+          '<div class="ctp-gift-form">' +
+            '<div>' +
+              '<div class="ctp-gift-field-label">祝福语</div>' +
+              '<input class="ctp-gift-inp" id="ctpGiftTitleInp" maxlength="20" placeholder="送你一份心意">' +
+            '</div>' +
+            '<div>' +
+              '<div class="ctp-gift-field-label">礼物内容（选填）</div>' +
+              '<input class="ctp-gift-inp" id="ctpGiftItemInp" maxlength="30" placeholder="如：一束蓝玫瑰、限定手办">' +
+            '</div>' +
+          '</div>' +
+          '<div class="ctp-gift-actions">' +
+            '<button class="ctp-gift-btn is-cancel" id="ctpGiftCancelBtn" type="button">取消</button>' +
+            '<button class="ctp-gift-btn is-send" id="ctpGiftSendBtn" type="button">送出礼物</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ctp-gift-mask" id="ctpGiftDetailMask">' +
+        '<div class="ctp-gift-modal">' +
+          '<div class="ctp-gift-banner">' +
+            '<div class="ctp-gift-banner-bow">' + SVG_GIFT_BOW + '</div>' +
+            '<div class="ctp-gift-banner-title" id="ctpGiftDetailTitle">送你一份心意</div>' +
+            '<div class="ctp-gift-banner-sub" id="ctpGiftDetailSub">礼物</div>' +
+          '</div>' +
+          '<div class="ctp-gift-detail-body">' +
+            '<div class="ctp-gift-detail-item" id="ctpGiftDetailItem"></div>' +
+            '<div class="ctp-gift-detail-meta" id="ctpGiftDetailMeta"></div>' +
+          '</div>' +
+          '<div class="ctp-gift-actions">' +
+            '<button class="ctp-gift-btn is-cancel" id="ctpGiftDetailCloseBtn" type="button">关闭</button>' +
+            '<button class="ctp-gift-btn is-send" id="ctpGiftClaimBtn" type="button" style="display:none;">收下礼物</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
       '<div class="ctp-tr-page" id="ctpTrPage">' +
         '<div class="ctp-tr-nav">' +
           '<button class="ctp-tr-back" id="ctpTrBack" aria-label="返回">' +
@@ -793,7 +1004,9 @@
     bindPressFeedback(document.getElementById('ctpKeypad'), '.ctp-key');
     bindPressFeedback(document.getElementById('ctpPwdPad'), '.ctp-pwd-key');
     bindPressFeedback(document.getElementById('ctpWxPaySheet'), '.ctp-wxpay-card, .ctp-wxpay-face-btn');
-    bindPressFeedback(msgBox, '.ctp-transfer-bubble, .ctp-expand-pill');
+    bindPressFeedback(document.getElementById('ctpGiftSendMask'), '.ctp-gift-btn');
+    bindPressFeedback(document.getElementById('ctpGiftDetailMask'), '.ctp-gift-btn');
+    bindPressFeedback(msgBox, '.ctp-transfer-bubble, .ctp-gift-bubble, .ctp-expand-pill');
 
     if (mainScroll) {
       mainScroll.addEventListener('click', function (e) {
@@ -847,6 +1060,13 @@
           return;
         }
 
+        var giftEl = e.target.closest('[data-ctp-gift]');
+        if (giftEl) {
+          e.stopPropagation();
+          openGiftDetailModal(giftEl.getAttribute('data-ctp-gift'));
+          return;
+        }
+
         var trEl = e.target.closest('[data-ctp-transfer]');
         if (trEl) {
           e.stopPropagation();
@@ -871,6 +1091,39 @@
       var observer = new MutationObserver(decorateRoomMessages);
       observer.observe(msgBox, { childList: true });
     }
+
+    // 微信礼物入口与弹窗事件
+    document.getElementById('ctpBtnGift').addEventListener('click', openGiftSendModal);
+    document.getElementById('ctpGiftTitleInp').addEventListener('input', function () {
+      document.getElementById('ctpGiftPreviewTitle').textContent = this.value.trim() || '送你一份心意';
+    });
+    document.getElementById('ctpGiftCancelBtn').addEventListener('click', function () {
+      document.getElementById('ctpGiftSendMask').classList.remove('open');
+    });
+    document.getElementById('ctpGiftSendMask').addEventListener('click', function (e) {
+      if (e.target === this) this.classList.remove('open');
+    });
+    document.getElementById('ctpGiftSendBtn').addEventListener('click', function () {
+      var title = (document.getElementById('ctpGiftTitleInp').value || '').trim() || '送你一份心意';
+      var giftName = (document.getElementById('ctpGiftItemInp').value || '').trim();
+      document.getElementById('ctpGiftSendMask').classList.remove('open');
+      appendCustomMessage({
+        type: 'gift',
+        title: title,
+        giftName: giftName,
+        status: 'pending',
+        text: '[礼物] ' + title
+      }, '[礼物] ' + title);
+    });
+    document.getElementById('ctpGiftDetailCloseBtn').addEventListener('click', function () {
+      document.getElementById('ctpGiftDetailMask').classList.remove('open');
+    });
+    document.getElementById('ctpGiftDetailMask').addEventListener('click', function (e) {
+      if (e.target === this) this.classList.remove('open');
+    });
+    document.getElementById('ctpGiftClaimBtn').addEventListener('click', function () {
+      claimIncomingGift(detailGiftMsgId);
+    });
 
     // 照片
     document.getElementById('ctpBtnPhoto').addEventListener('click', function () {
@@ -931,7 +1184,6 @@
       syncTransferUI();
     });
 
-    // 点绿色「转账」→ 微信支付 HUD → 默认进入 6 位密码支付弹窗
     document.getElementById('ctpTrSubmit').addEventListener('click', function () {
       var num = parseFloat(transferAmount);
       if (!num || num <= 0) return;
@@ -970,7 +1222,6 @@
       }
     });
 
-    // 选择付款方式抽屉
     document.getElementById('ctpPayClose').addEventListener('click', function () {
       document.getElementById('ctpPayMask').classList.remove('open');
     });
@@ -988,7 +1239,6 @@
       syncWxPaySheet();
     });
 
-    // 支付成功完成页 → 点完成发进聊天
     document.getElementById('ctpDoneBtn').addEventListener('click', function () {
       var amtFixed = pendingPayAmount;
       document.getElementById('ctpDonePage').classList.remove('open');
@@ -1020,7 +1270,6 @@
       syncTransferUI();
     });
 
-    // 对方发来的转账详情交互（收款 / 退还）
     document.getElementById('ctpTrDetailBack').addEventListener('click', function () {
       document.getElementById('ctpTrDetailPage').classList.remove('open');
     });
@@ -1032,7 +1281,6 @@
       updateIncomingTransfer(detailMsgId, 'refunded');
     });
 
-    // 多图合并发送确认
     document.getElementById('ctpMultiToggle').addEventListener('click', function () {
       mergePhotos = !mergePhotos;
       document.getElementById('ctpMultiCheck').classList.toggle('on', mergePhotos);
