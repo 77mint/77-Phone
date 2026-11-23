@@ -1,4 +1,4 @@
-/* apps/mask.css - 面具（用户人设管理） */
+/* apps/mask.css - 面具（用户人设管理 · 零模糊液态玻璃版） */
 
 #app-mask {
   background: #f2f2f7;
@@ -39,13 +39,19 @@
   min-width: 0;
 }
 
+/* 零模糊液态玻璃圆形返回键 */
 .msk-back-btn {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(246, 246, 249, 0.92) 100%);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.94);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.78) 0%, rgba(255, 255, 255, 0.34) 52%, rgba(255, 255, 255, 0.66) 100%);
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.08),
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.96),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.04);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   color: #111111;
   display: inline-flex;
   align-items: center;
@@ -54,13 +60,19 @@
   cursor: pointer;
   flex-shrink: 0;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.16s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.24s cubic-bezier(0.34, 1.46, 0.64, 1),
+    box-shadow 0.2s ease,
+    background 0.16s ease;
 }
 
 .msk-back-btn.is-pressed {
   transform: scale(0.86);
-  background: #e9e9ee;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.56) 0%, rgba(236, 236, 242, 0.52) 100%);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.07),
+    inset 0 1px 1px rgba(255, 255, 255, 0.85);
+  transition-duration: 0.1s;
 }
 
 .msk-title {
@@ -77,10 +89,12 @@
 
 .msk-count-badge {
   flex-shrink: 0;
-  padding: 4px 10px;
+  padding: 5px 11px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.055);
-  color: #6e6e73;
+  border: 1px solid rgba(255, 255, 255, 0.88);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.66) 0%, rgba(255, 255, 255, 0.28) 100%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  color: #636366;
   font-size: calc(var(--app-font-size, 15px) - 3px);
   font-weight: 600;
   line-height: 1.2;
@@ -92,7 +106,7 @@
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 6px 16px calc(env(safe-area-inset-bottom, 0px) + 104px);
+  padding: 6px 16px calc(env(safe-area-inset-bottom, 0px) + 108px);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -114,15 +128,16 @@
 }
 
 .msk-empty-icon {
-  width: 64px;
-  height: 64px;
+  width: 66px;
+  height: 66px;
   border-radius: 22px;
-  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.94);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.84) 0%, rgba(255, 255, 255, 0.42) 100%);
   color: #111111;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.06), inset 0 1.5px 1px rgba(255, 255, 255, 0.96);
   margin-bottom: 14px;
 }
 
@@ -154,9 +169,10 @@
 }
 
 .msk-card.is-pressed {
-  transform: scale(0.972);
+  transform: scale(0.974);
   background: #fafafa;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  transition-duration: 0.1s;
 }
 
 .msk-card-top {
@@ -196,7 +212,7 @@
 .msk-card-name-row {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
@@ -208,7 +224,7 @@
   word-break: break-word;
 }
 
-.msk-card-age {
+.msk-card-tag {
   padding: 2px 8px;
   border-radius: 999px;
   background: #f2f2f7;
@@ -300,11 +316,11 @@
   display: inline-flex;
 }
 
-/* 右下角悬浮大加号 + 弹簧弹出菜单 */
+/* 右下角悬浮液态玻璃大加号 + 弹簧弹出液态玻璃胶囊 */
 .msk-fab-scrim {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.14);
+  background: rgba(0, 0, 0, 0.12);
   opacity: 0;
   pointer-events: none;
   z-index: 18;
@@ -340,11 +356,17 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 16px 10px 12px;
+  padding: 10px 16px 10px 11px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.92);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(246, 246, 250, 0.94) 100%);
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.14), inset 0 1px 0 rgba(255, 255, 255, 1);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.84) 0%, rgba(255, 255, 255, 0.48) 50%, rgba(255, 255, 255, 0.74) 100%);
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.13),
+    0 2px 6px rgba(0, 0, 0, 0.06),
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.98),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.04);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   color: #111111;
   font-family: inherit;
   font-size: var(--app-font-size, 15px);
@@ -356,10 +378,10 @@
   transform: translateY(18px) scale(0.76);
   transform-origin: bottom right;
   transition:
-    transform 0.34s cubic-bezier(0.34, 1.44, 0.64, 1),
+    transform 0.34s cubic-bezier(0.34, 1.46, 0.64, 1),
     opacity 0.22s ease,
     box-shadow 0.2s ease,
-    background-color 0.16s ease;
+    background 0.16s ease;
 }
 
 .msk-fab-wrap.is-open .msk-fab-action {
@@ -385,8 +407,11 @@
 
 .msk-fab-action.is-pressed {
   transform: scale(0.91) translateY(1px) !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12) !important;
-  transition-duration: 0.11s !important;
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.64) 0%, rgba(235, 235, 242, 0.56) 100%) !important;
+  box-shadow:
+    0 5px 14px rgba(0, 0, 0, 0.11),
+    inset 0 1px 1px rgba(255, 255, 255, 0.9) !important;
+  transition-duration: 0.1s !important;
   transition-delay: 0s !important;
 }
 
@@ -394,7 +419,9 @@
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: #f2f2f7;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.95);
   color: #111111;
   display: inline-flex;
   align-items: center;
@@ -405,23 +432,26 @@
 .msk-fab-action-sub {
   font-size: calc(var(--app-font-size, 15px) - 3px);
   font-weight: 500;
-  color: #8e8e93;
-  margin-left: 2px;
+  color: #6e6e73;
+  margin-left: 4px;
 }
 
-/* 大加号本体（分量感橡胶按压 + 弹簧旋开） */
+/* 零模糊液态玻璃大加号（晶莹玻璃圆钮 + 轻韧弹簧回弹） */
 .msk-fab-btn {
   pointer-events: auto;
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: linear-gradient(180deg, #222225 0%, #0d0d0f 100%);
-  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.96);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.82) 0%, rgba(255, 255, 255, 0.36) 48%, rgba(255, 255, 255, 0.72) 100%);
+  color: #111111;
   box-shadow:
-    0 12px 28px rgba(0, 0, 0, 0.24),
-    0 3px 8px rgba(0, 0, 0, 0.14),
-    inset 0 1px 1px rgba(255, 255, 255, 0.24);
+    0 12px 28px rgba(0, 0, 0, 0.15),
+    0 3px 8px rgba(0, 0, 0, 0.07),
+    inset 0 2px 2px rgba(255, 255, 255, 1),
+    inset 0 -1.5px 2px rgba(0, 0, 0, 0.05);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -429,23 +459,21 @@
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition:
-    transform 0.3s cubic-bezier(0.34, 1.5, 0.64, 1),
-    background 0.24s ease,
-    color 0.24s ease,
-    box-shadow 0.24s ease;
+    transform 0.32s cubic-bezier(0.34, 1.52, 0.64, 1),
+    background 0.22s ease,
+    box-shadow 0.22s ease;
 }
 
 .msk-fab-btn svg {
-  transition: transform 0.34s cubic-bezier(0.34, 1.5, 0.64, 1);
+  transition: transform 0.36s cubic-bezier(0.34, 1.52, 0.64, 1);
 }
 
 .msk-fab-wrap.is-open .msk-fab-btn {
-  background: linear-gradient(180deg, #ffffff 0%, #f5f5f8 100%);
-  color: #111111;
-  border-color: rgba(255, 255, 255, 0.95);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.94) 0%, rgba(248, 248, 252, 0.62) 52%, rgba(255, 255, 255, 0.88) 100%);
   box-shadow:
-    0 10px 26px rgba(0, 0, 0, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 1);
+    0 14px 32px rgba(0, 0, 0, 0.17),
+    inset 0 2px 2px rgba(255, 255, 255, 1),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .msk-fab-wrap.is-open .msk-fab-btn svg {
@@ -454,7 +482,10 @@
 
 .msk-fab-btn.is-pressed {
   transform: scale(0.86) !important;
-  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.2) !important;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.62) 0%, rgba(236, 236, 242, 0.46) 100%) !important;
+  box-shadow:
+    0 5px 14px rgba(0, 0, 0, 0.12),
+    inset 0 1px 1px rgba(255, 255, 255, 0.9) !important;
   transition-duration: 0.1s !important;
 }
 
@@ -480,13 +511,15 @@
 }
 
 .msk-editor-header {
+  position: relative;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 10px;
   background: #f2f2f7;
+  z-index: 12;
 }
 
 .msk-editor-header-left {
@@ -507,27 +540,140 @@
   text-overflow: ellipsis;
 }
 
+.msk-editor-header-right {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* 右上角液态玻璃「导出」按钮 */
+.msk-export-top-btn {
+  height: 36px;
+  padding: 0 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.94);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.78) 0%, rgba(255, 255, 255, 0.34) 52%, rgba(255, 255, 255, 0.68) 100%);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.96),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.04);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  color: #111111;
+  font-family: inherit;
+  font-size: calc(var(--app-font-size, 15px) - 1px);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.22s cubic-bezier(0.34, 1.46, 0.64, 1), box-shadow 0.2s ease, background 0.16s ease;
+}
+
+.msk-export-top-btn.is-pressed {
+  transform: scale(0.9);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.56) 0%, rgba(235, 235, 242, 0.52) 100%);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.07), inset 0 1px 1px rgba(255, 255, 255, 0.85);
+  transition-duration: 0.1s;
+}
+
+/* 右上角「保存」深色玻璃高光胶囊 */
 .msk-save-btn {
   flex-shrink: 0;
   height: 36px;
-  padding: 0 18px;
+  padding: 0 16px;
   border-radius: 999px;
-  border: none;
-  background: #111111;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: linear-gradient(180deg, #27272a 0%, #111113 100%);
   color: #ffffff;
   font-family: inherit;
   font-size: calc(var(--app-font-size, 15px) - 1px);
   font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
-  transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.16s ease, box-shadow 0.2s ease;
+  box-shadow:
+    0 5px 14px rgba(0, 0, 0, 0.16),
+    inset 0 1px 1px rgba(255, 255, 255, 0.28);
+  transition: transform 0.22s cubic-bezier(0.34, 1.46, 0.64, 1), opacity 0.16s ease, box-shadow 0.2s ease;
 }
 
 .msk-save-btn.is-pressed {
   transform: scale(0.9);
-  opacity: 0.85;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  opacity: 0.88;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14);
+  transition-duration: 0.1s;
+}
+
+/* 右上角液态玻璃导出弹层 */
+.msk-export-popover-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 38;
+  background: transparent;
+  pointer-events: none;
+}
+
+.msk-export-popover-mask.is-open {
+  pointer-events: auto;
+}
+
+.msk-export-popover {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 56px);
+  right: 16px;
+  width: 186px;
+  z-index: 40;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.96);
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.62) 52%, rgba(250, 250, 254, 0.86) 100%);
+  box-shadow:
+    0 16px 38px rgba(0, 0, 0, 0.16),
+    inset 0 1.5px 1px rgba(255, 255, 255, 1);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transform-origin: top right;
+  transform: translateY(-6px) scale(0.84);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.28s cubic-bezier(0.34, 1.42, 0.64, 1), opacity 0.2s ease;
+}
+
+.msk-export-popover.is-open {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.msk-export-popover-item {
+  width: 100%;
+  height: 46px;
+  padding: 0 15px;
+  border: none;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: transparent;
+  color: #111111;
+  font-family: inherit;
+  font-size: calc(var(--app-font-size, 15px) - 1px);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.14s ease, transform 0.16s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.msk-export-popover-item:last-child {
+  border-bottom: none;
+}
+
+.msk-export-popover-item.is-pressed {
+  background: rgba(0, 0, 0, 0.06);
+  transform: scale(0.97);
 }
 
 .msk-editor-scroll {
@@ -560,7 +706,7 @@
   height: 92px;
   border-radius: 26px;
   background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.92);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.07);
   display: flex;
   align-items: center;
@@ -569,12 +715,13 @@
   cursor: pointer;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.24s cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 0.2s ease;
+  transition: transform 0.24s cubic-bezier(0.34, 1.44, 0.64, 1), box-shadow 0.2s ease;
 }
 
 .msk-avatar-picker.is-pressed {
   transform: scale(0.91);
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+  transition-duration: 0.1s;
 }
 
 .msk-avatar-inner {
@@ -841,37 +988,7 @@
   transform: scale(1);
 }
 
-/* 导出与删除操作区 */
-.msk-export-row {
-  display: flex;
-  gap: 10px;
-}
-
-.msk-action-btn {
-  flex: 1;
-  height: 46px;
-  border-radius: 18px;
-  border: none;
-  background: #ffffff;
-  color: #111111;
-  font-family: inherit;
-  font-size: calc(var(--app-font-size, 15px) - 1px);
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.035);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.16s ease;
-}
-
-.msk-action-btn.is-pressed {
-  transform: scale(0.95);
-  background: #ececf0;
-}
-
+/* 底部删除按钮 */
 .msk-delete-btn {
   width: 100%;
   height: 48px;
@@ -891,6 +1008,7 @@
 .msk-delete-btn.is-pressed {
   transform: scale(0.96);
   background: #fff2f1;
+  transition-duration: 0.1s;
 }
 
 /* 删除确认弹窗 */
@@ -898,7 +1016,7 @@
   position: absolute;
   inset: 0;
   z-index: 50;
-  background: rgba(0, 0, 0, 0.28);
+  background: rgba(0, 0, 0, 0.26);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -916,10 +1034,11 @@
 .msk-modal {
   width: 100%;
   max-width: 290px;
-  background: #ffffff;
   border-radius: 24px;
   padding: 20px 18px 16px;
-  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.94);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.96) 0%, rgba(246, 246, 250, 0.94) 100%);
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.2), inset 0 1.5px 1px rgba(255, 255, 255, 1);
   text-align: center;
   transform: scale(0.88);
   transition: transform 0.28s cubic-bezier(0.34, 1.4, 0.64, 1);
