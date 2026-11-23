@@ -2,7 +2,7 @@
    Chat 我的页（仿微信「我」独立模块 + 全套二级子页）
    - 不改动 apps/chat.js / apps/chat.css，独立接管我的 tab
    - 功能：个人资料 / 钱包 / 收藏 / 表情包 / 朋友圈 / 设置 / 切换账号
-   - 支持：绑定「面具」主号、小号、硬核带锁 Char 账号视角（偷偷看 / 留痕登录）
+   - 支持：主号、小号（均可绑定不同「面具」）、硬核带锁 Char 账号（偷看 / 正常登录）
    ========================================================= */
 (function () {
   var rendering = false;
@@ -230,13 +230,12 @@
     if (!Array.isArray(list) || !list.length) {
       list = [{
         id: 'acc_default',
-        type: 'mask',
+        type: 'main',
         maskId: '',
         charId: '',
         name: '我',
         chatId: '',
         signature: '',
-        bio: '',
         avatarDbKey: ''
       }];
       writeJSON(KEY_ACCOUNTS, list);
@@ -280,22 +279,30 @@
     writeJSON(KEY_CHAR_PASSCODES, map);
   }
 
+  function isShuixiaojiu(charId, charName) {
+    return charId === 'assistant-shuixiaojiu' || charName === '水小九';
+  }
+
   function generateRandomPasscode() {
     return String(Math.floor(1000 + Math.random() * 9000));
   }
 
-  // 固定默认密码：只在该 Char 首次初始化时生成一次，永不反复随机覆盖
-  function getCharPasscode(charId) {
+  // 固定默认密码：首次生成后永久不变（水小九默认 shuixiaojiu009），只有 Char 自己改密时才变
+  function getCharPasscode(charId, charName) {
     if (!charId) return '';
     var map = getCharPasscodeStore();
     if (!map[charId] || !map[charId].code) {
       map[charId] = {
-        code: generateRandomPasscode(),
+        code: isShuixiaojiu(charId, charName) ? 'shuixiaojiu009' : generateRandomPasscode(),
         unlocked: false,
         resetAllowed: false,
         loginMode: 'stealth',
+        changedByChar: false,
         updatedAt: Date.now()
       };
+      saveCharPasscodeStore(map);
+    } else if (isShuixiaojiu(charId, charName) && !map[charId].changedByChar && !map[charId].unlocked && map[charId].code !== 'shuixiaojiu009') {
+      map[charId].code = 'shuixiaojiu009';
       saveCharPasscodeStore(map);
     }
     return map[charId].code;
@@ -329,9 +336,9 @@
     return true;
   }
 
-  function verifyCharPasscode(charId, inputCode, loginMode) {
+  function verifyCharPasscode(charId, charName, inputCode, loginMode) {
     if (!charId) return false;
-    var realCode = getCharPasscode(charId);
+    var realCode = getCharPasscode(charId, charName);
     if (String(inputCode || '').trim() === String(realCode).trim()) {
       var map = getCharPasscodeStore();
       map[charId].unlocked = true;
@@ -357,7 +364,7 @@
     }
   }
 
-  // 供后续 chat-ai.js 调用：Char 自主修改密码并重新上锁（默认密码稳定，仅剧情需要时调用）
+  // 供后续 chat-ai.js 调用：Char 偷偷自己修改密码并重新上锁
   function setCharPasscode(charId, newCode, relock) {
     var prefs = getPrefs();
     if (!prefs.allowCharChangePasscode) return false;
@@ -376,7 +383,7 @@
       if (active && active.type === 'char' && active.charId === charId) {
         var fallback = getAccounts().find(function (a) { return a.type !== 'char'; });
         if (fallback) setActiveAccount(fallback.id);
-        showToast((active.name || '对方') + ' 修改了账号密码，已重新上锁');
+        showToast((active.name || '对方') + ' 偷偷改掉了密码，已重新上锁');
       }
     }
     return true;
@@ -392,7 +399,7 @@
     map[charId].code = clean;
     map[charId].unlocked = true;
     map[charId].updatedAt = Date.now();
-    map[charId].changedByChar = false;
+    map[charId].changedByChar = true;
     saveCharPasscodeStore(map);
     return true;
   }
@@ -409,7 +416,6 @@
       name: ch.name || 'Char',
       chatId: '',
       signature: ch.tagline || '',
-      bio: ch.summary || ch.persona || '',
       avatarDbKey: ''
     };
     list.push(created);
@@ -725,7 +731,7 @@
     });
   }
 
-  /* ---------------- 1. 个人资料子页 ---------------- */
+  /* ---------------- 1. 个人资料子页（已去掉人设简介框、昵称改为网名） ---------------- */
   function renderProfilePage(targetAccountId) {
     var accounts = getAccounts();
     var acc = targetAccountId
@@ -739,9 +745,9 @@
 
     var maskSelectHtml = !isCharAcc
       ? '<div class="ctme-field">' +
-          '<label class="ctme-field-label">绑定「面具」角色卡</label>' +
+          '<label class="ctme-field-label">所属「面具」角色卡</label>' +
           '<select class="ctme-select" id="ctmeProfMaskSelect">' +
-            '<option value="">不绑定（作为小号 / 独立社媒号）</option>' +
+            '<option value="">不绑定面具（默认）</option>' +
             masks.map(function (m) {
               return '<option value="' + esc(m.id) + '" ' + (acc.maskId === m.id ? 'selected' : '') + '>' + esc(m.name || '未命名面具') + '</option>';
             }).join('') +
@@ -765,8 +771,8 @@
       '<div class="ctme-card ctme-card-pad">' +
         maskSelectHtml +
         '<div class="ctme-field">' +
-          '<label class="ctme-field-label">昵称</label>' +
-          '<input type="text" class="ctme-input" id="ctmeProfName" value="' + esc(acc.name) + '" placeholder="输入你的昵称">' +
+          '<label class="ctme-field-label">网名</label>' +
+          '<input type="text" class="ctme-input" id="ctmeProfName" value="' + esc(acc.name) + '" placeholder="输入网名">' +
         '</div>' +
         '<div class="ctme-field">' +
           '<label class="ctme-field-label">Chat ID</label>' +
@@ -775,10 +781,6 @@
         '<div class="ctme-field">' +
           '<label class="ctme-field-label">个性签名</label>' +
           '<input type="text" class="ctme-input" id="ctmeProfSig" value="' + esc(acc.signature) + '" placeholder="写一句简短的签名">' +
-        '</div>' +
-        '<div class="ctme-field">' +
-          '<label class="ctme-field-label">我的人设 / 身份简介</label>' +
-          '<textarea class="ctme-textarea" id="ctmeProfBio" placeholder="可填写你在聊天中的身份、性格、背景等，后续对话会自动读取当前账号设定">' + esc(acc.bio) + '</textarea>' +
         '</div>' +
       '</div>'
     );
@@ -795,9 +797,7 @@
         var m = masks.find(function (x) { return x.id === mid; });
         if (m) {
           var nameInp = ov.querySelector('#ctmeProfName');
-          var bioInp = ov.querySelector('#ctmeProfBio');
           if (nameInp && (!nameInp.value || nameInp.value === '我')) nameInp.value = m.name || '我';
-          if (bioInp && !bioInp.value && m.setting) bioInp.value = m.setting;
           if (!pendingAvatarUrl && !acc.avatarDbKey) {
             getMaskAvatarSafe(mid).then(function (u) {
               if (u) preview.innerHTML = '<img src="' + u + '" alt="avatar">';
@@ -834,9 +834,7 @@
       var newName = (ov.querySelector('#ctmeProfName').value || '').trim() || '我';
       var newChatId = (ov.querySelector('#ctmeProfChatId').value || '').trim();
       var newSig = (ov.querySelector('#ctmeProfSig').value || '').trim();
-      var newBio = (ov.querySelector('#ctmeProfBio').value || '').trim();
       var newMaskId = maskSel ? maskSel.value : (acc.maskId || '');
-      var newType = isCharAcc ? 'char' : (newMaskId ? 'mask' : 'alt');
 
       var list = getAccounts();
       var idx = list.findIndex(function (a) { return a.id === acc.id; });
@@ -844,12 +842,10 @@
 
       var saveRest = function (avatarDbKey) {
         list[idx] = Object.assign({}, list[idx], {
-          type: newType,
           maskId: newMaskId,
           name: newName,
           chatId: newChatId,
           signature: newSig,
-          bio: newBio,
           avatarDbKey: avatarDbKey
         });
         saveAccounts(list);
@@ -1607,7 +1603,7 @@
 
     var accRoleHint = acc.type === 'char'
       ? 'Char 视角'
-      : (acc.maskId ? '面具主号' : '小号');
+      : (acc.type === 'alt' ? '小号' : '主号');
 
     var ov = renderSubShell('设置', '',
       '<div class="ctme-section-label">账号与身份</div>' +
@@ -1709,9 +1705,9 @@
     });
   }
 
-  /* ---------------- 切换账号子页（面具主号 / 小号 / 硬核带锁 Char 账号） ---------------- */
+  /* ---------------- 切换账号子页（主号 / 小号[可绑不同面具] / 硬核带锁 Char 账号） ---------------- */
   function openCharPasswordSheet(ch) {
-    getCharPasscode(ch.id);
+    getCharPasscode(ch.id, ch.name);
     var lastMode = getCharLoginMode(ch.id);
 
     openSheet('登录「' + (ch.name || 'Char') + '」的账号',
@@ -1752,7 +1748,7 @@
             return;
           }
           var mode = modeSel ? modeSel.value : 'stealth';
-          if (verifyCharPasscode(ch.id, val, mode)) {
+          if (verifyCharPasscode(ch.id, ch.name, val, mode)) {
             var charAcc = getOrCreateCharAccount(ch);
             setActiveAccount(charAcc.id);
             closeSheet();
@@ -1832,24 +1828,21 @@
     var masks = getMasksSafe();
     var chars = getCharsSafe();
 
-    var maskAccounts = list.filter(function (a) { return a.type !== 'char' && (a.maskId || a.type === 'mask' || a.id === 'acc_default'); });
-    var altAccounts = list.filter(function (a) { return a.type === 'alt' || (a.type !== 'char' && !a.maskId && a.type !== 'mask' && a.id !== 'acc_default'); });
-
-    var unboundMasks = masks.filter(function (m) {
-      return !list.some(function (a) { return a.maskId === m.id; });
-    });
+    var mainAccounts = list.filter(function (a) { return a.type !== 'char' && a.type !== 'alt'; });
+    var altAccounts = list.filter(function (a) { return a.type === 'alt'; });
 
     function buildSelfCard(a) {
       var isCur = a.id === activeId;
       var linkedMask = a.maskId ? masks.find(function (m) { return m.id === a.maskId; }) : null;
-      var badgeHtml = linkedMask
+      var typeBadgeHtml = a.type === 'alt'
+        ? '<span class="ctme-acc-badge is-alt">小号</span>'
+        : '<span class="ctme-acc-badge is-main">主号</span>';
+      var maskBadgeHtml = linkedMask
         ? '<span class="ctme-acc-badge is-mask">面具 · ' + esc(linkedMask.name || '已绑定') + '</span>'
-        : (a.type === 'alt'
-            ? '<span class="ctme-acc-badge is-alt">小号</span>'
-            : '<span class="ctme-acc-badge is-mask">主号</span>');
+        : '';
       var metaText = a.chatId
         ? ('ID: ' + a.chatId)
-        : (a.signature || a.bio || (linkedMask ? '已绑定「面具」人设，点击切换' : '点击切换为此账号'));
+        : (a.signature || (linkedMask ? '面具「' + (linkedMask.name || '') + '」的社媒账号' : '点击切换为此账号'));
 
       var canDelete = list.length > 1 && a.id !== 'acc_default';
       var actionsHtml = (!isCur || canDelete)
@@ -1865,7 +1858,8 @@
           '<div class="ctme-acc-info">' +
             '<div class="ctme-acc-name-line">' +
               '<span class="ctme-acc-name">' + esc(a.name) + '</span>' +
-              badgeHtml +
+              typeBadgeHtml +
+              maskBadgeHtml +
               (isCur ? '<span class="ctme-acc-badge">当前使用</span>' : '') +
             '</div>' +
             '<div class="ctme-acc-meta">' + esc(metaText) + '</div>' +
@@ -1875,25 +1869,14 @@
       '</div>';
     }
 
-    var maskSectionHtml = maskAccounts.map(buildSelfCard).join('') +
-      unboundMasks.map(function (m) {
-        return '<div class="ctme-mask-quick" data-quick-mask="' + esc(m.id) + '">' +
-          '<div class="ctme-acc-ava" data-mask-ava-id="' + esc(m.id) + '">' + esc((m.name || '面').slice(0, 1)) + '</div>' +
-          '<div class="ctme-acc-info">' +
-            '<div class="ctme-acc-name">用面具「' + esc(m.name || '未命名') + '」建立社媒号</div>' +
-            '<div class="ctme-acc-meta">自动同步头像与人设，点击直接创建并切换</div>' +
-          '</div>' +
-          '<span class="ctme-row-arrow">' + SVG_ARROW + '</span>' +
-        '</div>';
-      }).join('');
-
+    var mainSectionHtml = mainAccounts.map(buildSelfCard).join('');
     var altSectionHtml = altAccounts.length
       ? altAccounts.map(buildSelfCard).join('')
-      : '<div class="ctme-card"><div class="ctme-empty" style="padding:20px;">暂无小号，点右上角「新建」可开马甲小号</div></div>';
+      : '<div class="ctme-card"><div class="ctme-empty" style="padding:20px;">暂无小号，点右上角「新建」可为不同面具开小号</div></div>';
 
     var charSectionHtml = chars.length
       ? chars.map(function (ch) {
-          getCharPasscode(ch.id);
+          getCharPasscode(ch.id, ch.name);
           var unlocked = isCharUnlocked(ch.id);
           var loginMode = getCharLoginMode(ch.id);
           var charAcc = list.find(function (a) { return a.type === 'char' && a.charId === ch.id; });
@@ -1934,9 +1917,9 @@
 
     var ov = renderSubShell('切换账号',
       '<button type="button" class="ctme-pill-btn is-primary" id="ctmeAccCreate">新建</button>',
-      '<div class="ctme-section-label">我的角色卡（面具主号）</div>' +
-      maskSectionHtml +
-      '<div class="ctme-section-label">小号</div>' +
+      '<div class="ctme-section-label">主账号</div>' +
+      mainSectionHtml +
+      '<div class="ctme-section-label">小号（支持不同面具）</div>' +
       altSectionHtml +
       '<div class="ctme-section-label">登录 Char 的账号</div>' +
       charSectionHtml
@@ -1947,12 +1930,6 @@
       var id = el.getAttribute('data-acc-ava-id');
       var accObj = list.find(function (x) { return x.id === id; });
       if (accObj) loadAccountAvatarInto(accObj, el);
-    });
-    ov.querySelectorAll('.ctme-acc-ava[data-mask-ava-id]').forEach(function (el) {
-      var mid = el.getAttribute('data-mask-ava-id');
-      getMaskAvatarSafe(mid).then(function (u) {
-        if (u) el.innerHTML = '<img src="' + u + '" alt="">';
-      });
     });
     ov.querySelectorAll('.ctme-acc-ava[data-char-ava-id]').forEach(function (el) {
       var cid = el.getAttribute('data-char-ava-id');
@@ -1967,31 +1944,6 @@
         if (id === activeId) return;
         setActiveAccount(id);
         showToast('已切换账号');
-        renderTopPage();
-      });
-    });
-
-    ov.querySelectorAll('[data-quick-mask]').forEach(function (el) {
-      el.addEventListener('click', function () {
-        var mid = el.getAttribute('data-quick-mask');
-        var m = masks.find(function (x) { return x.id === mid; });
-        if (!m) return;
-        var created = {
-          id: genId('acc'),
-          type: 'mask',
-          maskId: m.id,
-          charId: '',
-          name: m.name || '我',
-          chatId: '',
-          signature: '',
-          bio: m.setting || '',
-          avatarDbKey: ''
-        };
-        var all = getAccounts();
-        all.push(created);
-        saveAccounts(all);
-        setActiveAccount(created.id);
-        showToast('已用面具「' + created.name + '」建立并切换账号');
         renderTopPage();
       });
     });
@@ -2066,64 +2018,54 @@
         '<div class="ctme-field">' +
           '<label class="ctme-field-label">账号类型</label>' +
           '<select class="ctme-select" id="ctmeNewAccType">' +
-            '<option value="alt">小号（独立马甲）</option>' +
-            (curMasks.length ? '<option value="mask">面具主号（绑定我的角色卡）</option>' : '') +
+            '<option value="alt">小号（马甲账号）</option>' +
+            '<option value="main">主号</option>' +
           '</select>' +
         '</div>' +
-        '<div class="ctme-field" id="ctmeNewAccMaskWrap" style="display:none;">' +
-          '<label class="ctme-field-label">选择面具角色卡</label>' +
-          '<select class="ctme-select" id="ctmeNewAccMaskId">' + maskOpts + '</select>' +
+        '<div class="ctme-field">' +
+          '<label class="ctme-field-label">所属「面具」角色卡（可选）</label>' +
+          '<select class="ctme-select" id="ctmeNewAccMaskId">' +
+            '<option value="">不绑定面具</option>' +
+            maskOpts +
+          '</select>' +
         '</div>' +
         '<div class="ctme-field">' +
-          '<label class="ctme-field-label">昵称</label>' +
-          '<input type="text" class="ctme-input" id="ctmeNewAccName" placeholder="输入账号昵称">' +
+          '<label class="ctme-field-label">网名</label>' +
+          '<input type="text" class="ctme-input" id="ctmeNewAccName" placeholder="输入账号网名">' +
         '</div>' +
         '<div class="ctme-field">' +
           '<label class="ctme-field-label">Chat ID（可选）</label>' +
           '<input type="text" class="ctme-input" id="ctmeNewAccId" placeholder="例如：alt_account">' +
         '</div>' +
-        '<div class="ctme-field">' +
-          '<label class="ctme-field-label">人设简介（可选）</label>' +
-          '<textarea class="ctme-textarea" id="ctmeNewAccBio" placeholder="该账号的身份背景或性格设定"></textarea>' +
-        '</div>' +
         '<button type="button" class="ctme-action-btn is-primary" id="ctmeNewAccSave">创建并切换</button>',
         function (body) {
           var typeSel = body.querySelector('#ctmeNewAccType');
-          var maskWrap = body.querySelector('#ctmeNewAccMaskWrap');
           var maskIdSel = body.querySelector('#ctmeNewAccMaskId');
           var nameInp = body.querySelector('#ctmeNewAccName');
-          var bioInp = body.querySelector('#ctmeNewAccBio');
 
-          function syncMaskFields() {
-            var isMask = typeSel.value === 'mask';
-            maskWrap.style.display = isMask ? '' : 'none';
-            if (isMask && maskIdSel) {
+          if (maskIdSel) {
+            maskIdSel.addEventListener('change', function () {
               var m = curMasks.find(function (x) { return x.id === maskIdSel.value; });
-              if (m) {
-                if (!nameInp.value.trim()) nameInp.value = m.name || '';
-                if (!bioInp.value.trim() && m.setting) bioInp.value = m.setting;
+              if (m && !nameInp.value.trim()) {
+                nameInp.value = m.name || '';
               }
-            }
+            });
           }
-          typeSel.addEventListener('change', syncMaskFields);
-          if (maskIdSel) maskIdSel.addEventListener('change', syncMaskFields);
 
           body.querySelector('#ctmeNewAccSave').addEventListener('click', function () {
             var name = (nameInp.value || '').trim();
             if (!name) {
-              showToast('请输入账号昵称');
+              showToast('请输入账号网名');
               return;
             }
-            var isMask = typeSel.value === 'mask';
             var acc = {
               id: genId('acc'),
-              type: isMask ? 'mask' : 'alt',
-              maskId: (isMask && maskIdSel) ? maskIdSel.value : '',
+              type: typeSel.value === 'main' ? 'main' : 'alt',
+              maskId: maskIdSel ? maskIdSel.value : '',
               charId: '',
               name: name,
               chatId: (body.querySelector('#ctmeNewAccId').value || '').trim(),
               signature: '',
-              bio: (bioInp.value || '').trim(),
               avatarDbKey: ''
             };
             var all = getAccounts();
