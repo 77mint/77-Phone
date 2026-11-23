@@ -100,14 +100,14 @@
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 999px;
-  background: #fff5d9;
-  color: #a87e24;
+  background: #f2f2f7;
+  color: #636366;
   flex-shrink: 0;
 }
 
 .ctme-role-tag.is-char {
-  background: #e8f1ff;
-  color: #5a7fc2;
+  background: #f2f2f7;
+  color: #111111;
 }
 
 .ctme-sub-id {
@@ -597,8 +597,8 @@
 }
 
 .ctme-mini-pill.is-danger {
-  background: #ffe9f0;
-  color: #c76382;
+  background: #f2f2f7;
+  color: #ff3b30;
 }
 
 .ctme-mini-pill.is-pressed {
@@ -1036,7 +1036,7 @@
   color: #8e8e93;
 }
 
-/* 切换账号卡片（面具主号 / 小号 / Char 账号） */
+/* 切换账号卡片（纯粹黑白色系） */
 .ctme-acc-card {
   background: #ffffff;
   border-radius: 20px;
@@ -1108,7 +1108,7 @@
   text-overflow: ellipsis;
 }
 
-/* 当前使用保持黑底白字；其余标签全部为 Baby 蓝 / Baby 粉 / 奶油 */
+/* 纯黑白色系标签 */
 .ctme-acc-badge {
   font-size: calc(var(--app-font-size, 15px) - 4px);
   font-weight: 600;
@@ -1119,34 +1119,14 @@
   flex-shrink: 0;
 }
 
-.ctme-acc-badge.is-main {
-  background: #e3f1ff;
-  color: #4d86c6;
-}
-
-.ctme-acc-badge.is-alt {
-  background: #fff5d9;
-  color: #a87e24;
-}
-
-.ctme-acc-badge.is-mask {
-  background: #ffe9f0;
-  color: #c76382;
-}
-
-.ctme-acc-badge.is-char {
-  background: #e8f1ff;
-  color: #5a7fc2;
-}
-
-.ctme-acc-badge.is-locked {
-  background: #ffece8;
-  color: #c46d5e;
-}
-
+.ctme-acc-badge.is-main,
+.ctme-acc-badge.is-alt,
+.ctme-acc-badge.is-mask,
+.ctme-acc-badge.is-char,
+.ctme-acc-badge.is-locked,
 .ctme-acc-badge.is-stealth {
-  background: #edf4ff;
-  color: #6884b5;
+  background: #f2f2f7;
+  color: #636366;
 }
 
 .ctme-acc-meta {
