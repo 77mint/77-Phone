@@ -252,7 +252,15 @@
             throw new Error('PhoneAPI 未就绪');
         }
         const cfg = window.PhoneAPI.getConfig('llm');
-        if (!cfg || !cfg.primary) throw new Error('未找到语言模型配置');
+        if (!cfg || !cfg.primary) {
+            window.PhoneAPI.addLog({
+                module: 'LLM',
+                source: 'Chat 对话回复',
+                ok: false,
+                rawError: '未找到语言模型配置'
+            });
+            throw new Error('未找到语言模型配置');
+        }
         const temp = typeof cfg.temperature === 'number' ? cfg.temperature : 0.8;
 
         try {
