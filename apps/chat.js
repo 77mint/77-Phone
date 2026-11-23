@@ -134,6 +134,10 @@
     /* ---------------- CoT 思维链开关与字段读取 ---------------- */
     function isCotEnabled() {
         try {
+            if (currentThreadId && window.PhoneChatDetails && typeof window.PhoneChatDetails.getSettings === 'function') {
+                const ds = window.PhoneChatDetails.getSettings(currentThreadId);
+                if (ds && typeof ds.cotShow === 'boolean') return ds.cotShow;
+            }
             if (window.PhoneChatMe && typeof window.PhoneChatMe.getPrefs === 'function') {
                 const prefs = window.PhoneChatMe.getPrefs() || {};
                 if (typeof prefs.showCot === 'boolean') return prefs.showCot;
@@ -356,8 +360,8 @@
         if (!titleEl) return;
         const pov = getActivePov();
         const isTyping = !pov.isChar && !!currentThreadId && typingThreads.has(currentThreadId);
-        titleEl.textContent = isTyping ? '对方正在输入中…' : (currentRoomBaseTitle || '聊天');
         titleEl.classList.toggle('is-typing', isTyping);
+        titleEl.textContent = isTyping ? '对方正在输入中…' : (currentRoomBaseTitle || '聊天');
     }
 
     function setThreadTyping(threadId, isTyping) {
