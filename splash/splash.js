@@ -1,4 +1,4 @@
-/* apps/splash.js - 纸张燃烧消散开屏动画（WebGL 实时噪声着色器 + 焦边火星 + 自动释放） */
+/* splash/splash.js - 纯白信纸双洞慢燃开屏（锐利焦边 + 幽蓝火芯 + 飘散灰烬） */
 (function () {
   var ENABLED_KEY = 'phone_splash_enabled';
 
@@ -19,50 +19,47 @@
       '.ph-splash-wrap {' +
         'position: absolute; inset: 0; z-index: 9999;' +
         'overflow: hidden; pointer-events: auto;' +
-        'opacity: 1; transition: opacity 0.36s cubic-bezier(0.32, 0.72, 0, 1);' +
+        'opacity: 1; transition: opacity 0.4s cubic-bezier(0.32, 0.72, 0, 1);' +
         '-webkit-user-select: none; user-select: none;' +
       '}' +
       '.ph-splash-wrap.is-leaving { opacity: 0; pointer-events: none; }' +
       '.ph-splash-canvas {' +
         'position: absolute; inset: 0; width: 100%; height: 100%; display: block;' +
       '}' +
-      '.ph-splash-skip {' +
-        'position: absolute; top: calc(env(safe-area-inset-top, 0px) + 12px); right: 16px; z-index: 3;' +
-        'padding: 6px 13px; border-radius: 999px;' +
-        'border: 1px solid rgba(255, 255, 255, 0.92);' +
-        'background: linear-gradient(145deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.32) 100%);' +
-        'box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.95);' +
-        'color: #4a433d; font-family: var(--app-font, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif);' +
-        'font-size: calc(var(--app-font-size, 15px) - 3px); font-weight: 600;' +
-        'cursor: pointer; -webkit-tap-highlight-color: transparent;' +
-        'transition: transform 0.2s cubic-bezier(0.34, 1.46, 0.64, 1), opacity 0.2s ease;' +
+      '.ph-splash-ash {' +
+        'position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; z-index: 2;' +
       '}' +
-      '.ph-splash-skip.is-pressed { transform: scale(0.88); opacity: 0.75; }';
+      '.ph-splash-skip {' +
+        'position: absolute; top: calc(env(safe-area-inset-top, 0px) + 12px); right: 16px; z-index: 4;' +
+        'padding: 6px 10px; border: none; background: transparent;' +
+        'color: rgba(110, 104, 98, 0.58);' +
+        'font-family: var(--app-font, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif);' +
+        'font-size: calc(var(--app-font-size, 15px) - 2px); font-weight: 500; letter-spacing: 0.04em;' +
+        'cursor: pointer; -webkit-tap-highlight-color: transparent;' +
+        'transition: transform 0.2s cubic-bezier(0.34, 1.46, 0.64, 1), opacity 0.16s ease;' +
+      '}' +
+      '.ph-splash-skip.is-pressed { transform: scale(0.86); opacity: 0.35; }';
     document.head.appendChild(st);
   }
 
-  /* 生成细腻纸张纹理 + 极简信笺排版作为燃烧底图 */
+  /* 生成纯净亮白信纸 + 居中极简英文排版（四角无字） */
   function createPaperCanvas(w, h) {
     var c = document.createElement('canvas');
     c.width = w;
     c.height = h;
     var ctx = c.getContext('2d');
 
-    /* 暖白纸底 */
-    var bg = ctx.createLinearGradient(0, 0, w, h);
-    bg.addColorStop(0, '#fcfaf7');
-    bg.addColorStop(0.55, '#f9f6f0');
-    bg.addColorStop(1, '#f4efe7');
-    ctx.fillStyle = bg;
+    /* 纯净亮白纸面 */
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, w, h);
 
-    /* 细腻纸张纤维微噪点 */
-    var step = Math.max(2, Math.round(w / 180));
-    for (var y = 0; y < h; y += step * 2) {
-      for (var x = 0; x < w; x += step * 2) {
+    /* 极细腻、几乎不可见的纸张微纹理 */
+    var step = Math.max(2, Math.round(w / 220));
+    for (var y = 0; y < h; y += step * 3) {
+      for (var x = 0; x < w; x += step * 3) {
         var r = Math.random();
-        if (r > 0.72) {
-          ctx.fillStyle = 'rgba(130, 112, 92, ' + ((r - 0.72) * 0.14).toFixed(3) + ')';
+        if (r > 0.84) {
+          ctx.fillStyle = 'rgba(180, 175, 168, ' + ((r - 0.84) * 0.12).toFixed(3) + ')';
           ctx.fillRect(x, y, step, step);
         }
       }
@@ -72,48 +69,29 @@
     var rootFs = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-font-size')) || 15;
     var fs = rootFs * scale;
 
-    /* 顶部极细角标 */
-    ctx.fillStyle = 'rgba(92, 82, 74, 0.52)';
-    ctx.font = '500 ' + Math.round(fs * 0.68) + 'px -apple-system, BlinkMacSystemFont, sans-serif';
+    var leftX = Math.round(w * 0.16);
+    var startY = Math.round(h * 0.39);
+
     ctx.textBaseline = 'top';
     ctx.textAlign = 'left';
-    ctx.fillText('( 77 · PHONE )', Math.round(22 * scale), Math.round(62 * scale));
-    ctx.textAlign = 'right';
-    ctx.fillText('( READY )', w - Math.round(22 * scale), Math.round(62 * scale));
 
-    /* 中央信笺文字 */
-    var leftX = Math.round(w * 0.16);
-    var startY = Math.round(h * 0.36);
+    /* 标题：77 Phone */
+    ctx.fillStyle = '#1f1d1b';
+    ctx.font = 'italic 400 ' + Math.round(fs * 1.38) + 'px Georgia, "Times New Roman", "Songti SC", serif';
+    ctx.fillText('77 Phone', leftX, startY);
 
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#2c2623';
-    ctx.font = 'italic 500 ' + Math.round(fs * 1.45) + 'px Georgia, "Songti SC", serif';
-    ctx.fillText('Lift the latch.', leftX, startY);
+    /* 正文（纤细清冷感） */
+    ctx.fillStyle = 'rgba(68, 64, 60, 0.78)';
+    ctx.font = '300 ' + Math.round(fs * 0.84) + 'px Georgia, "Times New Roman", "Songti SC", serif';
+    var lineY = startY + Math.round(fs * 2.55);
+    var lineGap = Math.round(fs * 1.65);
+    ctx.fillText('A quiet pocket of the universe,', leftX, lineY);
+    ctx.fillText('untouched by noise, lit only by your touch.', leftX, lineY + lineGap);
 
-    ctx.fillStyle = 'rgba(56, 48, 43, 0.76)';
-    ctx.font = '400 ' + Math.round(fs * 0.96) + 'px Georgia, "Songti SC", serif';
-    var lines = [
-      'The little lamp beside your pillow',
-      'is still warm in the quiet dark.',
-      'Whenever you reach for the screen,',
-      'someone is already waiting here.'
-    ];
-    var lineH = Math.round(fs * 1.72);
-    for (var i = 0; i < lines.length; i++) {
-      ctx.fillText(lines[i], leftX, startY + Math.round(fs * 2.5) + i * lineH);
-    }
-
-    ctx.fillStyle = 'rgba(44, 38, 35, 0.85)';
-    ctx.font = 'italic 400 ' + Math.round(fs * 1.05) + 'px Georgia, "Songti SC", serif';
-    ctx.fillText('With hope, always.', leftX, startY + Math.round(fs * 2.5) + lines.length * lineH + Math.round(fs * 0.9));
-
-    /* 底部极细落款 */
-    ctx.fillStyle = 'rgba(92, 82, 74, 0.44)';
-    ctx.font = '500 ' + Math.round(fs * 0.65) + 'px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('77MINT / PHONE', Math.round(22 * scale), h - Math.round(44 * scale));
-    ctx.textAlign = 'right';
-    ctx.fillText('TAP TO IGNITE', w - Math.round(22 * scale), h - Math.round(44 * scale));
+    /* 落款 */
+    ctx.fillStyle = 'rgba(42, 39, 36, 0.84)';
+    ctx.font = 'italic 400 ' + Math.round(fs * 0.9) + 'px Georgia, "Times New Roman", "Songti SC", serif';
+    ctx.fillText('Welcome back.', leftX, lineY + lineGap * 2 + Math.round(fs * 0.85));
 
     return c;
   }
@@ -141,6 +119,13 @@
     canvas.width = texW;
     canvas.height = texH;
     wrap.appendChild(canvas);
+
+    var ashCanvas = document.createElement('canvas');
+    ashCanvas.className = 'ph-splash-ash';
+    ashCanvas.width = texW;
+    ashCanvas.height = texH;
+    wrap.appendChild(ashCanvas);
+    var ashCtx = ashCanvas.getContext('2d');
 
     var skipBtn = document.createElement('button');
     skipBtn.type = 'button';
@@ -171,7 +156,7 @@
         setTimeout(function () {
           releaseGL();
           wrap.remove();
-        }, 360);
+        }, 400);
       }
     }
 
@@ -186,7 +171,7 @@
 
     activeCleanup = function () { finish(true); };
 
-    /* 跳过按钮手感绑定 */
+    /* 跳过按钮触摸手感 */
     skipBtn.addEventListener('touchstart', function () { skipBtn.classList.add('is-pressed'); }, { passive: true });
     skipBtn.addEventListener('touchend', function (e) {
       skipBtn.classList.remove('is-pressed');
@@ -200,16 +185,15 @@
       finish(false);
     });
 
-    /* 轻点纸面加速燃烧 */
+    /* 轻点纸面温和加速 */
     wrap.addEventListener('click', function () {
-      speedBoost = 2.4;
+      speedBoost = Math.min(2.6, speedBoost + 0.9);
     });
 
     if (!gl) {
-      /* 无 WebGL 时优雅降级为淡出 */
       var ctx2d = canvas.getContext('2d');
       if (ctx2d) ctx2d.drawImage(paperCanvas, 0, 0);
-      setTimeout(function () { finish(false); }, 950);
+      setTimeout(function () { finish(false); }, 1100);
       return;
     }
 
@@ -225,7 +209,8 @@
       '#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n' +
       'varying vec2 vUv;' +
       'uniform sampler2D uPaper;' +
-      'uniform float uProgress;' +
+      'uniform float uProg1;' +
+      'uniform float uProg2;' +
       'uniform float uTime;' +
       'uniform float uAspect;' +
       'uniform float uSeed;' +
@@ -248,7 +233,7 @@
         'mat2 rot = mat2(0.8, 0.6, -0.6, 0.8);' +
         'for (int i = 0; i < 5; i++) {' +
           'v += a * noise(p);' +
-          'p = rot * p * 2.04;' +
+          'p = rot * p * 2.05;' +
           'a *= 0.5;' +
         '}' +
         'return v;' +
@@ -257,45 +242,61 @@
       'void main() {' +
         'vec2 uv = vec2(vUv.x, 1.0 - vUv.y);' +
         'vec4 paper = texture2D(uPaper, uv);' +
-
         'vec2 p = vec2(uv.x * uAspect, uv.y);' +
-        /* 双点火中心：中上偏左 + 右下，复刻真实纸张不规则烧穿 */
-        'vec2 c1 = vec2(0.42 * uAspect, 0.37);' +
-        'vec2 c2 = vec2(0.72 * uAspect, 0.72);' +
-        'float d1 = length(p - c1);' +
-        'float d2 = length(p - c2) + 0.14;' +
-        'float dist = min(d1, d2);' +
 
-        /* 锯齿纸张边缘噪声 */
-        'float n = fbm(p * 4.2 + vec2(0.0, uTime * 0.06));' +
-        'float nFine = fbm(p * 13.5 - vec2(uTime * 0.12, 0.0));' +
-        'float field = dist - (n * 0.32 + nFine * 0.085);' +
+        /* 两个独立的小火洞中心（左上偏中 + 右下） */
+        'vec2 c1 = vec2(0.36 * uAspect, 0.37);' +
+        'vec2 c2 = vec2(0.68 * uAspect, 0.66);' +
 
-        'float edge = field - uProgress;' +
+        /* 细腻锯齿纸边噪声 */
+        'float nBase = fbm(p * 5.2) - 0.5;' +
+        'float nFine = fbm(p * 16.0) - 0.5;' +
+        'float jagged = nBase * 0.22 + nFine * 0.055;' +
 
-        /* 已烧穿区域完全透明，直接透出底层小手机 */
+        'float e1 = length(p - c1) - jagged - uProg1;' +
+        'float e2 = length(p - c2) - jagged - uProg2;' +
+        'float edge = min(e1, e2);' +
+
+        /* 向上轻窜的细火舌噪声 */
+        'float flameNoise = fbm(vec2(p.x * 18.0, p.y * 6.5 + uTime * 3.4));' +
+        'float wisp = (flameNoise - 0.38) * 0.024;' +
+
+        /* 烧穿区域：在火线外缘保留极细一缕向上飘的透明火焰，其余完全透出桌面 */
         'if (edge < 0.0) {' +
-          'gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);' +
+          'float outerFlame = smoothstep(-0.022 - max(0.0, wisp), 0.0, edge);' +
+          'if (outerFlame < 0.03) {' +
+            'gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);' +
+            'return;' +
+          '}' +
+          /* 火焰外缘：淡红橘 + 局部幽蓝火芯 */
+          'float blueSpot = smoothstep(0.56, 0.82, fbm(p * 11.0 + vec2(0.0, uTime * 2.2)));' +
+          'vec3 warmTip = mix(vec3(0.95, 0.34, 0.24), vec3(1.0, 0.72, 0.42), outerFlame);' +
+          'vec3 blueTip = vec3(0.34, 0.68, 1.0);' +
+          'vec3 tipCol = mix(warmTip, blueTip, blueSpot * 0.55);' +
+          'gl_FragColor = vec4(tipCol, outerFlame * 0.62);' +
           'return;' +
         '}' +
 
-        /* 纸张卷边烤黄 -> 焦褐 -> 黑炭 -> 灼热橙红火星 */
-        'float scorch = 1.0 - smoothstep(0.018, 0.115, edge);' +
-        'float charMask = 1.0 - smoothstep(0.008, 0.044, edge);' +
-        'float emberBand = 1.0 - smoothstep(0.0, 0.022, edge);' +
-        'float flicker = 0.72 + 0.28 * sin(uTime * 16.0 + nFine * 18.0);' +
+        /* 纸面色带：纯白纸 -> 烤深微微发茶的烘烤带 -> 极细锐利焦褐炭边 -> 蓝芯+橙红火线 */
+        'float toastBand = 1.0 - smoothstep(0.014, 0.058, edge);' +
+        'float crispChar = 1.0 - smoothstep(0.004, 0.016, edge);' +
+        'float emberLine = 1.0 - smoothstep(0.0, 0.0085, edge);' +
+
+        'float flicker = 0.78 + 0.22 * sin(uTime * 14.0 + flameNoise * 16.0);' +
+        'float blueCore = smoothstep(0.52, 0.80, fbm(p * 12.5 - vec2(uTime * 0.8, -uTime * 1.6)));' +
 
         'vec3 col = paper.rgb;' +
-        /* 焦黄过渡 */
-        'col = mix(col, vec3(0.76, 0.56, 0.36), scorch * 0.52);' +
-        /* 焦黑炭边 */
-        'col = mix(col, vec3(0.11, 0.07, 0.05), charMask * 0.94);' +
-        /* 炽热火星光晕（红橙 -> 明黄） */
-        'vec3 emberCol = mix(vec3(0.95, 0.24, 0.06), vec3(1.0, 0.78, 0.32), smoothstep(0.016, 0.001, edge));' +
-        'col = mix(col, emberCol * (1.15 * flicker), emberBand * 0.96);' +
+        /* 仅在烧烤边缘把纸微微烤深一点（暖茶浅褐） */
+        'col = mix(col, vec3(0.91, 0.86, 0.80), toastBand * 0.65);' +
+        /* 锐利纤细的焦褐炭边（不糊黑） */
+        'col = mix(col, vec3(0.24, 0.14, 0.09), crispChar * 0.92);' +
+        /* 灼热火线：橘红明黄 + 一点点幽蓝火芯 */
+        'vec3 warmFire = mix(vec3(0.92, 0.28, 0.14), vec3(1.0, 0.82, 0.46), smoothstep(0.008, 0.001, edge));' +
+        'vec3 blueFire = vec3(0.36, 0.72, 1.0);' +
+        'vec3 fireCol = mix(warmFire, blueFire, blueCore * 0.48);' +
+        'col = mix(col, fireCol * (1.12 * flicker), emberLine * 0.96);' +
 
-        'float alpha = smoothstep(0.0, 0.006, edge);' +
-        'gl_FragColor = vec4(col, alpha);' +
+        'gl_FragColor = vec4(col, 1.0);' +
       '}';
 
     function compile(type, src) {
@@ -339,22 +340,110 @@
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, paperCanvas);
 
     var uPaper = gl.getUniformLocation(prog, 'uPaper');
-    var uProgress = gl.getUniformLocation(prog, 'uProgress');
+    var uProg1 = gl.getUniformLocation(prog, 'uProg1');
+    var uProg2 = gl.getUniformLocation(prog, 'uProg2');
     var uTime = gl.getUniformLocation(prog, 'uTime');
     var uAspect = gl.getUniformLocation(prog, 'uAspect');
     var uSeed = gl.getUniformLocation(prog, 'uSeed');
 
+    var aspect = cssW / cssH;
     gl.uniform1i(uPaper, 0);
-    gl.uniform1f(uAspect, cssW / cssH);
-    gl.uniform1f(uSeed, Math.random() * 50.0);
+    gl.uniform1f(uAspect, aspect);
+    gl.uniform1f(uSeed, Math.random() * 60.0);
     gl.viewport(0, 0, texW, texH);
     gl.clearColor(0, 0, 0, 0);
 
-    var startTs = performance.now();
-    var lastTs = startTs;
+    /* 飘散灰烬 & 火星粒子系统 */
+    var particles = [];
+    var c1x = 0.36 * texW;
+    var c1y = 0.37 * texH;
+    var c2x = 0.68 * texW;
+    var c2y = 0.66 * texH;
+
+    function spawnFromHole(cx, cy, normR, count) {
+      if (normR < -0.04 || normR > 1.05) return;
+      var pxR = Math.max(4, (normR + 0.04) * texH);
+      for (var i = 0; i < count; i++) {
+        var ang = Math.random() * Math.PI * 2;
+        var jitter = (Math.random() - 0.5) * 18 * dpr;
+        var sx = cx + Math.cos(ang) * (pxR + jitter);
+        var sy = cy + Math.sin(ang) * (pxR + jitter);
+        if (sx < -20 || sx > texW + 20 || sy < -20 || sy > texH + 20) continue;
+
+        var isEmber = Math.random() < 0.28;
+        var isBlue = isEmber && Math.random() < 0.34;
+        particles.push({
+          x: sx,
+          y: sy,
+          vx: (Math.random() - 0.45) * 26 * dpr,
+          vy: isEmber ? -(22 + Math.random() * 44) * dpr : (14 + Math.random() * 34) * dpr,
+          size: isEmber ? (1.2 + Math.random() * 1.8) * dpr : (1.8 + Math.random() * 3.6) * dpr,
+          aspect: 0.45 + Math.random() * 0.65,
+          rot: Math.random() * Math.PI * 2,
+          vrot: (Math.random() - 0.5) * 3.8,
+          life: 0,
+          maxLife: isEmber ? (0.55 + Math.random() * 0.65) : (0.95 + Math.random() * 1.15),
+          isEmber: isEmber,
+          isBlue: isBlue
+        });
+      }
+    }
+
+    function updateAndDrawAsh(dt, p1, p2) {
+      if (!ashCtx) return;
+      ashCtx.clearRect(0, 0, texW, texH);
+
+      if (p1 > -0.05 && p1 < 0.95) spawnFromHole(c1x, c1y, p1, 2);
+      if (p2 > -0.05 && p2 < 0.95) spawnFromHole(c2x, c2y, p2, 2);
+      if (particles.length > 130) particles.splice(0, particles.length - 130);
+
+      for (var i = particles.length - 1; i >= 0; i--) {
+        var pt = particles[i];
+        pt.life += dt;
+        if (pt.life >= pt.maxLife) {
+          particles.splice(i, 1);
+          continue;
+        }
+        var ratio = pt.life / pt.maxLife;
+        var fade = ratio < 0.15 ? (ratio / 0.15) : (1 - (ratio - 0.15) / 0.85);
+        pt.x += pt.vx * dt + Math.sin(pt.life * 5.0 + pt.rot) * 10 * dpr * dt;
+        pt.y += pt.vy * dt;
+        pt.rot += pt.vrot * dt;
+
+        ashCtx.save();
+        ashCtx.translate(pt.x, pt.y);
+        ashCtx.rotate(pt.rot);
+        if (pt.isEmber) {
+          ashCtx.fillStyle = pt.isBlue
+            ? ('rgba(105, 190, 255, ' + (fade * 0.9).toFixed(3) + ')')
+            : ('rgba(255, 138, 66, ' + (fade * 0.92).toFixed(3) + ')');
+          ashCtx.beginPath();
+          ashCtx.arc(0, 0, pt.size, 0, Math.PI * 2);
+          ashCtx.fill();
+        } else {
+          /* 不规则焦黑/炭灰小纸屑 */
+          ashCtx.fillStyle = 'rgba(54, 44, 38, ' + (fade * 0.68).toFixed(3) + ')';
+          ashCtx.beginPath();
+          ashCtx.ellipse(0, 0, pt.size, pt.size * pt.aspect, 0, 0, Math.PI * 2);
+          ashCtx.fill();
+        }
+        ashCtx.restore();
+      }
+    }
+
+    var lastTs = performance.now();
     var elapsed = 0;
-    var holdSec = 0.36;
-    var burnSec = 2.05;
+    var holdSec = 0.55;
+    var burnSec = 4.25;
+
+    function easeBurn(t) {
+      /* 前半段慢烧欣赏两个小洞，后半段丝滑化开 */
+      if (t <= 0) return 0;
+      if (t >= 1) return 1;
+      return t < 0.55
+        ? Math.pow(t / 0.55, 1.55) * 0.36
+        : 0.36 + Math.pow((t - 0.55) / 0.45, 1.35) * 0.64;
+    }
 
     function frame(now) {
       if (finished || !gl) return;
@@ -362,18 +451,22 @@
       lastTs = now;
       elapsed += dt * speedBoost;
 
-      var t = Math.max(0, (elapsed - holdSec) / burnSec);
-      /* 缓起快收的自然燃烧曲线 */
-      var eased = t < 1 ? (t * t * (2.2 - 1.2 * t)) : 1.0;
-      var progress = -0.34 + eased * 1.72;
+      var t1 = Math.max(0, (elapsed - holdSec) / burnSec);
+      var t2 = Math.max(0, (elapsed - (holdSec + 0.55)) / (burnSec - 0.35));
+
+      var prog1 = -0.15 + easeBurn(t1) * 1.48;
+      var prog2 = -0.15 + easeBurn(t2) * 1.48;
 
       gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.uniform1f(uProgress, progress);
+      gl.uniform1f(uProg1, prog1);
+      gl.uniform1f(uProg2, prog2);
       gl.uniform1f(uTime, elapsed);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-      if (t >= 1.0) {
-        finish(true);
+      updateAndDrawAsh(dt, prog1, prog2);
+
+      if (t1 >= 1.0 && t2 >= 1.0) {
+        finish(false);
         return;
       }
       rafId = requestAnimationFrame(frame);
