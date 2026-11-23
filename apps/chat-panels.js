@@ -865,4 +865,474 @@
               '<button class="ctp-wxpay-x" id="ctpWxPayClose" aria-label="关闭">×</button>' +
               '<button class="ctp-wxpay-mode-btn" id="ctpWxPayModeBtn">使用面容</button>' +
             '</div>' +
-            '<div class="ctp-wxpay-to" id="ctp
+            '<div class="ctp-wxpay-to" id="ctpWxPayTo"></div>' +
+            '<div class="ctp-wxpay-amt" id="ctpWxPayAmt"></div>' +
+            '<div class="ctp-wxpay-divider"></div>' +
+            '<div class="ctp-wxpay-method-head">' +
+              '<span>付款方式</span>' +
+              '<button class="ctp-wxpay-change" id="ctpWxPayChange">更改 ⌄</button>' +
+            '</div>' +
+            '<div class="ctp-wxpay-card" id="ctpWxPayCard">' +
+              '<div class="ctp-wxpay-card-left">' +
+                '<div class="ctp-pay-coin" id="ctpWxPayCardIco">¥</div>' +
+                '<span id="ctpWxPayCardName">零钱</span>' +
+              '</div>' +
+              '<div class="ctp-pay-tick"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="ctp-wxpay-face-area">' +
+            '<button class="ctp-wxpay-face-btn" id="ctpWxPayFaceBtn">支付</button>' +
+          '</div>' +
+          '<div class="ctp-wxpay-pwd-area">' +
+            '<div class="ctp-pwd-boxes" id="ctpPwdBoxes">' +
+              '<div class="ctp-pwd-cell"></div>' +
+              '<div class="ctp-pwd-cell"></div>' +
+              '<div class="ctp-pwd-cell"></div>' +
+              '<div class="ctp-pwd-cell"></div>' +
+              '<div class="ctp-pwd-cell"></div>' +
+              '<div class="ctp-pwd-cell"></div>' +
+            '</div>' +
+            '<div class="ctp-pwd-pad" id="ctpPwdPad">' +
+              '<button class="ctp-pwd-key" data-pkey="1">1</button>' +
+              '<button class="ctp-pwd-key" data-pkey="2">2</button>' +
+              '<button class="ctp-pwd-key" data-pkey="3">3</button>' +
+              '<button class="ctp-pwd-key" data-pkey="4">4</button>' +
+              '<button class="ctp-pwd-key" data-pkey="5">5</button>' +
+              '<button class="ctp-pwd-key" data-pkey="6">6</button>' +
+              '<button class="ctp-pwd-key" data-pkey="7">7</button>' +
+              '<button class="ctp-pwd-key" data-pkey="8">8</button>' +
+              '<button class="ctp-pwd-key" data-pkey="9">9</button>' +
+              '<div class="ctp-pwd-key is-muted"></div>' +
+              '<button class="ctp-pwd-key" data-pkey="0">0</button>' +
+              '<button class="ctp-pwd-key is-muted" data-pkey="del" aria-label="删除">' + SVG_BACKSPACE + '</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ctp-pay-mask" id="ctpPayMask">' +
+        '<div class="ctp-pay-sheet">' +
+          '<div class="ctp-pay-head">' +
+            '<button class="ctp-pay-close" id="ctpPayClose" aria-label="关闭">' +
+              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>' +
+            '</button>' +
+            '<div class="ctp-pay-title-wrap">' +
+              '<div class="ctp-pay-title">选择付款方式</div>' +
+              '<div class="ctp-pay-sub" id="ctpPaySub"></div>' +
+            '</div>' +
+            '<div class="ctp-pay-combo">组合支付</div>' +
+          '</div>' +
+          '<div class="ctp-pay-row" id="ctpPayWalletRow">' +
+            '<div class="ctp-pay-row-left">' +
+              '<div class="ctp-pay-coin">¥</div>' +
+              '<div>' +
+                '<div class="ctp-pay-name" id="ctpPayWalletName">零钱</div>' +
+                '<div class="ctp-pay-desc" id="ctpPayWalletDesc"></div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="ctp-pay-tick" id="ctpPayWalletTick"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>' +
+          '</div>' +
+          '<div class="ctp-pay-sec-label">银行卡</div>' +
+          '<div class="ctp-pay-row" id="ctpPayBankRow">' +
+            '<div class="ctp-pay-row-left">' +
+              '<div class="ctp-pay-card-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div>' +
+              '<div>' +
+                '<div class="ctp-pay-name">招商银行储蓄卡 (8888)</div>' +
+                '<div class="ctp-pay-desc">单日限额 ¥50000</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="ctp-pay-tick" id="ctpPayBankTick"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>' +
+          '</div>' +
+          '<div class="ctp-pay-legal">本服务由小手机本地模拟提供</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ctp-done-page" id="ctpDonePage">' +
+        '<div class="ctp-done-badge">' +
+          '<span class="ctp-done-circle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>' +
+          '<span>支付成功</span>' +
+        '</div>' +
+        '<div class="ctp-done-to" id="ctpDoneTo"></div>' +
+        '<div class="ctp-done-amt" id="ctpDoneAmt"></div>' +
+        '<div class="ctp-done-row"><span>付款方式</span><span id="ctpDoneMethod"></span></div>' +
+        '<button class="ctp-done-btn" id="ctpDoneBtn">完成</button>' +
+      '</div>' +
+      '<div class="ctp-tr-detail" id="ctpTrDetailPage">' +
+        '<div class="ctp-tr-nav">' +
+          '<button class="ctp-tr-back" id="ctpTrDetailBack" aria-label="返回">' +
+            '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>' +
+          '</button>' +
+        '</div>' +
+        '<div class="ctp-tr-detail-body">' +
+          '<div class="ctp-tr-detail-icon" id="ctpTrDetailIcon"></div>' +
+          '<div class="ctp-tr-detail-state" id="ctpTrDetailState"></div>' +
+          '<div class="ctp-tr-detail-amt" id="ctpTrDetailAmt"></div>' +
+          '<div class="ctp-tr-detail-note" id="ctpTrDetailNote"></div>' +
+          '<div class="ctp-tr-detail-actions" id="ctpTrDetailActions">' +
+            '<button class="ctp-tr-detail-btn" id="ctpTrDetailBtn">确认收款</button>' +
+            '<button class="ctp-tr-detail-link" id="ctpTrRefundBtn">立即退还</button>' +
+          '</div>' +
+          '<div class="ctp-tr-detail-time" id="ctpTrDetailTime"></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ctp-note-mask" id="ctpNoteMask">' +
+        '<div class="ctp-note-box">' +
+          '<div class="ctp-note-head">添加转账说明</div>' +
+          '<div class="ctp-note-inp-wrap"><input class="ctp-note-inp" id="ctpNoteInp" maxlength="20" placeholder="最多20个字"></div>' +
+          '<div class="ctp-note-btns">' +
+            '<button class="ctp-note-btn" id="ctpNoteCancel">取消</button>' +
+            '<button class="ctp-note-btn" id="ctpNoteOk">确定</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ctp-multi-mask" id="ctpMultiMask">' +
+        '<div class="ctp-multi-sheet">' +
+          '<div class="ctp-multi-thumbs" id="ctpMultiThumbs"></div>' +
+          '<div class="ctp-multi-toggle" id="ctpMultiToggle">' +
+            '<div class="ctp-multi-check on" id="ctpMultiCheck">' + SVG_CHECK + '</div>' +
+            '<span>发送后合并展示</span>' +
+          '</div>' +
+          '<div class="ctp-multi-foot">' +
+            '<button class="ctp-multi-cancel" id="ctpMultiCancel">取消</button>' +
+            '<button class="ctp-multi-send" id="ctpMultiSend">发送</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ctp-lightbox" id="ctpLightbox"><img id="ctpLightboxImg" src="" alt=""></div>';
+    while (extra.firstChild) room.appendChild(extra.firstChild);
+
+    bindEvents();
+  }
+
+  function bindEvents() {
+    var room = document.getElementById('ctRoomView');
+    var plusBtn = document.getElementById('ctRoomPlusBtn');
+    var inputEl = document.getElementById('ctRoomInput');
+    var voiceBtn = document.getElementById('ctRoomVoiceBtn');
+    var backBtn = document.getElementById('ctRoomBackBtn');
+    var msgBox = document.getElementById('ctRoomMessages');
+    var mainScroll = document.getElementById('ctMainScroll');
+
+    bindPressFeedback(document.getElementById('ctpDrawer'), '.ctp-item');
+    bindPressFeedback(document.getElementById('ctpKeypad'), '.ctp-key');
+    bindPressFeedback(document.getElementById('ctpPwdPad'), '.ctp-pwd-key');
+    bindPressFeedback(document.getElementById('ctpWxPaySheet'), '.ctp-wxpay-card, .ctp-wxpay-face-btn');
+    bindPressFeedback(document.getElementById('ctpGiftSendMask'), '.ctp-gift-btn');
+    bindPressFeedback(document.getElementById('ctpGiftDetailMask'), '.ctp-gift-btn');
+    bindPressFeedback(msgBox, '.ctp-transfer-bubble, .ctp-gift-bubble, .ctp-expand-pill');
+
+    if (mainScroll) {
+      mainScroll.addEventListener('click', function (e) {
+        var row = e.target.closest('.ct-row[data-thread-id]');
+        if (row) activeThreadId = row.getAttribute('data-thread-id') || '';
+      }, true);
+    }
+
+    if (plusBtn) {
+      plusBtn.addEventListener('click', function (e) {
+        e.stopImmediatePropagation();
+        setDrawerOpen(!drawerOpen);
+      }, true);
+    }
+
+    if (inputEl) {
+      inputEl.addEventListener('focus', function () {
+        if (drawerOpen) setDrawerOpen(false);
+      });
+    }
+
+    if (voiceBtn) {
+      voiceBtn.addEventListener('click', function () {
+        if (drawerOpen) setDrawerOpen(false);
+      }, true);
+    }
+
+    if (backBtn) {
+      backBtn.addEventListener('click', function () {
+        setDrawerOpen(false);
+        activeThreadId = '';
+      }, true);
+    }
+
+    if (msgBox) {
+      msgBox.addEventListener('click', function (e) {
+        var toggleBtn = e.target.closest('[data-ctp-toggle]');
+        if (toggleBtn) {
+          e.stopPropagation();
+          var mid = toggleBtn.getAttribute('data-ctp-toggle');
+          expandedBundles[mid] = !expandedBundles[mid];
+          var group = toggleBtn.closest('.ct-msg-group');
+          var bubble = group && group.querySelector('.ct-msg-bubble');
+          var tid = resolveCurrentThreadId();
+          var msgs = tid ? loadJSON(STORAGE_MSGS_PREFIX + tid, []) : [];
+          var target = msgs.find(function (m) { return m.id === mid; });
+          if (bubble && target) {
+            bubble.dataset.ctpRendered = '';
+            renderBubbleEl(bubble, target);
+          }
+          return;
+        }
+
+        var giftEl = e.target.closest('[data-ctp-gift]');
+        if (giftEl) {
+          e.stopPropagation();
+          openGiftDetailModal(giftEl.getAttribute('data-ctp-gift'));
+          return;
+        }
+
+        var trEl = e.target.closest('[data-ctp-transfer]');
+        if (trEl) {
+          e.stopPropagation();
+          openTransferDetail(trEl.getAttribute('data-ctp-transfer'));
+          return;
+        }
+
+        var previewEl = e.target.closest('[data-ctp-preview]');
+        if (previewEl) {
+          e.stopPropagation();
+          var src = previewEl.getAttribute('data-ctp-preview');
+          if (src) {
+            document.getElementById('ctpLightboxImg').src = src;
+            document.getElementById('ctpLightbox').classList.add('open');
+          }
+          return;
+        }
+
+        if (drawerOpen) setDrawerOpen(false);
+      });
+
+      var observer = new MutationObserver(decorateRoomMessages);
+      observer.observe(msgBox, { childList: true });
+    }
+
+    // 微信礼物入口与弹窗事件
+    document.getElementById('ctpBtnGift').addEventListener('click', openGiftSendModal);
+    document.getElementById('ctpGiftTitleInp').addEventListener('input', function () {
+      document.getElementById('ctpGiftPreviewTitle').textContent = this.value.trim() || '送你一份心意';
+    });
+    document.getElementById('ctpGiftCancelBtn').addEventListener('click', function () {
+      document.getElementById('ctpGiftSendMask').classList.remove('open');
+    });
+    document.getElementById('ctpGiftSendMask').addEventListener('click', function (e) {
+      if (e.target === this) this.classList.remove('open');
+    });
+    document.getElementById('ctpGiftSendBtn').addEventListener('click', function () {
+      var title = (document.getElementById('ctpGiftTitleInp').value || '').trim() || '送你一份心意';
+      var giftName = (document.getElementById('ctpGiftItemInp').value || '').trim();
+      document.getElementById('ctpGiftSendMask').classList.remove('open');
+      appendCustomMessage({
+        type: 'gift',
+        title: title,
+        giftName: giftName,
+        status: 'pending',
+        text: '[礼物] ' + title
+      }, '[礼物] ' + title);
+    });
+    document.getElementById('ctpGiftDetailCloseBtn').addEventListener('click', function () {
+      document.getElementById('ctpGiftDetailMask').classList.remove('open');
+    });
+    document.getElementById('ctpGiftDetailMask').addEventListener('click', function (e) {
+      if (e.target === this) this.classList.remove('open');
+    });
+    document.getElementById('ctpGiftClaimBtn').addEventListener('click', function () {
+      claimIncomingGift(detailGiftMsgId);
+    });
+
+    // 照片
+    document.getElementById('ctpBtnPhoto').addEventListener('click', function () {
+      if (photoBusy) return;
+      photoBusy = true;
+      setTimeout(function () { photoBusy = false; }, 1200);
+      document.getElementById('ctpPhotoInput').click();
+    });
+
+    document.getElementById('ctpPhotoInput').addEventListener('change', function () {
+      var fileInput = this;
+      var files = Array.prototype.slice.call(fileInput.files || []).slice(0, 9);
+      if (!files.length) {
+        fileInput.value = '';
+        photoBusy = false;
+        return;
+      }
+      setTimeout(function () {
+        Promise.all(files.map(function (f) { return compressPhoto(f, 900, 0.8); })).then(function (urls) {
+          fileInput.value = '';
+          photoBusy = false;
+          var valid = urls.filter(Boolean);
+          if (!valid.length) return;
+          if (valid.length === 1) {
+            appendCustomMessage({ type: 'image', images: valid, text: '[图片]' }, '[图片]');
+          } else {
+            openMultiSheet(valid);
+          }
+        });
+      }, 320);
+    });
+
+    // 转账入口与键盘
+    document.getElementById('ctpBtnTransfer').addEventListener('click', openTransferPage);
+    document.getElementById('ctpTrBack').addEventListener('click', function () {
+      document.getElementById('ctpTrPage').classList.remove('open');
+    });
+
+    document.getElementById('ctpKeypad').addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-key]');
+      if (!btn) return;
+      var k = btn.getAttribute('data-key');
+      if (k === 'del') {
+        transferAmount = transferAmount.slice(0, -1);
+      } else if (k === '.') {
+        if (transferAmount.indexOf('.') !== -1) return;
+        transferAmount = transferAmount ? (transferAmount + '.') : '0.';
+      } else {
+        var dotIdx = transferAmount.indexOf('.');
+        if (dotIdx !== -1 && transferAmount.length - dotIdx > 2) return;
+        if (transferAmount === '0') {
+          transferAmount = k;
+        } else {
+          if (transferAmount.replace('.', '').length >= 8) return;
+          transferAmount += k;
+        }
+      }
+      syncTransferUI();
+    });
+
+    document.getElementById('ctpTrSubmit').addEventListener('click', function () {
+      var num = parseFloat(transferAmount);
+      if (!num || num <= 0) return;
+      openWxPaySheet(Number(num.toFixed(2)));
+    });
+
+    document.getElementById('ctpWxPayClose').addEventListener('click', function () {
+      document.getElementById('ctpWxPayMask').classList.remove('open');
+    });
+
+    document.getElementById('ctpWxPayModeBtn').addEventListener('click', function () {
+      isPwdMode = !isPwdMode;
+      payPassword = '';
+      syncWxPaySheet();
+    });
+
+    document.getElementById('ctpWxPayChange').addEventListener('click', openPayMethodDrawer);
+    document.getElementById('ctpWxPayCard').addEventListener('click', openPayMethodDrawer);
+
+    document.getElementById('ctpWxPayFaceBtn').addEventListener('click', completeTransferPayment);
+
+    document.getElementById('ctpPwdPad').addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-pkey]');
+      if (!btn) return;
+      var k = btn.getAttribute('data-pkey');
+      if (k === 'del') {
+        payPassword = payPassword.slice(0, -1);
+        syncPwdDots();
+        return;
+      }
+      if (payPassword.length >= 6) return;
+      payPassword += k;
+      syncPwdDots();
+      if (payPassword.length === 6) {
+        setTimeout(completeTransferPayment, 160);
+      }
+    });
+
+    document.getElementById('ctpPayClose').addEventListener('click', function () {
+      document.getElementById('ctpPayMask').classList.remove('open');
+    });
+
+    document.getElementById('ctpPayWalletRow').addEventListener('click', function () {
+      if (getWalletBalance() < pendingPayAmount) return;
+      selectedPayMethod = 'wallet';
+      document.getElementById('ctpPayMask').classList.remove('open');
+      syncWxPaySheet();
+    });
+
+    document.getElementById('ctpPayBankRow').addEventListener('click', function () {
+      selectedPayMethod = 'bank';
+      document.getElementById('ctpPayMask').classList.remove('open');
+      syncWxPaySheet();
+    });
+
+    document.getElementById('ctpDoneBtn').addEventListener('click', function () {
+      var amtFixed = pendingPayAmount;
+      document.getElementById('ctpDonePage').classList.remove('open');
+      document.getElementById('ctpTrPage').classList.remove('open');
+      if (!amtFixed || amtFixed <= 0) return;
+      appendCustomMessage({
+        type: 'transfer',
+        amount: amtFixed,
+        note: transferNote,
+        status: 'pending',
+        text: '[转账] ¥' + amtFixed.toFixed(2)
+      }, '[转账] ¥' + amtFixed.toFixed(2));
+    });
+
+    document.getElementById('ctpTrNoteBtn').addEventListener('click', function () {
+      var inp = document.getElementById('ctpNoteInp');
+      inp.value = transferNote;
+      document.getElementById('ctpNoteMask').classList.add('open');
+      setTimeout(function () { inp.focus(); }, 80);
+    });
+
+    document.getElementById('ctpNoteCancel').addEventListener('click', function () {
+      document.getElementById('ctpNoteMask').classList.remove('open');
+    });
+
+    document.getElementById('ctpNoteOk').addEventListener('click', function () {
+      transferNote = (document.getElementById('ctpNoteInp').value || '').trim();
+      document.getElementById('ctpNoteMask').classList.remove('open');
+      syncTransferUI();
+    });
+
+    document.getElementById('ctpTrDetailBack').addEventListener('click', function () {
+      document.getElementById('ctpTrDetailPage').classList.remove('open');
+    });
+
+    document.getElementById('ctpTrDetailBtn').addEventListener('click', function () {
+      updateIncomingTransfer(detailMsgId, 'received');
+    });
+    document.getElementById('ctpTrRefundBtn').addEventListener('click', function () {
+      updateIncomingTransfer(detailMsgId, 'refunded');
+    });
+
+    document.getElementById('ctpMultiToggle').addEventListener('click', function () {
+      mergePhotos = !mergePhotos;
+      document.getElementById('ctpMultiCheck').classList.toggle('on', mergePhotos);
+      document.getElementById('ctpMultiCheck').innerHTML = mergePhotos ? SVG_CHECK : '';
+    });
+
+    document.getElementById('ctpMultiCancel').addEventListener('click', function () {
+      pendingPhotos = [];
+      document.getElementById('ctpMultiMask').classList.remove('open');
+    });
+
+    document.getElementById('ctpMultiSend').addEventListener('click', function () {
+      var list = pendingPhotos.slice();
+      pendingPhotos = [];
+      document.getElementById('ctpMultiMask').classList.remove('open');
+      if (!list.length) return;
+      if (mergePhotos && list.length > 1) {
+        appendCustomMessage({ type: 'image_bundle', images: list, text: '[图片]' }, '[图片]');
+      } else {
+        list.forEach(function (src) {
+          appendCustomMessage({ type: 'image', images: [src], text: '[图片]' }, '[图片]');
+        });
+      }
+    });
+
+    document.getElementById('ctpLightbox').addEventListener('click', function () {
+      this.classList.remove('open');
+    });
+
+    if (room) {
+      var roomObs = new MutationObserver(function () {
+        if (!room.classList.contains('open') && drawerOpen) setDrawerOpen(false);
+        if (room.classList.contains('open')) applyWechatSmileIcon();
+      });
+      roomObs.observe(room, { attributes: true, attributeFilter: ['class'] });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ensureUI);
+  } else {
+    ensureUI();
+  }
+})();
