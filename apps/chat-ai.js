@@ -2,6 +2,7 @@
    Chat 基础 AI 对话引擎 (apps/chat-ai.js)
    - 对接 PhoneAPI（支持 OpenAI / Google / Anthropic / 自定义兼容 + 副 API 重试 + 日志）
    - 读取 PhoneArchive（Char 人设）+ PhoneChatMe / PhoneMask（当前账号与面具）
+   - 双保险触发：同时监听 phone:chat-user-sent 与聊天区新增我方气泡
    - 支持 1.2s 防抖、顶部「对方正在输入中…」联动、按人设自然分段连发
    - 透传原生 CoT（<think> / reasoning_content）至气泡头顶胶囊
    - 支持人设自主改备注（chat_char_user_remarks_v1）与改密码（setCharPasscode）
@@ -16,6 +17,7 @@
 
     const debounceTimers = {};
     const activeRuns = {};
+    let lastEventTriggerAt = 0;
 
     function loadJSON(key, fallback) {
         try {
@@ -30,6 +32,36 @@
         try {
             localStorage.setItem(key, JSON.stringify(val));
         } catch (e) {}
+    }
+
+    function showAiToast(msg) {
+        const el = document.getElementById('ctToast');
+        if (!el || !msg) return;
+        el.textContent = msg;
+        el.classList.add('show');
+        clearTimeout(showAiToast._timer);
+        showAiToast._timer = setTimeout(() => el.classList.remove('show'), 2400);
+    }
+
+    function setRoomTyping(threadId, isTyping) {
+        if (window.PhoneChat && typeof window.PhoneChat.setTyping === 'function') {
+            window.PhoneChat.setTyping(threadId, isTyping);
+            return;
+        }
+        const titleEl = document.getElementById('ctRoomTitle');
+        if (!titleEl) return;
+        if (isTyping) {
+            if (!titleEl.classList.contains('is-typing')) {
+                titleEl.dataset.prevTitle = titleEl.textContent || '';
+            }
+            titleEl.classList.add('is-typing');
+            titleEl.textContent = '对方正在输入中…';
+        } else {
+            titleEl.classList.remove('is-typing');
+            if (titleEl.dataset.prevTitle) {
+                titleEl.textContent = titleEl.dataset.prevTitle;
+            }
+        }
     }
 
     function getArchiveChar(charId) {
@@ -309,20 +341,17 @@
         let text = String(rawText || '').trim();
         let cot = String(initialCot || '').trim();
 
-        // 透传原生 <think>...</think>
         text = text.replace(/<think>([\s\S]*?)<\/think>/gi, (_, inner) => {
             const clean = String(inner || '').trim();
             if (clean) cot = cot ? (cot + '\n' + clean) : clean;
             return '';
         }).trim();
 
-        // 提取 [REMARK:...]
         text = text.replace(/\[REMARK:([^\]]+)\]/gi, (_, val) => {
             if (charId && val) setCharRemark(charId, val.trim());
             return '';
         });
 
-        // 提取 [PASSCODE:...]
         text = text.replace(/\[PASSCODE:([^\]]+)\]/gi, (_, val) => {
             const pwd = String(val || '').trim();
             if (charId && pwd && isCharPasscodeChangeAllowed() && window.PhoneChatMe && typeof window.PhoneChatMe.setCharPasscode === 'function') {
@@ -331,7 +360,6 @@
             return '';
         });
 
-        // 按 ||| 分段
         const parts = text.split('|||').map(s => s.trim()).filter(Boolean);
         const bubbles = (parts.length ? parts : [text.trim()]).filter(Boolean).map(seg => {
             let translation = '';
@@ -369,11 +397,9 @@
             saveJSON(STORAGE_THREADS_KEY, threads);
         }
 
-        if (window.PhoneChat) {
-            if (window.PhoneChat.getCurrentThreadId && window.PhoneChat.getCurrentThreadId() === threadId) {
-                if (typeof window.PhoneChat.refreshMessages === 'function') {
-                    window.PhoneChat.refreshMessages();
-                }
+        if (window.PhoneChat && window.PhoneChat.getCurrentThreadId && window.PhoneChat.getCurrentThreadId() === threadId) {
+            if (typeof window.PhoneChat.refreshMessages === 'function') {
+                window.PhoneChat.refreshMessages();
             }
         }
     }
@@ -383,34 +409,51 @@
     }
 
     async function runReplyForThread(threadId) {
-        const threads = loadJSON(STORAGE_THREADS_KEY, []);
-        const t = threads.find(item => item.id === threadId);
-        if (!t || t.type !== 'dm' || !t.charId) return;
+        if (!threadId) return;
 
         // Char 视角下不自动自言自语
         if (window.PhoneChatMe && typeof window.PhoneChatMe.getActiveAccount === 'function') {
             const acc = window.PhoneChatMe.getActiveAccount();
-            if (acc && acc.type === 'char') return;
+            if (acc && acc.type === 'char') {
+                showAiToast('当前处于 Char 视角，不触发自动回复');
+                return;
+            }
+        }
+
+        const threads = loadJSON(STORAGE_THREADS_KEY, []);
+        const t = threads.find(item => item.id === threadId);
+        let charId = '';
+        if (t) {
+            if (t.type === 'group') {
+                showAiToast('群聊暂未接入 AI 回复');
+                return;
+            }
+            charId = t.charId || '';
+        } else if (threadId.indexOf('dm-') === 0) {
+            charId = threadId.slice(3);
+        }
+
+        if (!charId) {
+            showAiToast('未识别到聊天对象');
+            return;
         }
 
         const runToken = Date.now() + '_' + Math.random();
         activeRuns[threadId] = runToken;
 
-        const charObj = getArchiveChar(t.charId);
+        const charObj = getArchiveChar(charId);
         const userCtx = getUserContext();
         const systemPrompt = buildSystemPrompt(charObj, userCtx);
         const history = buildHistoryMessages(threadId);
         if (!history.length) return;
 
-        if (window.PhoneChat && typeof window.PhoneChat.setTyping === 'function') {
-            window.PhoneChat.setTyping(threadId, true);
-        }
+        setRoomTyping(threadId, true);
 
         try {
             const result = await requestLLM(systemPrompt, history);
             if (activeRuns[threadId] !== runToken) return;
 
-            const parsed = parseReplyPayload(result.text, result.cot, t.charId);
+            const parsed = parseReplyPayload(result.text, result.cot, charId);
             if (!parsed.bubbles.length) return;
 
             for (let i = 0; i < parsed.bubbles.length; i++) {
@@ -420,32 +463,58 @@
                     await waitMs(pause);
                     if (activeRuns[threadId] !== runToken) break;
                 }
-                appendCharBubble(threadId, t.charId, parsed.bubbles[i], i === 0 ? parsed.cot : '');
+                appendCharBubble(threadId, charId, parsed.bubbles[i], i === 0 ? parsed.cot : '');
             }
         } catch (err) {
-            const toastEl = document.getElementById('ctToast');
-            if (toastEl) {
-                toastEl.textContent = err.message || 'API 回复失败';
-                toastEl.classList.add('show');
-                clearTimeout(runReplyForThread._toastTimer);
-                runReplyForThread._toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2400);
-            }
+            showAiToast(err.message || 'API 回复失败');
         } finally {
-            if (activeRuns[threadId] === runToken && window.PhoneChat && typeof window.PhoneChat.setTyping === 'function') {
-                window.PhoneChat.setTyping(threadId, false);
+            if (activeRuns[threadId] === runToken) {
+                setRoomTyping(threadId, false);
             }
         }
     }
 
-    window.addEventListener('phone:chat-user-sent', (e) => {
-        const detail = (e && e.detail) || {};
-        const tid = detail.threadId;
-        if (!tid) return;
-        clearTimeout(debounceTimers[tid]);
-        debounceTimers[tid] = setTimeout(() => {
-            runReplyForThread(tid);
+    function scheduleReply(threadId) {
+        if (!threadId) return;
+        clearTimeout(debounceTimers[threadId]);
+        debounceTimers[threadId] = setTimeout(() => {
+            runReplyForThread(threadId);
         }, DEBOUNCE_MS);
+    }
+
+    window.addEventListener('phone:chat-user-sent', (e) => {
+        lastEventTriggerAt = Date.now();
+        const detail = (e && e.detail) || {};
+        scheduleReply(detail.threadId);
     });
+
+    // 双保险：若旧版 chat.js 被缓存未派发事件，监听消息列表新增我方气泡同样触发
+    function setupFallbackObserver() {
+        const box = document.getElementById('ctRoomMessages');
+        if (!box || box.dataset.aiObsBound === '1') return;
+        box.dataset.aiObsBound = '1';
+        let lastKnownMeId = '';
+
+        const obs = new MutationObserver(() => {
+            if (Date.now() - lastEventTriggerAt < 400) return;
+            const meNodes = box.querySelectorAll('.ct-msg-group.me[data-msg-id]');
+            if (!meNodes.length) return;
+            const lastNode = meNodes[meNodes.length - 1];
+            const mid = lastNode.getAttribute('data-msg-id') || '';
+            if (!mid || mid === lastKnownMeId) return;
+            lastKnownMeId = mid;
+
+            const tid = (window.PhoneChat && window.PhoneChat.getCurrentThreadId && window.PhoneChat.getCurrentThreadId()) || '';
+            if (tid) scheduleReply(tid);
+        });
+        obs.observe(box, { childList: true });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupFallbackObserver);
+    } else {
+        setTimeout(setupFallbackObserver, 200);
+    }
 
     window.PhoneChatAI = {
         triggerReply: runReplyForThread
