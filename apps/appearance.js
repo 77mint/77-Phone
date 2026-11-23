@@ -13,6 +13,7 @@
     { id: 'memory', name: '记忆', emoji: '🧠', bg: 'bg-3' },
     { id: 'takeout', name: '小团外卖', emoji: '🛍️', bg: 'bg-3' },
     { id: 'converter', name: '转换器', emoji: '🔄', bg: 'bg-3' },
+    { id: 'mask', name: '面具', emoji: '🎭', bg: 'bg-3' },
     { id: 'offline', name: '线下', emoji: '📍', bg: 'bg-3' },
     { id: 'beautify', name: '美化', emoji: '✨', bg: 'bg-3' },
     { id: 'photos', name: '照片', emoji: '🖼️', bg: 'bg-3' },
@@ -34,6 +35,16 @@
     '<div class="app-body">' +
       '<div class="tab-panel active" id="panel-theme">' +
         '<div class="lg-card">' +
+          '<div class="lg-row">' +
+            '<div class="lg-row-main">' +
+              '<div class="lg-label">开屏动画</div>' +
+              '<div class="lg-sub" id="splashStatusSub">已开启</div>' +
+            '</div>' +
+            '<div class="lg-row-right">' +
+              '<div class="mini-btn" id="btnPreviewSplash">预览</div>' +
+              '<div class="lg-switch" id="switchSplash"><div class="lg-switch-thumb"></div></div>' +
+            '</div>' +
+          '</div>' +
           '<div class="lg-row">' +
             '<div class="lg-row-main">' +
               '<div class="lg-label">开启锁屏</div>' +
@@ -140,7 +151,7 @@
     '<div class="icon-pack-modal" id="iconPackModal">' +
       '<div class="icon-pack-sheet">' +
         '<div class="icon-pack-sheet-title">图标包已生成（PNG）</div>' +
-        '<div class="icon-pack-sheet-tip">20 个图标已隐藏写入这张图里。长按保存或点「保存 / 分享」发送，发给别人时记得选「原图」哦～</div>' +
+        '<div class="icon-pack-sheet-tip">全部应用图标已隐藏写入这张图里。长按保存或点「保存 / 分享」发送，发给别人时记得选「原图」哦～</div>' +
         '<div class="icon-pack-preview-wrap">' +
           '<img class="icon-pack-preview-img" id="iconPackPreviewImg" alt="图标包">' +
         '</div>' +
@@ -157,6 +168,28 @@
     '<input type="file" id="inputAppIcon" accept="image/*" style="display:none;">' +
     '<input type="file" id="inputIconPack" accept="image/*" style="display:none;">' +
     '<input type="file" id="inputAddPackFile" accept="image/*" style="display:none;">';
+
+  // 统一按钮按压触感（iOS touchstart / touchend / touchcancel）
+  var PRESS_SELECTOR = '.app-back, .mini-btn, .lg-switch, .lg-tab, .icon-pack-btn, .icon-upload-box, .icon-grid-box, .icon-pack-thumb, .icon-clear-btn, .icon-pack-action, .font-del, .font-add-btn';
+  var pressedEl = null;
+
+  function clearPressed() {
+    if (pressedEl) {
+      pressedEl.classList.remove('is-pressed');
+      pressedEl = null;
+    }
+  }
+
+  root.addEventListener('touchstart', function (e) {
+    var el = e.target && e.target.closest ? e.target.closest(PRESS_SELECTOR) : null;
+    if (el) {
+      clearPressed();
+      pressedEl = el;
+      pressedEl.classList.add('is-pressed');
+    }
+  }, { passive: true });
+  root.addEventListener('touchend', clearPressed, { passive: true });
+  root.addEventListener('touchcancel', clearPressed, { passive: true });
 
   var bottomBar = document.getElementById('lgBottomBar');
   var backBtn = root.querySelector('.app-back');
@@ -182,6 +215,49 @@
     });
   });
 
+  /* ===== 开屏动画开关与预览 ===== */
+  var switchSplash = document.getElementById('switchSplash');
+  var splashStatusSub = document.getElementById('splashStatusSub');
+  var btnPreviewSplash = document.getElementById('btnPreviewSplash');
+
+  function getSplashEnabled() {
+    if (window.PhoneSplash && typeof window.PhoneSplash.isEnabled === 'function') {
+      return window.PhoneSplash.isEnabled();
+    }
+    var val = localStorage.getItem('phone_splash_enabled');
+    return val !== '0' && val !== 'false';
+  }
+
+  function setSplashEnabled(enabled) {
+    if (window.PhoneSplash && typeof window.PhoneSplash.setEnabled === 'function') {
+      window.PhoneSplash.setEnabled(enabled);
+    } else {
+      localStorage.setItem('phone_splash_enabled', enabled ? '1' : '0');
+    }
+  }
+
+  function syncSplashUI(enabled) {
+    switchSplash.classList.toggle('on', enabled);
+    splashStatusSub.textContent = enabled ? '已开启' : '已关闭';
+  }
+
+  var splashOn = getSplashEnabled();
+  syncSplashUI(splashOn);
+
+  switchSplash.addEventListener('click', function () {
+    splashOn = !splashOn;
+    setSplashEnabled(splashOn);
+    syncSplashUI(splashOn);
+  });
+
+  btnPreviewSplash.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (window.PhoneSplash && typeof window.PhoneSplash.play === 'function') {
+      window.PhoneSplash.play();
+    }
+  });
+
+  /* ===== 锁屏开关与预览 ===== */
   var switchLock = document.getElementById('switchLock');
   var rowLockWall = document.getElementById('rowLockWall');
   var lockStatusSub = document.getElementById('lockStatusSub');
@@ -736,6 +812,7 @@
       var tileCtx = tileCanvas.getContext('2d');
 
       APPS_LIST.forEach(function (app, idx) {
+        if (idx >= PACK_COLS * PACK_ROWS) return;
         var col = idx % PACK_COLS;
         var row = Math.floor(idx / PACK_COLS);
         var sx = layout.padX + col * (layout.cellW + layout.gapX);
