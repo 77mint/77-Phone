@@ -1,11 +1,8 @@
 /* =========================================================
    Chat 聊天详情页 (apps/chat-details.js)
-   - 拦截 #ctRoomMoreBtn，不改动 apps/chat.js / apps/chat.css
-   - 记忆宫殿：上下文轮数、自动总结开关（额外调用标注）与触发轮数、长期记忆浏览
-   - 聊天界面设定：右上角导入/保存、已导入主题、对方/我方气泡底色与字色、
-     外观字体同步 + 上传字体长按删除、1:1 真实气泡预览
-   - 查找聊天记录：点击结果直接平滑跳转定位并高亮闪烁
-   - 语言与翻译：支持「随主回复生成 / 独立翻译 API」模式切换
+   - 拦截 #ctRoomMoreBtn，不改动 apps/chat.js
+   - 聊天界面设定：优先以主题为主，想改的再单独改；「显示头像」开关与主题完全独立
+   - 修复 .ct-msg-bubble 选择器，使气泡缩放、配色、字体、气泡图精准生效
    ========================================================= */
 
 (function () {
@@ -228,7 +225,6 @@
     let calYear = new Date().getFullYear();
     let calMonth = new Date().getMonth();
 
-    // SVG 图标
     const SVG_BACK = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>`;
     const SVG_CHEVRON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>`;
     const SVG_SEARCH = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>`;
@@ -405,7 +401,7 @@
             loreOverride: false,
             loreIds: [],
             autoTranslate: false,
-            translateMode: 'bundled', // 'bundled' | 'api'
+            translateMode: 'bundled',
             charOutputLang: '跟随预设',
             charSecondLang: '无',
             translateLang: '简体中文',
@@ -523,7 +519,7 @@
         return Array.isArray(msgs) ? msgs : [];
     }
 
-    /* ---------------- 已保存 / 已导入的主题库 ---------------- */
+    /* ---------------- 已保存 / 已导入的主题库（优先以主题为主，显示头像完全独立） ---------------- */
     function getSavedThemes() {
         const list = loadJSON(SAVED_THEMES_KEY, []);
         return Array.isArray(list) ? list : [];
@@ -535,8 +531,7 @@
 
     function buildThemeSummary(t) {
         const parts = [];
-        if (t.uiShowAvatar === false) parts.push('隐藏头像');
-        else parts.push(`${t.uiAvatarShape === 'circle' ? '圆形' : '方圆'} ${t.uiAvatarSize || 40}px`);
+        parts.push(`${t.uiAvatarShape === 'circle' ? '圆形' : '方圆'} ${t.uiAvatarSize || 40}px`);
         parts.push(`气泡 ${t.uiBubbleScale || 100}%`);
         if (t.uiBubbleBgOther || t.uiBubbleBgMe) parts.push('自定义配色');
         if (t.hasFrame) parts.push('含头像框');
@@ -560,7 +555,6 @@
             id: themeId,
             name: name || '未命名主题',
             createdAt: Date.now(),
-            uiShowAvatar: Boolean(s.uiShowAvatar),
             uiAvatarShape: s.uiAvatarShape || 'squircle',
             uiAvatarSize: Number(s.uiAvatarSize) || 40,
             uiBubbleScale: Number(s.uiBubbleScale) || 100,
@@ -603,8 +597,8 @@
             }
         }
 
+        // 优先以主题为主，但不覆盖独立的「显示头像」开关
         updateThreadSettings(currentThreadId, {
-            uiShowAvatar: theme.uiShowAvatar !== false,
             uiAvatarShape: theme.uiAvatarShape || 'squircle',
             uiAvatarSize: Number(theme.uiAvatarSize) || 40,
             uiHasAvatarFrame: Boolean(theme.hasFrame),
@@ -634,8 +628,8 @@
         }
         avatarFrameCache.delete(frameKey);
         bubbleImgCache.delete(bubbleKey);
+        // 恢复默认主题时保留独立的「显示头像」开关状态
         updateThreadSettings(currentThreadId, {
-            uiShowAvatar: true,
             uiAvatarShape: 'squircle',
             uiAvatarSize: 40,
             uiHasAvatarFrame: false,
@@ -790,7 +784,7 @@
         return candidates.filter(p => p && (p.id || p.name) && !seen.has(p.id || p.name) && seen.add(p.id || p.name));
     }
 
-    /* ---------------- 实时应用聊天界面美化样式 ---------------- */
+    /* ---------------- 实时应用聊天界面美化样式（精准命中 .ct-msg-bubble） ---------------- */
     async function applyRoomThemeStyle(threadId) {
         const tid = threadId || resolveActiveThreadId();
         let styleEl = document.getElementById('ctdRoomThemeStyle');
@@ -807,10 +801,12 @@
         }
 
         const avSize = Number(s.uiAvatarSize) || 40;
-        const avRadius = s.uiAvatarShape === 'circle' ? '50%' : '6px';
+        const avRadius = s.uiAvatarShape === 'circle' ? '50%' : '5px';
         const scale = (Number(s.uiBubbleScale) || 100) / 100;
-        const padV = Math.round(10 * scale);
-        const padH = Math.round(13 * scale);
+        const padV = Math.round(9 * scale);
+        const padH = Math.round(12 * scale);
+        const minH = Math.round(40 * scale);
+        const tailTop = Math.max(10, Math.round(minH / 2 - 5));
         const maxW = Math.min(84, Math.max(58, Math.round(70 * scale)));
         const fontSizeRule = s.uiBubbleFontSize > 0 ? `font-size: ${s.uiBubbleFontSize}px !important;` : '';
         const fontOtherRule = s.uiBubbleFontOther ? `font-family: "${s.uiBubbleFontOther}", sans-serif !important;` : '';
@@ -822,6 +818,8 @@
         let css = '';
         if (!s.uiShowAvatar) {
             css += `#app-chat #ctRoomMessages .ct-msg-avatar { display: none !important; }\n`;
+            css += `#app-chat #ctRoomMessages .ct-msg-quote, #app-chat #ctRoomMessages .ct-msg-subcard { margin-left: 0 !important; margin-right: 0 !important; }\n`;
+            css += `#app-chat #ctRoomMessages .ct-msg-bubble::before, #app-chat #ctRoomMessages .ct-msg-bubble::after { display: none !important; content: none !important; border: none !important; }\n`;
         } else {
             css += `#app-chat #ctRoomMessages .ct-msg-avatar { width: ${avSize}px !important; height: ${avSize}px !important; border-radius: ${avRadius} !important; position: relative !important; overflow: visible !important; }\n`;
             css += `#app-chat #ctRoomMessages .ct-msg-avatar img { border-radius: ${avRadius} !important; }\n`;
@@ -830,28 +828,35 @@
             }
         }
 
-        css += `#app-chat #ctRoomMessages .ct-bubble { padding: ${padV}px ${padH}px !important; max-width: ${maxW}% !important; ${fontSizeRule} }\n`;
-        if (fontOtherRule) css += `#app-chat #ctRoomMessages .ct-msg-row:not(.me) .ct-bubble { ${fontOtherRule} }\n`;
-        if (fontMeRule) css += `#app-chat #ctRoomMessages .ct-msg-row.me .ct-bubble { ${fontMeRule} }\n`;
+        const bubbleSel = `#app-chat #ctRoomMessages .ct-msg-bubble:not(.ctp-img-bubble):not(.ctp-transfer-bubble):not(.ct-gift-bubble):not(.ctp-gift-bubble)`;
+        const otherSel = `#app-chat #ctRoomMessages .ct-msg-row:not(.me) .ct-msg-bubble:not(.ctp-img-bubble):not(.ctp-transfer-bubble):not(.ct-gift-bubble):not(.ctp-gift-bubble)`;
+        const meSel = `#app-chat #ctRoomMessages .ct-msg-row.me .ct-msg-bubble:not(.ctp-img-bubble):not(.ctp-transfer-bubble):not(.ct-gift-bubble):not(.ctp-gift-bubble)`;
+
+        css += `${bubbleSel} { padding: ${padV}px ${padH}px !important; min-height: ${minH}px !important; max-width: ${maxW}% !important; ${fontSizeRule} }\n`;
+        if (s.uiShowAvatar) {
+            css += `${bubbleSel}::before { top: ${tailTop}px !important; }\n`;
+        }
+        if (fontOtherRule) css += `${otherSel} { ${fontOtherRule} }\n`;
+        if (fontMeRule) css += `${meSel} { ${fontMeRule} }\n`;
 
         if (s.uiBubbleBgOther) {
-            css += `#app-chat #ctRoomMessages .ct-msg-row:not(.me) .ct-bubble { background-color: ${s.uiBubbleBgOther} !important; }\n`;
-            css += `#app-chat #ctRoomMessages .ct-msg-row:not(.me) .ct-bubble::before { border-right-color: ${s.uiBubbleBgOther} !important; }\n`;
+            css += `${otherSel} { background-color: ${s.uiBubbleBgOther} !important; }\n`;
+            if (s.uiShowAvatar) css += `${otherSel}::before { border-right-color: ${s.uiBubbleBgOther} !important; }\n`;
         }
         if (s.uiBubbleTextOther) {
-            css += `#app-chat #ctRoomMessages .ct-msg-row:not(.me) .ct-bubble { color: ${s.uiBubbleTextOther} !important; }\n`;
+            css += `${otherSel} { color: ${s.uiBubbleTextOther} !important; }\n`;
         }
         if (s.uiBubbleBgMe) {
-            css += `#app-chat #ctRoomMessages .ct-msg-row.me .ct-bubble { background-color: ${s.uiBubbleBgMe} !important; }\n`;
-            css += `#app-chat #ctRoomMessages .ct-msg-row.me .ct-bubble::before, #app-chat #ctRoomMessages .ct-msg-row.me .ct-bubble::after { border-left-color: ${s.uiBubbleBgMe} !important; }\n`;
+            css += `${meSel} { background-color: ${s.uiBubbleBgMe} !important; }\n`;
+            if (s.uiShowAvatar) css += `${meSel}::before, ${meSel}::after { border-left-color: ${s.uiBubbleBgMe} !important; }\n`;
         }
         if (s.uiBubbleTextMe) {
-            css += `#app-chat #ctRoomMessages .ct-msg-row.me .ct-bubble { color: ${s.uiBubbleTextMe} !important; }\n`;
+            css += `${meSel} { color: ${s.uiBubbleTextMe} !important; }\n`;
         }
 
         if (bubbleImgUrl) {
-            css += `#app-chat #ctRoomMessages .ct-bubble { background-image: url("${bubbleImgUrl}") !important; background-size: cover !important; background-position: center !important; }\n`;
-            css += `#app-chat #ctRoomMessages .ct-bubble::before, #app-chat #ctRoomMessages .ct-bubble::after { display: none !important; content: none !important; border: none !important; }\n`;
+            css += `${bubbleSel} { background-image: url("${bubbleImgUrl}") !important; background-size: cover !important; background-position: center !important; }\n`;
+            css += `${bubbleSel}::before, ${bubbleSel}::after { display: none !important; content: none !important; border: none !important; }\n`;
         }
 
         styleEl.textContent = css;
@@ -943,6 +948,7 @@
         if (msg.type === 'image') return '[图片]';
         if (msg.type === 'voice') return msg.transcript ? `[语音] ${msg.transcript}` : '[语音消息]';
         if (msg.type === 'transfer') return `[转账] ¥${Number(msg.amount || 0).toFixed(2)}`;
+        if (msg.type === 'gift') return `[礼物] ${msg.title || '送你一份心意'}`;
         if (msg.type === 'listen') return `[一起听] ${msg.songTitle || msg.text || ''}`;
         return msg.text || '';
     }
@@ -1370,7 +1376,6 @@
             listBox.innerHTML = html;
             bindAllPressed(listBox);
 
-            // 绑定长按事件（用于长按删除上传字体等）
             listBox.querySelectorAll('[data-idx]').forEach(btn => {
                 const idx = Number(btn.dataset.idx);
                 const act = actions[idx];
@@ -1474,34 +1479,32 @@
                 label: '跟随全局' + (!currentFamily ? ' ✓' : ''),
                 selected: !currentFamily,
                 onClick: async () => {
-                    updateThreadSettings(currentThreadId, { [fieldKey]: '', uiActiveThemeId: '' });
+                    updateThreadSettings(currentThreadId, { [fieldKey]: '' });
                     await applyRoomThemeStyle(currentThreadId);
                     renderThemeSubView();
                 }
             }
         ];
 
-        // 同步外观已载入字体
         appearanceFonts.forEach(f => {
             actions.push({
                 label: `${f.name}（外观）` + (currentFamily === f.family ? ' ✓' : ''),
                 selected: currentFamily === f.family,
                 onClick: async () => {
-                    updateThreadSettings(currentThreadId, { [fieldKey]: f.family, uiActiveThemeId: '' });
+                    updateThreadSettings(currentThreadId, { [fieldKey]: f.family });
                     await applyRoomThemeStyle(currentThreadId);
                     renderThemeSubView();
                 }
             });
         });
 
-        // 已上传的字体（支持长按删除）
         uploaded.forEach(f => {
             actions.push({
                 label: f.name + (currentFamily === f.family ? ' ✓' : ''),
                 selected: currentFamily === f.family,
                 onClick: async () => {
                     await ensureFontFaceLoaded(f);
-                    updateThreadSettings(currentThreadId, { [fieldKey]: f.family, uiActiveThemeId: '' });
+                    updateThreadSettings(currentThreadId, { [fieldKey]: f.family });
                     await applyRoomThemeStyle(currentThreadId);
                     renderThemeSubView();
                 },
@@ -1523,7 +1526,7 @@
             label: '+ 上传字体文件（.ttf / .otf / .woff2）',
             onClick: () => {
                 uploadCustomFontFile(async (newFont) => {
-                    updateThreadSettings(currentThreadId, { [fieldKey]: newFont.family, uiActiveThemeId: '' });
+                    updateThreadSettings(currentThreadId, { [fieldKey]: newFont.family });
                     await applyRoomThemeStyle(currentThreadId);
                     renderThemeSubView();
                 });
@@ -1937,7 +1940,6 @@
             </div>
         `;
 
-        // 语言与翻译（新增翻译模式：默认随主回复不额外调用，选独立翻译 API 时标注额外调用）
         const isApiTrans = settings.translateMode === 'api';
         const langCardHtml = `
             <div class="ctd-card">
@@ -2253,7 +2255,7 @@
         document.getElementById('ctdClearChatRow').addEventListener('click', () => triggerClearSheet(thread));
     }
 
-    /* ---------------- 二级页：记忆宫殿（上下文条数 + 自动总结 + 长期记忆列表） ---------------- */
+    /* ---------------- 二级页：记忆宫殿 ---------------- */
     function renderMemorySubView() {
         const scrollEl = document.getElementById('ctdMemoryScroll');
         if (!scrollEl || !currentThreadId) return;
@@ -2463,7 +2465,7 @@
         });
     }
 
-    /* ---------------- 二级页：聊天界面设定（含气泡底色/字色 + 主题库） ---------------- */
+    /* ---------------- 二级页：聊天界面设定 ---------------- */
     function openThemeImportMenu() {
         openActionSheet({
             title: '导入界面素材',
@@ -2492,13 +2494,13 @@
                     const key = 'chat_avatar_frame_' + currentThreadId;
                     if (window.PhoneDB && typeof window.PhoneDB.set === 'function') await window.PhoneDB.set(key, dataUrl);
                     avatarFrameCache.set(key, dataUrl);
-                    updateThreadSettings(currentThreadId, { uiHasAvatarFrame: true, uiShowAvatar: true, uiActiveThemeId: '' });
+                    updateThreadSettings(currentThreadId, { uiHasAvatarFrame: true });
                     showToast('已导入头像框');
                 } else {
                     const key = 'chat_bubble_img_' + currentThreadId;
                     if (window.PhoneDB && typeof window.PhoneDB.set === 'function') await window.PhoneDB.set(key, dataUrl);
                     bubbleImgCache.set(key, dataUrl);
-                    updateThreadSettings(currentThreadId, { uiHasBubbleImg: true, uiActiveThemeId: '' });
+                    updateThreadSettings(currentThreadId, { uiHasBubbleImg: true });
                     showToast('已导入气泡贴图');
                 }
                 await applyRoomThemeStyle(currentThreadId);
@@ -2540,7 +2542,6 @@
                         id: themeId,
                         name: themeName,
                         createdAt: Date.now(),
-                        uiShowAvatar: cfg.uiShowAvatar !== false,
                         uiAvatarShape: cfg.uiAvatarShape || 'squircle',
                         uiAvatarSize: Number(cfg.uiAvatarSize) || 40,
                         uiBubbleScale: Number(cfg.uiBubbleScale) || 100,
@@ -2584,13 +2585,13 @@
         const bubbleImgUrl = s.uiHasBubbleImg ? await loadDBAsset('chat_bubble_img_' + currentThreadId, bubbleImgCache) : '';
 
         const avSize = Number(s.uiAvatarSize) || 40;
-        const avRadius = s.uiAvatarShape === 'circle' ? '50%' : '6px';
+        const avRadius = s.uiAvatarShape === 'circle' ? '50%' : '5px';
         const scale = (Number(s.uiBubbleScale) || 100) / 100;
         const padV = Math.round(9 * scale);
         const padH = Math.round(12 * scale);
         const bFontSize = s.uiBubbleFontSize > 0 ? `${s.uiBubbleFontSize}px` : 'var(--app-font-size, 15px)';
         const bgImgStyle = bubbleImgUrl ? `background-image:url('${bubbleImgUrl}');background-size:cover;background-position:center;` : '';
-        const imgCls = bubbleImgUrl ? 'has-img' : '';
+        const imgCls = (bubbleImgUrl || !s.uiShowAvatar) ? 'has-img' : '';
 
         const otherBg = s.uiBubbleBgOther || '#ffffff';
         const otherColor = s.uiBubbleTextOther || '#1c1c1e';
@@ -2673,7 +2674,7 @@
                 <div class="ctd-row" id="ctdThemeDefaultItem">
                     <div class="ctd-row-left">
                         <div class="ctd-row-title">默认主题</div>
-                        <div class="ctd-row-sub">恢复系统标准气泡与头像样式</div>
+                        <div class="ctd-row-sub">恢复系统标准气泡与头像框（保留头像显示开关）</div>
                     </div>
                     <div class="ctd-row-right">
                         <div class="ctd-check-circle ${isPureDefault ? 'checked' : ''}">${isPureDefault ? SVG_CHECK : ''}</div>
@@ -2687,7 +2688,10 @@
             ${previewHtml}
             <div class="ctd-card">
                 <div class="ctd-row ctd-row-static">
-                    <div class="ctd-row-left"><div class="ctd-row-title">显示头像</div></div>
+                    <div class="ctd-row-left">
+                        <div class="ctd-row-title">显示头像</div>
+                        <div class="ctd-row-sub">独立于主题，切换主题时保持当前开关状态</div>
+                    </div>
                     <div class="ctd-row-right"><button type="button" class="ctd-switch ${s.uiShowAvatar ? 'on' : ''}" id="ctdShowAvatarSw" aria-label="显示头像"></button></div>
                 </div>
                 ${avatarSettingsHtml}
@@ -2756,17 +2760,18 @@
         `;
         bindAllPressed(scrollEl);
 
+        // 独立控制显示头像，不影响当前已选主题
         document.getElementById('ctdShowAvatarSw').addEventListener('click', async (e) => {
             e.stopPropagation();
             const cur = getThreadSettings(currentThreadId);
-            updateThreadSettings(currentThreadId, { uiShowAvatar: !cur.uiShowAvatar, uiActiveThemeId: '' });
+            updateThreadSettings(currentThreadId, { uiShowAvatar: !cur.uiShowAvatar });
             await applyRoomThemeStyle(currentThreadId);
             renderThemeSubView();
         });
 
         scrollEl.querySelectorAll('[data-av-shape]').forEach(btn => {
             btn.addEventListener('click', async () => {
-                updateThreadSettings(currentThreadId, { uiAvatarShape: btn.dataset.avShape, uiActiveThemeId: '' });
+                updateThreadSettings(currentThreadId, { uiAvatarShape: btn.dataset.avShape });
                 await applyRoomThemeStyle(currentThreadId);
                 renderThemeSubView();
             });
@@ -2776,7 +2781,7 @@
         if (avRange) {
             avRange.addEventListener('input', () => { document.getElementById('ctdAvSizeVal').textContent = avRange.value + ' px'; });
             avRange.addEventListener('change', async () => {
-                updateThreadSettings(currentThreadId, { uiAvatarSize: Number(avRange.value), uiActiveThemeId: '' });
+                updateThreadSettings(currentThreadId, { uiAvatarSize: Number(avRange.value) });
                 await applyRoomThemeStyle(currentThreadId);
                 renderThemeSubView();
             });
@@ -2796,7 +2801,7 @@
                                 const key = 'chat_avatar_frame_' + currentThreadId;
                                 if (window.PhoneDB && typeof window.PhoneDB.del === 'function') await window.PhoneDB.del(key);
                                 avatarFrameCache.delete(key);
-                                updateThreadSettings(currentThreadId, { uiHasAvatarFrame: false, uiActiveThemeId: '' });
+                                updateThreadSettings(currentThreadId, { uiHasAvatarFrame: false });
                                 await applyRoomThemeStyle(currentThreadId);
                                 renderThemeSubView();
                                 showToast('已清除头像框');
@@ -2810,14 +2815,14 @@
         const scaleRange = document.getElementById('ctdBubbleScaleRange');
         scaleRange.addEventListener('input', () => { document.getElementById('ctdBubbleScaleVal').textContent = scaleRange.value + '%'; });
         scaleRange.addEventListener('change', async () => {
-            updateThreadSettings(currentThreadId, { uiBubbleScale: Number(scaleRange.value), uiActiveThemeId: '' });
+            updateThreadSettings(currentThreadId, { uiBubbleScale: Number(scaleRange.value) });
             await applyRoomThemeStyle(currentThreadId);
             renderThemeSubView();
         });
 
         scrollEl.querySelectorAll('[data-color-key]').forEach(picker => {
             picker.addEventListener('change', async () => {
-                updateThreadSettings(currentThreadId, { [picker.dataset.colorKey]: picker.value, uiActiveThemeId: '' });
+                updateThreadSettings(currentThreadId, { [picker.dataset.colorKey]: picker.value });
                 await applyRoomThemeStyle(currentThreadId);
                 renderThemeSubView();
             });
@@ -2825,7 +2830,7 @@
 
         scrollEl.querySelectorAll('[data-color-reset]').forEach(btn => {
             btn.addEventListener('click', async () => {
-                updateThreadSettings(currentThreadId, { [btn.dataset.colorReset]: '', uiActiveThemeId: '' });
+                updateThreadSettings(currentThreadId, { [btn.dataset.colorReset]: '' });
                 await applyRoomThemeStyle(currentThreadId);
                 renderThemeSubView();
             });
@@ -2841,7 +2846,7 @@
         });
         fsRange.addEventListener('change', async () => {
             const v = Number(fsRange.value);
-            updateThreadSettings(currentThreadId, { uiBubbleFontSize: v > 0 ? Math.max(12, v) : 0, uiActiveThemeId: '' });
+            updateThreadSettings(currentThreadId, { uiBubbleFontSize: v > 0 ? Math.max(12, v) : 0 });
             await applyRoomThemeStyle(currentThreadId);
             renderThemeSubView();
         });
