@@ -2,7 +2,7 @@
    Chat 我的页（仿微信「我」独立模块 + 全套二级子页）
    - 不改动 apps/chat.js / apps/chat.css，独立接管我的 tab
    - 功能：个人资料 / 钱包 / 收藏 / 表情包 / 朋友圈 / 设置 / 切换账号
-   - 支持：主号、小号（均可绑定不同「面具」）、硬核带锁 Char 账号（偷看 / 正常登录）
+   - 支持：主号、小号（均可绑定不同「面具」）、硬核带锁 Char 账号（偷看 / 正常登录，不可手动重锁）
    ========================================================= */
 (function () {
   var rendering = false;
@@ -348,20 +348,6 @@
       return true;
     }
     return false;
-  }
-
-  function lockCharAccount(charId) {
-    if (!charId) return;
-    var map = getCharPasscodeStore();
-    if (map[charId]) {
-      map[charId].unlocked = false;
-      saveCharPasscodeStore(map);
-    }
-    var active = getActiveAccount();
-    if (active && active.type === 'char' && active.charId === charId) {
-      var fallback = getAccounts().find(function (a) { return a.type !== 'char'; });
-      if (fallback) setActiveAccount(fallback.id);
-    }
   }
 
   // 供后续 chat-ai.js 调用：Char 偷偷自己修改密码并重新上锁
@@ -1882,6 +1868,17 @@
           var charAcc = list.find(function (a) { return a.type === 'char' && a.charId === ch.id; });
           var isCur = !!(charAcc && charAcc.id === activeId);
 
+          var actionsRowHtml = (!unlocked || !isCur)
+            ? '<div class="ctme-acc-actions">' +
+                (!unlocked
+                  ? '<button type="button" class="ctme-mini-pill" style="background:#111;color:#fff;" data-char-login="' + esc(ch.id) + '">输入密码登录</button>'
+                  : (!isCur ? '<button type="button" class="ctme-mini-pill" style="background:#111;color:#fff;" data-char-login="' + esc(ch.id) + '">切换为 TA</button>' : '')) +
+                '<button type="button" class="ctme-mini-pill" data-char-force-reset="' + esc(ch.id) + '">强制改密码</button>' +
+              '</div>'
+            : '<div class="ctme-acc-actions">' +
+                '<button type="button" class="ctme-mini-pill" data-char-force-reset="' + esc(ch.id) + '">强制改密码</button>' +
+              '</div>';
+
           return '<div class="ctme-acc-card ' + (isCur ? 'is-current' : '') + '" data-char-card="' + esc(ch.id) + '">' +
             '<div class="ctme-acc-top" data-char-login="' + esc(ch.id) + '">' +
               '<div class="ctme-acc-ava" data-char-ava-id="' + esc(ch.id) + '">' + esc((ch.name || 'C').slice(0, 1)) + '</div>' +
@@ -1902,15 +1899,7 @@
               '</div>' +
               (!unlocked ? '<span class="ctme-lock-icon">' + SVG_LOCK + '</span>' : '') +
             '</div>' +
-            '<div class="ctme-acc-actions">' +
-              (!unlocked
-                ? '<button type="button" class="ctme-mini-pill" style="background:#111;color:#fff;" data-char-login="' + esc(ch.id) + '">输入密码登录</button>'
-                : ((!isCur
-                    ? '<button type="button" class="ctme-mini-pill" style="background:#111;color:#fff;" data-char-login="' + esc(ch.id) + '">切换为 TA</button>'
-                    : '') +
-                  '<button type="button" class="ctme-mini-pill" data-char-lock="' + esc(ch.id) + '">重新上锁</button>')) +
-              '<button type="button" class="ctme-mini-pill" data-char-force-reset="' + esc(ch.id) + '">强制改密码</button>' +
-            '</div>' +
+            actionsRowHtml +
           '</div>';
         }).join('')
       : '<div class="ctme-card"><div class="ctme-empty" style="padding:20px;">还没有角色卡，去「档案」添加 Char 后就能在这里登录 TA 的账号</div></div>';
@@ -1962,16 +1951,6 @@
         if (charAcc.id === activeId) return;
         setActiveAccount(charAcc.id);
         showToast('已切换到「' + (ch.name || 'Char') + '」视角');
-        renderTopPage();
-      });
-    });
-
-    ov.querySelectorAll('[data-char-lock]').forEach(function (btn) {
-      btn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        var cid = btn.getAttribute('data-char-lock');
-        lockCharAccount(cid);
-        showToast('已重新上锁，下次登录需重新输入密码');
         renderTopPage();
       });
     });
@@ -2217,7 +2196,6 @@
     getCharPasscode: getCharPasscode,
     setCharPasscode: setCharPasscode,
     isCharUnlocked: isCharUnlocked,
-    lockCharAccount: lockCharAccount,
     isCharResetAllowed: isCharResetAllowed,
     setCharResetAllowed: setCharResetAllowed,
     getCharLoginMode: getCharLoginMode,
