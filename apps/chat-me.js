@@ -1,8 +1,8 @@
 /* =========================================================
    Chat 我的页（仿微信「我」独立模块 + 全套二级子页）
    - 不改动 apps/chat.js / apps/chat.css，独立接管我的 tab
-   - 功能：个人资料 / 钱包 / 收藏 / 表情包(右上角导入) / 朋友圈 / 设置(切换账号)
-   - 对外暴露 window.PhoneChatMe 供聊天详情、AI、购物等模块读取
+   - 功能：个人资料 / 钱包 / 收藏 / 表情包 / 朋友圈 / 设置 / 切换账号
+   - 支持：绑定「面具」主号、小号、带密码锁的 Char 账号视角（密码仅能问 Char 获取）
    ========================================================= */
 (function () {
   var rendering = false;
@@ -22,6 +22,7 @@
   var KEY_FAVORITES = 'chat_favorites_v1';
   var KEY_STICKERS = 'chat_sticker_packs_v1';
   var KEY_PREFS = 'chat_me_prefs_v1';
+  var KEY_CHAR_PASSCODES = 'chat_char_passcodes_v1';
 
   var MAIN_ITEMS = [
     {
@@ -56,6 +57,8 @@
   var SVG_BACK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
   var SVG_USER = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
   var SVG_SEARCH = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+  var SVG_LOCK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+  var SVG_EYE = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
 
   /* ---------------- 基础存储工具 ---------------- */
   function readJSON(key, fallback) {
@@ -124,6 +127,9 @@
   function dbRemove(key) {
     if (!key) return Promise.resolve();
     if (window.PhoneDB) {
+      if (typeof window.PhoneDB.del === 'function') {
+        return Promise.resolve(window.PhoneDB.del(key)).catch(function () {});
+      }
       if (typeof window.PhoneDB.remove === 'function') {
         return Promise.resolve(window.PhoneDB.remove(key)).catch(function () {});
       }
@@ -180,12 +186,53 @@
     });
   }
 
-  /* ---------------- 账号与业务数据 ---------------- */
+  /* ---------------- 外部人设与档案读取（面具 + Char） ---------------- */
+  function getMasksSafe() {
+    if (window.PhoneMask && typeof window.PhoneMask.getMasks === 'function') {
+      try {
+        var list = window.PhoneMask.getMasks();
+        return Array.isArray(list) ? list : [];
+      } catch (e) {}
+    }
+    var raw = readJSON('phone_masks_v1', []);
+    return Array.isArray(raw) ? raw : [];
+  }
+
+  function getMaskAvatarSafe(maskId) {
+    if (!maskId) return Promise.resolve('');
+    if (window.PhoneMask && typeof window.PhoneMask.getMaskAvatar === 'function') {
+      return Promise.resolve(window.PhoneMask.getMaskAvatar(maskId)).catch(function () { return ''; });
+    }
+    return dbGet('mask_avatar_' + maskId);
+  }
+
+  function getCharsSafe() {
+    if (window.PhoneArchive && typeof window.PhoneArchive.getChars === 'function') {
+      try {
+        var list = window.PhoneArchive.getChars();
+        return Array.isArray(list) ? list : [];
+      } catch (e) {}
+    }
+    return [];
+  }
+
+  function getCharAvatarSafe(charId) {
+    if (!charId) return Promise.resolve('');
+    if (window.PhoneArchive && typeof window.PhoneArchive.getCharAvatar === 'function') {
+      return Promise.resolve(window.PhoneArchive.getCharAvatar(charId)).catch(function () { return ''; });
+    }
+    return Promise.resolve('');
+  }
+
+  /* ---------------- 账号、面具绑定与 Char 密码锁 ---------------- */
   function getAccounts() {
     var list = readJSON(KEY_ACCOUNTS, null);
     if (!Array.isArray(list) || !list.length) {
       list = [{
         id: 'acc_default',
+        type: 'mask',
+        maskId: '',
+        charId: '',
         name: '我',
         chatId: '',
         signature: '',
@@ -222,6 +269,112 @@
       window.dispatchEvent(new CustomEvent('phone:chat-account-changed', { detail: found }));
     } catch (e) {}
     return true;
+  }
+
+  function getCharPasscodeStore() {
+    var map = readJSON(KEY_CHAR_PASSCODES, {});
+    return (map && typeof map === 'object') ? map : {};
+  }
+
+  function saveCharPasscodeStore(map) {
+    writeJSON(KEY_CHAR_PASSCODES, map);
+  }
+
+  function generateRandomPasscode() {
+    return String(Math.floor(1000 + Math.random() * 9000));
+  }
+
+  // 获取某 Char 的隐藏密码（若尚未生成则静默随机生成，仅供 AI 上下文读取，不在 UI 展示）
+  function getCharPasscode(charId) {
+    if (!charId) return '';
+    var map = getCharPasscodeStore();
+    if (!map[charId] || !map[charId].code) {
+      map[charId] = {
+        code: generateRandomPasscode(),
+        unlocked: false,
+        updatedAt: Date.now()
+      };
+      saveCharPasscodeStore(map);
+    }
+    return map[charId].code;
+  }
+
+  function isCharUnlocked(charId) {
+    if (!charId) return false;
+    var map = getCharPasscodeStore();
+    return !!(map[charId] && map[charId].unlocked);
+  }
+
+  function verifyCharPasscode(charId, inputCode) {
+    if (!charId) return false;
+    var realCode = getCharPasscode(charId);
+    if (String(inputCode || '').trim() === String(realCode).trim()) {
+      var map = getCharPasscodeStore();
+      map[charId].unlocked = true;
+      saveCharPasscodeStore(map);
+      return true;
+    }
+    return false;
+  }
+
+  function lockCharAccount(charId) {
+    if (!charId) return;
+    var map = getCharPasscodeStore();
+    if (map[charId]) {
+      map[charId].unlocked = false;
+      saveCharPasscodeStore(map);
+    }
+    var active = getActiveAccount();
+    if (active && active.type === 'char' && active.charId === charId) {
+      var fallback = getAccounts().find(function (a) { return a.type !== 'char'; });
+      if (fallback) setActiveAccount(fallback.id);
+    }
+  }
+
+  // 供后续 chat-ai.js 调用：Char 自主修改自己的密码并重新上锁
+  function setCharPasscode(charId, newCode, relock) {
+    var prefs = getPrefs();
+    if (!prefs.allowCharChangePasscode) return false;
+    var clean = String(newCode || '').trim();
+    if (!clean) return false;
+    var map = getCharPasscodeStore();
+    map[charId] = {
+      code: clean,
+      unlocked: relock === false ? !!(map[charId] && map[charId].unlocked) : false,
+      updatedAt: Date.now(),
+      changedByChar: true
+    };
+    saveCharPasscodeStore(map);
+
+    if (relock !== false) {
+      var active = getActiveAccount();
+      if (active && active.type === 'char' && active.charId === charId) {
+        var fallback = getAccounts().find(function (a) { return a.type !== 'char'; });
+        if (fallback) setActiveAccount(fallback.id);
+        showToast((active.name || '对方') + ' 修改了账号密码，已重新上锁');
+      }
+    }
+    return true;
+  }
+
+  function getOrCreateCharAccount(ch) {
+    var list = getAccounts();
+    var existing = list.find(function (a) { return a.type === 'char' && a.charId === ch.id; });
+    if (existing) return existing;
+    var created = {
+      id: 'acc_char_' + ch.id,
+      type: 'char',
+      maskId: '',
+      charId: ch.id,
+      name: ch.name || 'Char',
+      chatId: '',
+      signature: ch.tagline || '',
+      bio: ch.summary || ch.persona || '',
+      avatarDbKey: ''
+    };
+    list.push(created);
+    saveAccounts(list);
+    return created;
   }
 
   function getWalletBalance() {
@@ -277,7 +430,8 @@
     return Object.assign({
       enterToSend: false,
       notifySound: true,
-      showWalletBalance: true
+      showWalletBalance: true,
+      allowCharChangePasscode: true
     }, p || {});
   }
 
@@ -288,7 +442,7 @@
   /* ---------------- 交互反馈 & Toast & 视口同步 ---------------- */
   function bindPressFeedback(root) {
     if (!root) return;
-    var targets = root.querySelectorAll('.ctme-row, .ctme-profile, .ctme-back-btn, .ctme-pill-btn, .ctme-item, .ctme-btn, .ctme-wallet-btn, .ctme-fav-card, .ctme-pack-row, .ctme-sticker-cell, .ctme-action-btn, .ctme-mini-pill, .ctme-quick-amt');
+    var targets = root.querySelectorAll('.ctme-row, .ctme-profile, .ctme-back-btn, .ctme-pill-btn, .ctme-item, .ctme-btn, .ctme-wallet-btn, .ctme-fav-card, .ctme-pack-row, .ctme-sticker-cell, .ctme-action-btn, .ctme-mini-pill, .ctme-quick-amt, .ctme-mask-quick, .ctme-chip');
     targets.forEach(function (el) {
       if (el._ctmePressBound) return;
       el._ctmePressBound = true;
@@ -478,6 +632,37 @@
     else if (cur.id === 'blocklist') renderBlocklistPage();
   }
 
+  /* ---------------- 头像加载辅助（账号自定义 > 绑定面具 > Char 头像） ---------------- */
+  function resolveAccountAvatar(acc) {
+    if (!acc) return Promise.resolve('');
+    if (acc.avatarDbKey) {
+      if (avatarCache[acc.avatarDbKey]) return Promise.resolve(avatarCache[acc.avatarDbKey]);
+      return dbGet(acc.avatarDbKey).then(function (u) {
+        if (u) {
+          avatarCache[acc.avatarDbKey] = u;
+          return u;
+        }
+        return resolveLinkedAvatar(acc);
+      });
+    }
+    return resolveLinkedAvatar(acc);
+  }
+
+  function resolveLinkedAvatar(acc) {
+    if (acc.maskId) return getMaskAvatarSafe(acc.maskId);
+    if (acc.charId) return getCharAvatarSafe(acc.charId);
+    return Promise.resolve('');
+  }
+
+  function loadAccountAvatarInto(acc, containerEl) {
+    if (!acc || !containerEl) return;
+    resolveAccountAvatar(acc).then(function (url) {
+      if (url && containerEl) {
+        containerEl.innerHTML = '<img src="' + url + '" alt="' + esc(acc.name || '') + '">';
+      }
+    });
+  }
+
   /* ---------------- 1. 个人资料子页 ---------------- */
   function renderProfilePage(targetAccountId) {
     var accounts = getAccounts();
@@ -485,8 +670,22 @@
       ? (accounts.find(function (a) { return a.id === targetAccountId; }) || getActiveAccount())
       : getActiveAccount();
 
+    var masks = getMasksSafe();
     var pendingAvatarUrl = null;
     var clearAvatarFlag = false;
+    var isCharAcc = acc.type === 'char';
+
+    var maskSelectHtml = !isCharAcc
+      ? '<div class="ctme-field">' +
+          '<label class="ctme-field-label">绑定「面具」角色卡</label>' +
+          '<select class="ctme-select" id="ctmeProfMaskSelect">' +
+            '<option value="">不绑定（作为小号 / 独立社媒号）</option>' +
+            masks.map(function (m) {
+              return '<option value="' + esc(m.id) + '" ' + (acc.maskId === m.id ? 'selected' : '') + '>' + esc(m.name || '未命名面具') + '</option>';
+            }).join('') +
+          '</select>' +
+        '</div>'
+      : '';
 
     var ov = renderSubShell(
       targetAccountId && targetAccountId !== getActiveAccount().id ? '编辑账号资料' : '个人资料',
@@ -502,6 +701,7 @@
         '</div>' +
       '</div>' +
       '<div class="ctme-card ctme-card-pad">' +
+        maskSelectHtml +
         '<div class="ctme-field">' +
           '<label class="ctme-field-label">昵称</label>' +
           '<input type="text" class="ctme-input" id="ctmeProfName" value="' + esc(acc.name) + '" placeholder="输入你的昵称">' +
@@ -523,8 +723,26 @@
     if (!ov) return;
 
     var preview = ov.querySelector('#ctmeProfileAvaPreview');
-    if (acc.avatarDbKey) {
-      loadAvatarInto(acc.avatarDbKey, preview, acc.name);
+    loadAccountAvatarInto(acc, preview);
+
+    var maskSel = ov.querySelector('#ctmeProfMaskSelect');
+    if (maskSel) {
+      maskSel.addEventListener('change', function () {
+        var mid = maskSel.value;
+        if (!mid) return;
+        var m = masks.find(function (x) { return x.id === mid; });
+        if (m) {
+          var nameInp = ov.querySelector('#ctmeProfName');
+          var bioInp = ov.querySelector('#ctmeProfBio');
+          if (nameInp && (!nameInp.value || nameInp.value === '我')) nameInp.value = m.name || '我';
+          if (bioInp && !bioInp.value && m.setting) bioInp.value = m.setting;
+          if (!pendingAvatarUrl && !acc.avatarDbKey) {
+            getMaskAvatarSafe(mid).then(function (u) {
+              if (u) preview.innerHTML = '<img src="' + u + '" alt="avatar">';
+            });
+          }
+        }
+      });
     }
 
     var fileInput = ov.querySelector('#ctmeProfileAvaInput');
@@ -555,6 +773,8 @@
       var newChatId = (ov.querySelector('#ctmeProfChatId').value || '').trim();
       var newSig = (ov.querySelector('#ctmeProfSig').value || '').trim();
       var newBio = (ov.querySelector('#ctmeProfBio').value || '').trim();
+      var newMaskId = maskSel ? maskSel.value : (acc.maskId || '');
+      var newType = isCharAcc ? 'char' : (newMaskId ? 'mask' : 'alt');
 
       var list = getAccounts();
       var idx = list.findIndex(function (a) { return a.id === acc.id; });
@@ -562,6 +782,8 @@
 
       var saveRest = function (avatarDbKey) {
         list[idx] = Object.assign({}, list[idx], {
+          type: newType,
+          maskId: newMaskId,
           name: newName,
           chatId: newChatId,
           signature: newSig,
@@ -1267,9 +1489,7 @@
     );
     if (!ov) return;
 
-    if (acc.avatarDbKey) {
-      loadAvatarInto(acc.avatarDbKey, ov.querySelector('#ctmeAlbumAva'), acc.name);
-    }
+    loadAccountAvatarInto(acc, ov.querySelector('#ctmeAlbumAva'));
 
     var coverImg = ov.querySelector('#ctmeAlbumCoverImg');
     var applyCover = function (url) {
@@ -1311,10 +1531,11 @@
     });
   }
 
-  /* ---------------- 6. 设置 & 切换账号子页 ---------------- */
+  /* ---------------- 6. 设置子页（已去掉「当前账号资料」） ---------------- */
   function renderSettingsPage() {
     var acc = getActiveAccount();
     var allAccs = getAccounts();
+    var chars = getCharsSafe();
     var prefs = getPrefs();
 
     var threadSettings = readJSON('chat_thread_settings_v1', {});
@@ -1322,19 +1543,26 @@
       return threadSettings[tid] && threadSettings[tid].blocked;
     }).length;
 
+    var accRoleHint = acc.type === 'char'
+      ? 'Char 视角'
+      : (acc.maskId ? '面具主号' : '小号');
+
     var ov = renderSubShell('设置', '',
       '<div class="ctme-section-label">账号与身份</div>' +
       '<div class="ctme-card">' +
         '<div class="ctme-item" id="ctmeSetSwitchAcc">' +
           '<div>' +
             '<div class="ctme-item-label">切换账号</div>' +
-            '<div class="ctme-item-desc">当前：' + esc(acc.name) + '（共 ' + allAccs.length + ' 个账号）</div>' +
+            '<div class="ctme-item-desc">当前：' + esc(acc.name) + '（' + accRoleHint + ' · ' + allAccs.length + ' 个自建 / ' + chars.length + ' 个角色）</div>' +
           '</div>' +
           '<div class="ctme-item-right"><span>管理</span>' + SVG_ARROW + '</div>' +
         '</div>' +
-        '<div class="ctme-item" id="ctmeSetEditProfile">' +
-          '<div class="ctme-item-label">当前账号资料</div>' +
-          '<div class="ctme-item-right">' + SVG_ARROW + '</div>' +
+        '<div class="ctme-item" data-pref-toggle="allowCharChangePasscode">' +
+          '<div>' +
+            '<div class="ctme-item-label">允许 Char 自主改密</div>' +
+            '<div class="ctme-item-desc">开启后，Char 可在对话中自己改掉微信密码并重新上锁</div>' +
+          '</div>' +
+          '<button type="button" class="ctme-switch ' + (prefs.allowCharChangePasscode ? 'is-on' : '') + '"></button>' +
         '</div>' +
       '</div>' +
 
@@ -1378,9 +1606,6 @@
     ov.querySelector('#ctmeSetSwitchAcc').addEventListener('click', function () {
       pushPage({ id: 'accounts' });
     });
-    ov.querySelector('#ctmeSetEditProfile').addEventListener('click', function () {
-      pushPage({ id: 'profile', accountId: acc.id });
-    });
     ov.querySelector('#ctmeSetBlocklist').addEventListener('click', function () {
       pushPage({ id: 'blocklist' });
     });
@@ -1422,52 +1647,253 @@
     });
   }
 
-  /* ---------------- 切换账号子页 ---------------- */
+  /* ---------------- 切换账号子页（面具主号 / 小号 / 带锁 Char 账号） ---------------- */
+  function openCharPasswordSheet(ch) {
+    // 确保后台已有随机默认密码，但不展示在界面上
+    getCharPasscode(ch.id);
+
+    openSheet('登录「' + (ch.name || 'Char') + '」的账号',
+      '<div class="ctme-hint-box">' +
+        '登录 TA 的账号需要输入专属密码，密码只有 TA 自己知道——去聊天里问问 TA 吧。' +
+      '</div>' +
+      '<div class="ctme-field">' +
+        '<label class="ctme-field-label">账号密码</label>' +
+        '<div class="ctme-pwd-wrap">' +
+          '<input type="password" class="ctme-input" id="ctmeCharPwdInput" placeholder="输入从 TA 那里问到的密码" autocomplete="off">' +
+          '<button type="button" class="ctme-pwd-eye" id="ctmeCharPwdEye" aria-label="显示密码">' + SVG_EYE + '</button>' +
+        '</div>' +
+        '<div class="ctme-pwd-err" id="ctmeCharPwdErr"></div>' +
+      '</div>' +
+      '<button type="button" class="ctme-action-btn is-primary" id="ctmeCharPwdSubmit">验证并登录</button>',
+      function (body) {
+        var inp = body.querySelector('#ctmeCharPwdInput');
+        var eye = body.querySelector('#ctmeCharPwdEye');
+        var errEl = body.querySelector('#ctmeCharPwdErr');
+        var submit = body.querySelector('#ctmeCharPwdSubmit');
+
+        eye.addEventListener('click', function () {
+          inp.type = inp.type === 'password' ? 'text' : 'password';
+        });
+
+        var doVerify = function () {
+          var val = (inp.value || '').trim();
+          if (!val) {
+            errEl.textContent = '请先输入密码';
+            return;
+          }
+          if (verifyCharPasscode(ch.id, val)) {
+            var charAcc = getOrCreateCharAccount(ch);
+            setActiveAccount(charAcc.id);
+            closeSheet();
+            showToast('已切换到「' + (ch.name || 'Char') + '」视角');
+            renderTopPage();
+          } else {
+            errEl.textContent = '密码不对，再去聊天里套套话吧';
+            inp.select();
+          }
+        };
+
+        submit.addEventListener('click', doVerify);
+        inp.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') doVerify();
+        });
+        setTimeout(function () { inp.focus(); }, 180);
+      }
+    );
+  }
+
   function renderAccountsPage() {
     var list = getAccounts();
     var activeId = getActiveAccount().id;
+    var masks = getMasksSafe();
+    var chars = getCharsSafe();
 
-    var cardsHtml = list.map(function (a) {
+    var maskAccounts = list.filter(function (a) { return a.type !== 'char' && (a.maskId || a.type === 'mask' || a.id === 'acc_default'); });
+    var altAccounts = list.filter(function (a) { return a.type === 'alt' || (a.type !== 'char' && !a.maskId && a.type !== 'mask' && a.id !== 'acc_default'); });
+
+    // 检测尚未建立社媒主号的面具
+    var unboundMasks = masks.filter(function (m) {
+      return !list.some(function (a) { return a.maskId === m.id; });
+    });
+
+    function buildSelfCard(a) {
       var isCur = a.id === activeId;
+      var linkedMask = a.maskId ? masks.find(function (m) { return m.id === a.maskId; }) : null;
+      var badgeHtml = linkedMask
+        ? '<span class="ctme-acc-badge is-mask">面具 · ' + esc(linkedMask.name || '已绑定') + '</span>'
+        : (a.type === 'alt'
+            ? '<span class="ctme-acc-badge is-alt">小号</span>'
+            : '<span class="ctme-acc-badge is-mask">主号</span>');
+      var metaText = a.chatId
+        ? ('ID: ' + a.chatId)
+        : (a.signature || a.bio || (linkedMask ? '已绑定「面具」人设，点击切换' : '点击切换为此账号'));
+
       return '<div class="ctme-acc-card ' + (isCur ? 'is-current' : '') + '" data-acc-id="' + esc(a.id) + '">' +
         '<div class="ctme-acc-top" data-acc-switch="' + esc(a.id) + '">' +
-          '<div class="ctme-acc-ava" data-acc-ava-key="' + esc(a.avatarDbKey || '') + '">' + esc((a.name || '我').slice(0, 1)) + '</div>' +
+          '<div class="ctme-acc-ava" data-acc-ava-id="' + esc(a.id) + '">' + esc((a.name || '我').slice(0, 1)) + '</div>' +
           '<div class="ctme-acc-info">' +
             '<div class="ctme-acc-name-line">' +
               '<span class="ctme-acc-name">' + esc(a.name) + '</span>' +
+              badgeHtml +
               (isCur ? '<span class="ctme-acc-badge">当前使用</span>' : '') +
             '</div>' +
-            '<div class="ctme-acc-meta">' +
-              esc(a.chatId ? ('ID: ' + a.chatId) : (a.signature || a.bio || '点击切换为此账号')) +
-            '</div>' +
+            '<div class="ctme-acc-meta">' + esc(metaText) + '</div>' +
           '</div>' +
         '</div>' +
         '<div class="ctme-acc-actions">' +
           (!isCur ? '<button type="button" class="ctme-mini-pill" style="background:#111;color:#fff;" data-acc-switch="' + esc(a.id) + '">切换使用</button>' : '') +
           '<button type="button" class="ctme-mini-pill" data-acc-edit="' + esc(a.id) + '">编辑资料</button>' +
-          (list.length > 1 ? '<button type="button" class="ctme-mini-pill is-danger" data-acc-del="' + esc(a.id) + '">删除</button>' : '') +
+          (list.length > 1 && a.id !== 'acc_default' ? '<button type="button" class="ctme-mini-pill is-danger" data-acc-del="' + esc(a.id) + '">删除</button>' : '') +
         '</div>' +
       '</div>';
-    }).join('');
+    }
+
+    var maskSectionHtml = maskAccounts.map(buildSelfCard).join('') +
+      unboundMasks.map(function (m) {
+        return '<div class="ctme-mask-quick" data-quick-mask="' + esc(m.id) + '">' +
+          '<div class="ctme-acc-ava" data-mask-ava-id="' + esc(m.id) + '">' + esc((m.name || '面').slice(0, 1)) + '</div>' +
+          '<div class="ctme-acc-info">' +
+            '<div class="ctme-acc-name">用面具「' + esc(m.name || '未命名') + '」建立社媒号</div>' +
+            '<div class="ctme-acc-meta">自动同步头像与人设，点击直接创建并切换</div>' +
+          '</div>' +
+          '<span class="ctme-row-arrow">' + SVG_ARROW + '</span>' +
+        '</div>';
+      }).join('');
+
+    var altSectionHtml = altAccounts.length
+      ? altAccounts.map(buildSelfCard).join('')
+      : '<div class="ctme-card"><div class="ctme-empty" style="padding:20px;">暂无小号，点右上角「新建」可开马甲小号</div></div>';
+
+    var charSectionHtml = chars.length
+      ? chars.map(function (ch) {
+          getCharPasscode(ch.id); // 静默初始化默认密码
+          var unlocked = isCharUnlocked(ch.id);
+          var charAcc = list.find(function (a) { return a.type === 'char' && a.charId === ch.id; });
+          var isCur = !!(charAcc && charAcc.id === activeId);
+
+          return '<div class="ctme-acc-card ' + (isCur ? 'is-current' : '') + '" data-char-card="' + esc(ch.id) + '">' +
+            '<div class="ctme-acc-top" data-char-login="' + esc(ch.id) + '">' +
+              '<div class="ctme-acc-ava" data-char-ava-id="' + esc(ch.id) + '">' + esc((ch.name || 'C').slice(0, 1)) + '</div>' +
+              '<div class="ctme-acc-info">' +
+                '<div class="ctme-acc-name-line">' +
+                  '<span class="ctme-acc-name">' + esc(ch.name || '未命名角色') + '</span>' +
+                  '<span class="ctme-acc-badge is-char">Char 视角</span>' +
+                  (!unlocked ? '<span class="ctme-acc-badge is-locked">需要密码</span>' : '') +
+                  (isCur ? '<span class="ctme-acc-badge">当前登录</span>' : '') +
+                '</div>' +
+                '<div class="ctme-acc-meta">' +
+                  (unlocked
+                    ? (isCur ? '正以 TA 的视角查看微信与聊天' : '已验证密码，点击直接切换')
+                    : '不能直接登录 · 密码只能去聊天里问 TA') +
+                '</div>' +
+              '</div>' +
+              (!unlocked ? '<span class="ctme-lock-icon">' + SVG_LOCK + '</span>' : '') +
+            '</div>' +
+            '<div class="ctme-acc-actions">' +
+              (!unlocked
+                ? '<button type="button" class="ctme-mini-pill" style="background:#111;color:#fff;" data-char-login="' + esc(ch.id) + '">输入密码登录</button>'
+                : ((!isCur
+                    ? '<button type="button" class="ctme-mini-pill" style="background:#111;color:#fff;" data-char-login="' + esc(ch.id) + '">切换为 TA</button>'
+                    : '') +
+                  '<button type="button" class="ctme-mini-pill" data-char-lock="' + esc(ch.id) + '">重新上锁</button>')) +
+            '</div>' +
+          '</div>';
+        }).join('')
+      : '<div class="ctme-card"><div class="ctme-empty" style="padding:20px;">还没有角色卡，去「档案」添加 Char 后就能在这里登录 TA 的账号</div></div>';
 
     var ov = renderSubShell('切换账号',
       '<button type="button" class="ctme-pill-btn is-primary" id="ctmeAccCreate">新建</button>',
-      '<div class="ctme-section-label">点击账号即可快速切换身份</div>' +
-      cardsHtml
+      '<div class="ctme-section-label">我的角色卡（面具主号）</div>' +
+      maskSectionHtml +
+      '<div class="ctme-section-label">小号</div>' +
+      altSectionHtml +
+      '<div class="ctme-section-label">登录 Char 的账号</div>' +
+      charSectionHtml
     );
     if (!ov) return;
 
-    ov.querySelectorAll('.ctme-acc-ava[data-acc-ava-key]').forEach(function (el) {
-      var key = el.getAttribute('data-acc-ava-key');
-      if (key) loadAvatarInto(key, el, el.textContent);
+    // 加载各类头像
+    ov.querySelectorAll('.ctme-acc-ava[data-acc-ava-id]').forEach(function (el) {
+      var id = el.getAttribute('data-acc-ava-id');
+      var accObj = list.find(function (x) { return x.id === id; });
+      if (accObj) loadAccountAvatarInto(accObj, el);
+    });
+    ov.querySelectorAll('.ctme-acc-ava[data-mask-ava-id]').forEach(function (el) {
+      var mid = el.getAttribute('data-mask-ava-id');
+      getMaskAvatarSafe(mid).then(function (u) {
+        if (u) el.innerHTML = '<img src="' + u + '" alt="">';
+      });
+    });
+    ov.querySelectorAll('.ctme-acc-ava[data-char-ava-id]').forEach(function (el) {
+      var cid = el.getAttribute('data-char-ava-id');
+      getCharAvatarSafe(cid).then(function (u) {
+        if (u) el.innerHTML = '<img src="' + u + '" alt="">';
+      });
     });
 
+    // 自建账号切换
     ov.querySelectorAll('[data-acc-switch]').forEach(function (el) {
       el.addEventListener('click', function () {
         var id = el.getAttribute('data-acc-switch');
         if (id === activeId) return;
         setActiveAccount(id);
         showToast('已切换账号');
+        renderTopPage();
+      });
+    });
+
+    // 快速用面具建立社媒主号
+    ov.querySelectorAll('[data-quick-mask]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var mid = el.getAttribute('data-quick-mask');
+        var m = masks.find(function (x) { return x.id === mid; });
+        if (!m) return;
+        var created = {
+          id: genId('acc'),
+          type: 'mask',
+          maskId: m.id,
+          charId: '',
+          name: m.name || '我',
+          chatId: '',
+          signature: '',
+          bio: m.setting || '',
+          avatarDbKey: ''
+        };
+        var all = getAccounts();
+        all.push(created);
+        saveAccounts(all);
+        setActiveAccount(created.id);
+        showToast('已用面具「' + created.name + '」建立并切换账号');
+        renderTopPage();
+      });
+    });
+
+    // Char 账号登录（未解锁弹出密码框，已解锁直接切）
+    ov.querySelectorAll('[data-char-login]').forEach(function (el) {
+      el.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var cid = el.getAttribute('data-char-login');
+        var ch = chars.find(function (x) { return x.id === cid; });
+        if (!ch) return;
+        if (!isCharUnlocked(cid)) {
+          openCharPasswordSheet(ch);
+          return;
+        }
+        var charAcc = getOrCreateCharAccount(ch);
+        if (charAcc.id === activeId) return;
+        setActiveAccount(charAcc.id);
+        showToast('已切换到「' + (ch.name || 'Char') + '」视角');
+        renderTopPage();
+      });
+    });
+
+    // 重新上锁 Char 账号
+    ov.querySelectorAll('[data-char-lock]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var cid = btn.getAttribute('data-char-lock');
+        lockCharAccount(cid);
+        showToast('已重新上锁，下次登录需重新输入密码');
         renderTopPage();
       });
     });
@@ -1502,7 +1928,23 @@
     });
 
     ov.querySelector('#ctmeAccCreate').addEventListener('click', function () {
-      openSheet('新建账号',
+      var curMasks = getMasksSafe();
+      var maskOpts = curMasks.map(function (m) {
+        return '<option value="' + esc(m.id) + '">' + esc(m.name || '未命名面具') + '</option>';
+      }).join('');
+
+      openSheet('新建社媒账号',
+        '<div class="ctme-field">' +
+          '<label class="ctme-field-label">账号类型</label>' +
+          '<select class="ctme-select" id="ctmeNewAccType">' +
+            '<option value="alt">小号（独立马甲）</option>' +
+            (curMasks.length ? '<option value="mask">面具主号（绑定我的角色卡）</option>' : '') +
+          '</select>' +
+        '</div>' +
+        '<div class="ctme-field" id="ctmeNewAccMaskWrap" style="display:none;">' +
+          '<label class="ctme-field-label">选择面具角色卡</label>' +
+          '<select class="ctme-select" id="ctmeNewAccMaskId">' + maskOpts + '</select>' +
+        '</div>' +
         '<div class="ctme-field">' +
           '<label class="ctme-field-label">昵称</label>' +
           '<input type="text" class="ctme-input" id="ctmeNewAccName" placeholder="输入账号昵称">' +
@@ -1517,18 +1959,42 @@
         '</div>' +
         '<button type="button" class="ctme-action-btn is-primary" id="ctmeNewAccSave">创建并切换</button>',
         function (body) {
+          var typeSel = body.querySelector('#ctmeNewAccType');
+          var maskWrap = body.querySelector('#ctmeNewAccMaskWrap');
+          var maskIdSel = body.querySelector('#ctmeNewAccMaskId');
+          var nameInp = body.querySelector('#ctmeNewAccName');
+          var bioInp = body.querySelector('#ctmeNewAccBio');
+
+          function syncMaskFields() {
+            var isMask = typeSel.value === 'mask';
+            maskWrap.style.display = isMask ? '' : 'none';
+            if (isMask && maskIdSel) {
+              var m = curMasks.find(function (x) { return x.id === maskIdSel.value; });
+              if (m) {
+                if (!nameInp.value.trim()) nameInp.value = m.name || '';
+                if (!bioInp.value.trim() && m.setting) bioInp.value = m.setting;
+              }
+            }
+          }
+          typeSel.addEventListener('change', syncMaskFields);
+          if (maskIdSel) maskIdSel.addEventListener('change', syncMaskFields);
+
           body.querySelector('#ctmeNewAccSave').addEventListener('click', function () {
-            var name = (body.querySelector('#ctmeNewAccName').value || '').trim();
+            var name = (nameInp.value || '').trim();
             if (!name) {
               showToast('请输入账号昵称');
               return;
             }
+            var isMask = typeSel.value === 'mask';
             var acc = {
               id: genId('acc'),
+              type: isMask ? 'mask' : 'alt',
+              maskId: (isMask && maskIdSel) ? maskIdSel.value : '',
+              charId: '',
               name: name,
               chatId: (body.querySelector('#ctmeNewAccId').value || '').trim(),
               signature: '',
-              bio: (body.querySelector('#ctmeNewAccBio').value || '').trim(),
+              bio: (bioInp.value || '').trim(),
               avatarDbKey: ''
             };
             var all = getAccounts();
@@ -1582,20 +2048,6 @@
   }
 
   /* ---------------- 主页面渲染（「我的」Tab） ---------------- */
-  function loadAvatarInto(dbKey, containerEl, fallbackName) {
-    if (!dbKey || !containerEl) return;
-    if (avatarCache[dbKey]) {
-      containerEl.innerHTML = '<img src="' + avatarCache[dbKey] + '" alt="' + esc(fallbackName || '') + '">';
-      return;
-    }
-    dbGet(dbKey).then(function (url) {
-      if (url) {
-        avatarCache[dbKey] = url;
-        containerEl.innerHTML = '<img src="' + url + '" alt="' + esc(fallbackName || '') + '">';
-      }
-    });
-  }
-
   function isMeTabActive() {
     var tab = document.querySelector('#app-chat .ct-tab-btn[data-tab="me"]');
     return !!(tab && tab.classList.contains('active'));
@@ -1632,13 +2084,19 @@
     var prefs = getPrefs();
     var balText = prefs.showWalletBalance ? ('¥' + getWalletBalance().toFixed(2)) : '';
     var subLine = acc.chatId ? ('ID: ' + acc.chatId) : (acc.signature || '');
+    var roleTagHtml = acc.type === 'char'
+      ? '<span class="ctme-role-tag is-char">Char 视角</span>'
+      : (acc.type === 'alt' ? '<span class="ctme-role-tag">小号</span>' : '');
 
     scroll.innerHTML =
       '<div class="ctme-wrap">' +
         '<div class="ctme-profile" id="ctmeProfileEntry">' +
           '<div class="ctme-avatar" id="ctmeMainAvatar">' + SVG_USER + '</div>' +
           '<div class="ctme-profile-info">' +
-            '<div class="ctme-name">' + esc(acc.name || '我') + '</div>' +
+            '<div class="ctme-name-row">' +
+              '<div class="ctme-name">' + esc(acc.name || '我') + '</div>' +
+              roleTagHtml +
+            '</div>' +
             (subLine ? '<div class="ctme-sub-id">' + esc(subLine) + '</div>' : '') +
           '</div>' +
           '<span class="ctme-row-arrow">' + SVG_ARROW + '</span>' +
@@ -1653,9 +2111,7 @@
         '<div class="ctme-list">' + renderRow(SETTINGS_ITEM, '') + '</div>' +
       '</div>';
 
-    if (acc.avatarDbKey) {
-      loadAvatarInto(acc.avatarDbKey, scroll.querySelector('#ctmeMainAvatar'), acc.name);
-    }
+    loadAccountAvatarInto(acc, scroll.querySelector('#ctmeMainAvatar'));
 
     var profileEntry = scroll.querySelector('#ctmeProfileEntry');
     if (profileEntry) {
@@ -1679,16 +2135,18 @@
   window.PhoneChatMe = {
     getActiveAccount: getActiveAccount,
     getActiveAvatarDataUrl: function () {
-      var acc = getActiveAccount();
-      if (!acc || !acc.avatarDbKey) return Promise.resolve('');
-      if (avatarCache[acc.avatarDbKey]) return Promise.resolve(avatarCache[acc.avatarDbKey]);
-      return dbGet(acc.avatarDbKey).then(function (u) {
-        if (u) avatarCache[acc.avatarDbKey] = u;
-        return u || '';
-      });
+      return resolveAccountAvatar(getActiveAccount());
     },
     getAccounts: getAccounts,
     setActiveAccount: setActiveAccount,
+    isCharAccount: function () {
+      var acc = getActiveAccount();
+      return !!(acc && acc.type === 'char' && acc.charId);
+    },
+    getCharPasscode: getCharPasscode,
+    setCharPasscode: setCharPasscode,
+    isCharUnlocked: isCharUnlocked,
+    lockCharAccount: lockCharAccount,
     getWalletBalance: getWalletBalance,
     setWalletBalance: setWalletBalance,
     addWalletLog: addWalletLog,
