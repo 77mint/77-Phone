@@ -6,6 +6,7 @@
    - 支持 P1 长按流式转文字、P2 独占麦克风真录音（可回放）、默认展开转文字白卡、滑动引用
    - 支持 Char 视角切换（气泡左右互换、隐藏右上角复杂按钮、自动隐藏 CoT、预留关系备注接口）
    - 支持气泡头顶 CoT 思维链胶囊（点按顺滑展开、连发仅挂第一条）
+   - 支持顶部备注位「对方正在输入中…」状态切换
    ========================================================= */
 
 (function () {
@@ -67,12 +68,14 @@
     let modalSearchKeyword = '';
     let groupSelectedIds = [];
     let currentThreadId = null;
+    let currentRoomBaseTitle = '';
     let isVoiceMode = false;
     let pendingQuote = null;
     let currentPlayingAudio = null;
     let playAnimTimer = null;
     let userAvatarCache = {};
     let expandedCotIds = new Set();
+    let typingThreads = new Set();
 
     // 长按录音 / 语音转文字状态
     let holdState = {
@@ -345,6 +348,31 @@
         const boxCls = cls || 'ct-avatar';
         const fallbackChar = (displayName || '我').slice(0, 1);
         return `<div class="${boxCls}" data-user-avatar-box="1">${escapeHtml(fallbackChar)}</div>`;
+    }
+
+    /* ---------------- 顶部备注位「对方正在输入中…」切换 ---------------- */
+    function syncRoomTitle() {
+        const titleEl = document.getElementById('ctRoomTitle');
+        if (!titleEl) return;
+        const pov = getActivePov();
+        const isTyping = !pov.isChar && !!currentThreadId && typingThreads.has(currentThreadId);
+        titleEl.textContent = isTyping ? '对方正在输入中…' : (currentRoomBaseTitle || '聊天');
+        titleEl.classList.toggle('is-typing', isTyping);
+    }
+
+    function setThreadTyping(threadId, isTyping) {
+        const tid = threadId || currentThreadId;
+        if (!tid) return;
+        if (isTyping) typingThreads.add(tid);
+        else typingThreads.delete(tid);
+        if (tid === currentThreadId) {
+            syncRoomTitle();
+        }
+    }
+
+    function isThreadTyping(threadId) {
+        const tid = threadId || currentThreadId;
+        return !!tid && typingThreads.has(tid);
     }
 
     function syncRoomViewport() {
@@ -943,6 +971,7 @@
             renderQuoteBar();
             document.getElementById('ctRoomView').classList.remove('open');
             currentThreadId = null;
+            currentRoomBaseTitle = '';
             renderMessagesTab();
         });
 
@@ -1066,6 +1095,12 @@
             renderActiveTab();
         });
 
+        // 外部触发输入状态（如 chat-ai.js 派发 phone:chat-typing 事件）
+        window.addEventListener('phone:chat-typing', (e) => {
+            const detail = (e && e.detail) || {};
+            setThreadTyping(detail.threadId || currentThreadId, !!detail.typing);
+        });
+
         // 切号（如切入 Char 视角 / 切回主号）时自动同步刷新
         window.addEventListener('phone:chat-account-changed', () => {
             userAvatarCache = {};
@@ -1074,6 +1109,7 @@
             if (room && room.classList.contains('open')) {
                 room.classList.remove('open');
                 currentThreadId = null;
+                currentRoomBaseTitle = '';
             }
             syncTopButtonsVisibility();
             if (activeTab !== 'me') {
@@ -1181,9 +1217,10 @@
 
         const chars = getArchiveChars();
         const charObj = t.type === 'dm' ? chars.find(c => c.id === t.charId) : null;
-        document.getElementById('ctRoomTitle').textContent = t.type === 'dm-user'
+        currentRoomBaseTitle = t.type === 'dm-user'
             ? (t.name || '我')
             : (charObj ? getCharDisplayName(charObj) : (t.name || '聊天'));
+        syncRoomTitle();
 
         // Char 视角下隐藏右上角复杂设置按钮
         const moreBtn = document.getElementById('ctRoomMoreBtn');
@@ -1835,6 +1872,9 @@
     window.PhoneChat = {
         getThreads: getThreads,
         getContactIds: getContactIds,
+        getCurrentThreadId: () => currentThreadId,
+        setTyping: setThreadTyping,
+        isTyping: isThreadTyping,
         refreshMessages: renderRoomMessages
     };
 
