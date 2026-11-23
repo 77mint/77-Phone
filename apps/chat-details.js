@@ -3,6 +3,7 @@
    - 拦截 #ctRoomMoreBtn，不改动 apps/chat.js
    - 聊天界面设定：优先以主题为主，想改的再单独改；「显示头像」开关与主题完全独立
    - 修复 .ct-msg-bubble 选择器，使气泡缩放、配色、字体、气泡图精准生效
+   - 保护 .is-typing 状态，不覆盖顶部「对方正在输入中…」
    ========================================================= */
 
 (function () {
@@ -1190,6 +1191,7 @@
     function syncRoomTitleAndBellUI() {
         const titleEl = document.getElementById('ctRoomTitle');
         if (!titleEl) return;
+        if (titleEl.classList.contains('is-typing')) return;
         const tid = resolveActiveThreadId();
         if (!tid) return;
         const thread = getThreadById(tid);
@@ -1262,6 +1264,7 @@
         if (currentThreadId) return currentThreadId;
         const titleEl = document.getElementById('ctRoomTitle');
         if (!titleEl) return null;
+        if (titleEl.classList.contains('is-typing')) return null;
         const clone = titleEl.cloneNode(true);
         const bell = clone.querySelector('#ctRoomMuteBell');
         if (bell) bell.remove();
