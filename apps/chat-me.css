@@ -100,14 +100,14 @@
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 999px;
-  background: #e4f2ff;
-  color: #3a7ec4;
+  background: #e2f1ff;
+  color: #2d74c4;
   flex-shrink: 0;
 }
 
 .ctme-role-tag.is-char {
-  background: #f0e8ff;
-  color: #7e57c2;
+  background: #efe7ff;
+  color: #7850c8;
 }
 
 .ctme-sub-id {
@@ -597,8 +597,8 @@
 }
 
 .ctme-mini-pill.is-danger {
-  background: #ffe8ef;
-  color: #d64d74;
+  background: #ffe6ee;
+  color: #d44872;
 }
 
 .ctme-mini-pill.is-pressed {
@@ -1108,7 +1108,7 @@
   text-overflow: ellipsis;
 }
 
-/* 当前使用保持黑底白字；其余标签使用马卡龙色 */
+/* 当前使用保持黑底白字；其余标签全部使用柔和马卡龙色 */
 .ctme-acc-badge {
   font-size: calc(var(--app-font-size, 15px) - 4px);
   font-weight: 600;
@@ -1119,29 +1119,34 @@
   flex-shrink: 0;
 }
 
-.ctme-acc-badge.is-mask {
-  background: #fff2d6;
-  color: #b87b1e;
+.ctme-acc-badge.is-main {
+  background: #dcf7ea;
+  color: #1e8c5a;
 }
 
 .ctme-acc-badge.is-alt {
-  background: #e4f2ff;
-  color: #3a7ec4;
+  background: #e2f1ff;
+  color: #2d74c4;
+}
+
+.ctme-acc-badge.is-mask {
+  background: #fff3d6;
+  color: #b87616;
 }
 
 .ctme-acc-badge.is-char {
-  background: #f0e8ff;
-  color: #7e57c2;
+  background: #efe7ff;
+  color: #7850c8;
 }
 
 .ctme-acc-badge.is-locked {
-  background: #ffe8ef;
-  color: #d64d74;
+  background: #ffe6ee;
+  color: #d44872;
 }
 
 .ctme-acc-badge.is-stealth {
-  background: #e2f7eb;
-  color: #279c63;
+  background: #dcf7ea;
+  color: #1e8c5a;
 }
 
 .ctme-acc-meta {
