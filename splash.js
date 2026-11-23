@@ -1,4 +1,4 @@
-/* splash.js — 77 Phone 巴洛克法阵 + 星纱破界 + 水晶风铃开屏动画 */
+/* splash.js — 77 Phone 纯白巴洛克法阵 + 星纱破界 + 水晶风铃开屏动画 */
 (function () {
   'use strict';
 
@@ -59,13 +59,12 @@
       var osc1 = ac.createOscillator();
       var osc2 = ac.createOscillator();
       var gain = ac.createGain();
+      var subGain = ac.createGain();
 
       osc1.type = 'sine';
       osc1.frequency.setValueAtTime(freq, t0);
       osc2.type = 'triangle';
       osc2.frequency.setValueAtTime(freq * 2, t0);
-
-      var subGain = ac.createGain();
       subGain.gain.setValueAtTime(0.18, t0);
 
       gain.gain.setValueAtTime(0.0001, t0);
@@ -103,8 +102,8 @@
         playBell(1567.98, 0.22, 1.6, 0.038);
       },
       veilOpen: function () {
-        playBell(1174.66, 0, 0.9, 0.032);
-        playBell(1567.98, 0.09, 1.15, 0.036);
+        playBell(1174.66, 0, 0.9, 0.034);
+        playBell(1567.98, 0.09, 1.15, 0.038);
       },
       dispose: function () {
         if (ctx && ctx.close) {
@@ -131,10 +130,8 @@
       '  -webkit-user-select: none;',
       '  -webkit-tap-highlight-color: transparent;',
       '}',
-      '#phoneSplashOverlay.is-canvas-ready {',
-      '  background: transparent;',
-      '}',
       '#phoneSplashOverlay.is-revealing {',
+      '  background: transparent;',
       '  pointer-events: none;',
       '}',
       '.ps-canvas {',
@@ -153,7 +150,7 @@
       '  padding: 6px 14px;',
       '  border-radius: 999px;',
       '  border: 1px solid rgba(156, 179, 234, 0.34);',
-      '  background: rgba(255, 255, 255, 0.86);',
+      '  background: rgba(255, 255, 255, 0.92);',
       '  color: #8b9fd9;',
       '  font-family: var(--app-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif);',
       '  font-size: calc(var(--app-font-size, 15px) * 0.87);',
@@ -175,22 +172,27 @@
       '  opacity: 0;',
       '  pointer-events: none;',
       '}',
+      '@keyframes psHintBreathe {',
+      '  0%, 100% { opacity: 0.45; transform: translateX(-50%) translateY(0); }',
+      '  50% { opacity: 0.92; transform: translateX(-50%) translateY(-2px); }',
+      '}',
       '.ps-tap-hint {',
       '  position: absolute;',
       '  left: 50%;',
-      '  bottom: calc(env(safe-area-inset-bottom, 16px) + 26px);',
+      '  bottom: calc(env(safe-area-inset-bottom, 16px) + 28px);',
       '  transform: translateX(-50%) translateY(6px);',
-      '  color: rgba(139, 159, 217, 0.68);',
+      '  color: #8b9fd9;',
       '  font-family: var(--app-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif);',
-      '  font-size: calc(var(--app-font-size, 15px) * 0.8);',
-      '  letter-spacing: 0.12em;',
+      '  font-size: calc(var(--app-font-size, 15px) * 0.85);',
+      '  letter-spacing: 0.14em;',
       '  opacity: 0;',
       '  pointer-events: none;',
-      '  transition: opacity 0.42s ease, transform 0.42s cubic-bezier(0.32, 0.72, 0, 1);',
+      '  transition: opacity 0.48s ease, transform 0.48s cubic-bezier(0.32, 0.72, 0, 1);',
       '}',
       '.ps-tap-hint.is-visible {',
-      '  opacity: 1;',
+      '  opacity: 0.85;',
       '  transform: translateX(-50%) translateY(0);',
+      '  animation: psHintBreathe 2.4s ease-in-out 0.48s infinite;',
       '}'
     ].join('\n');
     document.head.appendChild(style);
@@ -355,6 +357,7 @@
   ];
 
   function drawPixelHeart(ctx, x, y, ps, color, alpha, glint) {
+    ctx.save();
     ctx.globalAlpha = alpha;
     var ox = Math.round(x - 3.5 * ps);
     var oy = Math.round(y - 3 * ps);
@@ -372,9 +375,11 @@
       ctx.globalAlpha = alpha * 0.78;
       ctx.fillRect(ox + ps, oy + ps, ps, ps);
     }
+    ctx.restore();
   }
 
   function drawSparkleStar(ctx, x, y, r, color, alpha) {
+    ctx.save();
     ctx.globalAlpha = alpha;
     ctx.fillStyle = color;
     ctx.beginPath();
@@ -385,14 +390,17 @@
     ctx.quadraticCurveTo(x, y, x, y - r);
     ctx.closePath();
     ctx.fill();
+    ctx.restore();
   }
 
   function drawMiniCross(ctx, x, y, s, color, alpha) {
+    ctx.save();
     ctx.globalAlpha = alpha;
     ctx.fillStyle = color;
     var w = Math.max(1.2, s * 0.32);
     ctx.fillRect(x - w / 2, y - s, w, s * 2.35);
     ctx.fillRect(x - s * 0.75, y - s * 0.35, s * 1.5, w);
+    ctx.restore();
   }
 
   // 绘制旋转巴洛克星轨法阵
@@ -401,7 +409,6 @@
     ctx.save();
     ctx.translate(cx, cy);
 
-    // 外圈双细环
     ctx.rotate(angle);
     ctx.strokeStyle = '#b5c7f4';
     ctx.globalAlpha = alpha * (0.42 + boost * 0.35);
@@ -419,7 +426,6 @@
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // 8 方位星芒刻度
     for (var i = 0; i < 8; i++) {
       var a = (Math.PI * 2 * i) / 8;
       var rx = Math.cos(a) * baseR;
@@ -427,7 +433,6 @@
       drawSparkleStar(ctx, rx, ry, i % 2 === 0 ? 5.2 : 3.2, '#9cb3ea', alpha * (0.55 + boost * 0.35));
     }
 
-    // 反向内圈几何八角星线
     ctx.rotate(-angle * 2.1);
     ctx.strokeStyle = '#c3ccf5';
     ctx.globalAlpha = alpha * (0.28 + boost * 0.32);
@@ -440,7 +445,6 @@
       ctx.restore();
     }
 
-    // 内圈极细圆
     ctx.globalAlpha = alpha * (0.34 + boost * 0.25);
     ctx.beginPath();
     ctx.arc(0, 0, baseR * 0.48, 0, Math.PI * 2);
@@ -449,7 +453,7 @@
     ctx.restore();
   }
 
-  // 四角极细巴洛克星芒纹饰（纯图形无文字，命中后点亮）
+  // 四角极细巴洛克星芒纹饰（纯图形无文字）
   function drawCornerFiligree(ctx, W, H, alpha) {
     if (alpha <= 0.005) return;
     var padX = 22;
@@ -648,7 +652,7 @@
     var trailAcc = 0;
     var ambientAcc = 0;
     var rimAcc = 0;
-    var canvasReadyMarked = false;
+    var revealDur = 0.78;
 
     function spawnParticle(x, y, opts) {
       opts = opts || {};
@@ -691,9 +695,7 @@
       if (revealStarted || closed) return;
       revealStarted = true;
       revealStartElapsed = elapsed;
-      if (fast) {
-        REVEAL_DUR = 0.54;
-      }
+      revealDur = fast ? 0.54 : 0.78;
       overlay.classList.add('is-revealing');
       skipBtn.classList.add('is-hidden');
       tapHint.classList.remove('is-visible');
@@ -732,13 +734,13 @@
       startReveal(true);
     });
 
-    // 全屏指尖星尘 + 风铃互动 + 命中后轻触立即破开帷幕
+    // 全屏指尖星尘 + 风铃互动；整套播放完后轻触进入触发星纱破界
     var lastTouchMove = 0;
     function onInteractTap(x, y) {
       if (closed || revealStarted) return;
       audio.unlock();
       audio.tapSparkle();
-      spawnBurst(x, y, 10, 0.56);
+      spawnBurst(x, y, 12, 0.6);
       if (hitTriggered && elapsed > 1.72) {
         startReveal(false);
       }
@@ -769,13 +771,11 @@
 
     window.addEventListener('resize', resize);
 
-    // 动画时间轴（秒）
+    // 动画时间轴（秒）— 播放完后停留在轻触进入状态等待点击
     var T_SWOOP = 0.76;
     var T_DRAW = 1.10;
     var T_HIT = 1.38;
     var T_PERCH = 2.04;
-    var T_AUTO_REVEAL = 2.75;
-    var REVEAL_DUR = 0.78;
 
     var sprites = null;
 
@@ -801,28 +801,21 @@
       lastFrameTime = now;
       elapsed += dt;
 
-      if (!revealStarted && elapsed >= T_AUTO_REVEAL) {
-        startReveal(false);
-      }
-
       var revealP = 0;
       if (revealStarted) {
-        revealP = clamp01((elapsed - revealStartElapsed) / REVEAL_DUR);
+        revealP = clamp01((elapsed - revealStartElapsed) / revealDur);
         if (revealP >= 1) {
           finishCleanup(false);
           return;
         }
       }
 
+      // 每帧强制重置合成模式与透明度，保证纯白 #ffffff 底色绝不发灰透底
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
       ctx.clearRect(0, 0, W, H);
-
-      // 纯白底色画在 Canvas 内，方便最后星纱圆环破开露出真实桌面
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, W, H);
-      if (!canvasReadyMarked) {
-        canvasReadyMarked = true;
-        overlay.classList.add('is-canvas-ready');
-      }
 
       var cx = W * 0.5;
       var cy = H * 0.5;
@@ -839,7 +832,7 @@
 
       var veilFade = revealStarted ? 1 - easeInOutCubic(clamp01(revealP * 1.45)) : 1;
 
-      // 1) 巴洛克旋转星轨法阵（开屏渐显，拉弓时略微聚光，命中后点亮）
+      // 1) 巴洛克旋转星轨法阵
       var circleAppear = easeOutQuint(clamp01(elapsed / 0.65));
       var circleBoost = elapsed >= T_HIT
         ? easeOutQuint(clamp01((elapsed - T_HIT) / 0.45))
@@ -847,7 +840,7 @@
       var circleR = Math.min(W * 0.42, 178) * (0.9 + 0.1 * circleAppear + 0.06 * circleBoost);
       drawBaroqueCircle(ctx, cx, logoY - 14, circleR, elapsed * 0.22, circleAppear * veilFade, circleBoost);
 
-      // 2) 四角极细巴洛克星芒纹饰（命中后随圣光波纹一起点亮）
+      // 2) 四角极细巴洛克星芒纹饰（命中后点亮）
       if (elapsed >= T_HIT) {
         var cornerP = easeOutQuint(clamp01((elapsed - T_HIT) / 0.55));
         drawCornerFiligree(ctx, W, H, cornerP * veilFade);
@@ -866,20 +859,19 @@
         drawFeather(ctx, ftObj);
       }
 
-      // 4) 命中后全屏冰蓝圣光波纹 & 中心柔光
+      // 4) 命中后全屏冰蓝圣光波纹 & 极轻中心柔光
       if (elapsed >= T_HIT) {
         var gp = easeOutQuint(clamp01((elapsed - T_HIT) / 0.65));
-        var glowR = logoW * (0.46 + 0.36 * gp);
+        var glowR = logoW * (0.42 + 0.28 * gp);
         var bgGrad = ctx.createRadialGradient(cx, logoY - 12, 8, cx, logoY - 12, glowR);
-        bgGrad.addColorStop(0, 'rgba(181, 199, 244, ' + (0.28 * gp * veilFade) + ')');
-        bgGrad.addColorStop(0.55, 'rgba(204, 217, 250, ' + (0.11 * gp * veilFade) + ')');
+        bgGrad.addColorStop(0, 'rgba(181, 199, 244, ' + (0.20 * gp * veilFade) + ')');
+        bgGrad.addColorStop(0.55, 'rgba(204, 217, 250, ' + (0.07 * gp * veilFade) + ')');
         bgGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
         ctx.fillStyle = bgGrad;
         ctx.beginPath();
         ctx.arc(cx, logoY - 12, glowR, 0, Math.PI * 2);
         ctx.fill();
 
-        // 圣光横扫全屏波纹
         var waveP = clamp01((elapsed - T_HIT) / 0.85);
         if (waveP < 1) {
           var wR = Math.hypot(W, H) * 0.65 * easeOutQuint(waveP);
@@ -899,12 +891,12 @@
         var breathe = 1 + Math.sin(elapsed * 7.2) * 0.075;
         var hs = hp * breathe;
 
-        var hGrad = ctx.createRadialGradient(targetX, targetY, 2, targetX, targetY, 36 * hs);
-        hGrad.addColorStop(0, 'rgba(181, 199, 244, 0.36)');
+        var hGrad = ctx.createRadialGradient(targetX, targetY, 2, targetX, targetY, 34 * hs);
+        hGrad.addColorStop(0, 'rgba(181, 199, 244, 0.34)');
         hGrad.addColorStop(1, 'rgba(181, 199, 244, 0)');
         ctx.fillStyle = hGrad;
         ctx.beginPath();
-        ctx.arc(targetX, targetY, 36 * hs, 0, Math.PI * 2);
+        ctx.arc(targetX, targetY, 34 * hs, 0, Math.PI * 2);
         ctx.fill();
 
         drawPixelHeart(ctx, targetX, targetY, 3.6 * hs, '#9cb3ea', clamp01(hp) * 0.94, true);
@@ -994,15 +986,16 @@
         aSx = lerp(1, 0.94, easeOutQuint(u4));
         aSy = aSx;
       } else {
+        // 停驻在 77 Phone 上方柔和悬浮，等待用户轻触进入
         var ft = elapsed - T_PERCH;
         ax = perchX;
-        ay = perchY + Math.sin(ft * 2.8) * 4.5 - revealP * 14;
-        aRot = Math.sin(ft * 2.0) * 0.022;
+        ay = perchY + Math.sin(ft * 2.6) * 4.5 - revealP * 14;
+        aRot = Math.sin(ft * 1.8) * 0.022;
         aSx = 0.94 * (1 + revealP * 0.06);
         aSy = aSx;
 
         ambientAcc += dt;
-        if (!revealStarted && ambientAcc > 0.13) {
+        if (!revealStarted && ambientAcc > 0.16) {
           ambientAcc = 0;
           spawnParticle(
             cx + (Math.random() - 0.5) * logoW * 0.92,
@@ -1011,7 +1004,7 @@
               kind: Math.random() > 0.35 ? 'star' : 'heart',
               speed: 12 + Math.random() * 24,
               vyBias: -24,
-              maxLife: 0.7 + Math.random() * 0.45,
+              maxLife: 0.75 + Math.random() * 0.45,
               gravity: -8
             }
           );
@@ -1072,7 +1065,7 @@
         }
       }
 
-      // 9) 命中爆发
+      // 9) 命中爆发并亮起「轻触进入」
       if (!hitTriggered && elapsed >= T_HIT) {
         hitTriggered = true;
         audio.bloom();
@@ -1080,7 +1073,7 @@
         spawnBurst(cx, logoY, 18, 0.95);
         setTimeout(function () {
           if (!closed && !revealStarted) tapHint.classList.add('is-visible');
-        }, 380);
+        }, 460);
       }
 
       // 10) 扩散柔光环
@@ -1103,7 +1096,7 @@
         ctx.restore();
       }
 
-      // 11) 破开星纱帷幕露出真实桌面（destination-out 柔边光圈）
+      // 11) 点击后破开星纱帷幕露出真实桌面
       if (revealStarted && revealP > 0) {
         var easeRev = easeInOutCubic(revealP);
         var maxPortalR = Math.hypot(W, H) * 0.68;
@@ -1120,7 +1113,6 @@
         ctx.fillRect(0, 0, W, H);
         ctx.restore();
 
-        // 帷幕边缘雾蓝流光环 + 星尘
         var rimAlpha = Math.sin(revealP * Math.PI) * 0.72;
         if (rimAlpha > 0.01) {
           ctx.save();
@@ -1155,7 +1147,7 @@
         }
       }
 
-      // 12) 星尘、小爱心与十字星粒子（画在破界环之上，跨层飘散更有空间感）
+      // 12) 星尘、小爱心与十字星粒子
       ctx.save();
       for (var i = particles.length - 1; i >= 0; i--) {
         var pt = particles[i];
