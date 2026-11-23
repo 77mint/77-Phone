@@ -37,12 +37,12 @@
   padding: calc(env(safe-area-inset-top) + 26px) 16px 24px 18px;
   background: var(--ctme-row-bg);
   cursor: pointer;
-  transition: background 0.14s ease;
+  transition: background 0.14s ease, transform 0.24s cubic-bezier(0.34, 1.46, 0.64, 1);
 }
 
-.ctme-profile:active,
 .ctme-profile.is-pressed {
-  background: #f7f7f7;
+  background: #f5f5f7;
+  transform: scale(0.99);
 }
 
 .ctme-avatar {
@@ -98,16 +98,16 @@
 .ctme-role-tag {
   font-size: calc(var(--app-font-size, 15px) - 4px);
   font-weight: 600;
-  padding: 2px 7px;
+  padding: 2px 8px;
   border-radius: 999px;
-  background: #f2f2f7;
-  color: #636366;
+  background: #e4f2ff;
+  color: #3a7ec4;
   flex-shrink: 0;
 }
 
 .ctme-role-tag.is-char {
-  background: #f3efff;
-  color: #6b4fd1;
+  background: #f0e8ff;
+  color: #7e57c2;
 }
 
 .ctme-sub-id {
@@ -139,12 +139,12 @@
   padding: 15px 16px;
   background: var(--ctme-row-bg);
   cursor: pointer;
-  transition: background 0.14s ease;
+  transition: background 0.14s ease, transform 0.24s cubic-bezier(0.34, 1.46, 0.64, 1);
 }
 
-.ctme-row:active,
 .ctme-row.is-pressed {
-  background: #f7f7f7;
+  background: #f5f5f7;
+  transform: scale(0.988);
 }
 
 .ctme-row::after {
@@ -258,12 +258,11 @@
   flex-shrink: 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   cursor: pointer;
-  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1), background 0.14s ease;
+  transition: transform 0.24s cubic-bezier(0.34, 1.46, 0.64, 1), background 0.14s ease;
 }
 
-.ctme-back-btn:active,
 .ctme-back-btn.is-pressed {
-  transform: scale(0.92);
+  transform: scale(0.88);
   background: #ebebef;
 }
 
@@ -300,7 +299,7 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
-  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1), background 0.14s ease;
+  transition: transform 0.24s cubic-bezier(0.34, 1.46, 0.64, 1), opacity 0.14s ease;
 }
 
 .ctme-pill-btn.is-primary {
@@ -308,10 +307,9 @@
   color: #ffffff;
 }
 
-.ctme-pill-btn:active,
 .ctme-pill-btn.is-pressed {
-  transform: scale(0.94);
-  opacity: 0.85;
+  transform: scale(0.92);
+  opacity: 0.84;
 }
 
 .ctme-sub-scroll {
@@ -356,12 +354,12 @@
   padding: 14px 16px;
   background: #ffffff;
   cursor: pointer;
-  transition: background 0.14s ease;
+  transition: background 0.14s ease, transform 0.24s cubic-bezier(0.34, 1.46, 0.64, 1);
 }
 
-.ctme-item:active,
 .ctme-item.is-pressed {
   background: #f5f5f7;
+  transform: scale(0.988);
 }
 
 .ctme-item::after {
@@ -465,11 +463,11 @@
   padding: 0;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.22s ease, transform 0.18s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: background 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.46, 0.64, 1);
 }
 
-.ctme-switch:active {
-  transform: scale(0.95);
+.ctme-switch.is-pressed {
+  transform: scale(0.93);
 }
 
 .ctme-switch::after {
@@ -512,12 +510,11 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.14s ease;
+  transition: transform 0.24s cubic-bezier(0.34, 1.46, 0.64, 1), opacity 0.14s ease;
 }
 
-.ctme-btn:active,
 .ctme-btn.is-pressed {
-  transform: scale(0.96);
+  transform: scale(0.95);
   opacity: 0.86;
 }
 
@@ -563,6 +560,11 @@
   font-size: calc(var(--app-font-size, 15px) + 10px);
   font-weight: 700;
   cursor: pointer;
+  transition: transform 0.24s cubic-bezier(0.34, 1.46, 0.64, 1);
+}
+
+.ctme-avatar-lg.is-pressed {
+  transform: scale(0.93);
 }
 
 .ctme-avatar-lg img {
@@ -591,17 +593,16 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.14s ease;
+  transition: transform 0.24s cubic-bezier(0.34, 1.46, 0.64, 1), opacity 0.14s ease;
 }
 
 .ctme-mini-pill.is-danger {
-  background: #fff1f0;
-  color: #ff3b30;
+  background: #ffe8ef;
+  color: #d64d74;
 }
 
-.ctme-mini-pill:active,
 .ctme-mini-pill.is-pressed {
-  transform: scale(0.94);
+  transform: scale(0.92);
   opacity: 0.78;
 }
 
@@ -642,7 +643,7 @@
   font-size: var(--app-font-size, 15px);
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.14s ease;
+  transition: transform 0.24s cubic-bezier(0.34, 1.46, 0.64, 1), opacity 0.14s ease;
 }
 
 .ctme-wallet-btn.is-white {
@@ -655,9 +656,8 @@
   color: #ffffff;
 }
 
-.ctme-wallet-btn:active,
 .ctme-wallet-btn.is-pressed {
-  transform: scale(0.96);
+  transform: scale(0.94);
 }
 
 .ctme-chip-bar {
@@ -677,11 +677,11 @@
   font-size: calc(var(--app-font-size, 15px) - 2px);
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform 0.24s cubic-bezier(0.34, 1.46, 0.64, 1);
 }
 
 .ctme-chip.is-pressed {
-  transform: scale(0.94);
+  transform: scale(0.92);
 }
 
 .ctme-chip.is-active {
@@ -779,12 +779,12 @@
   flex-direction: column;
   gap: 6px;
   cursor: pointer;
-  transition: background 0.14s ease;
+  transition: background 0.14s ease, transform 0.24s cubic-bezier(0.34, 1.46, 0.64, 1);
 }
 
-.ctme-fav-card:active,
 .ctme-fav-card.is-pressed {
   background: #f5f5f7;
+  transform: scale(0.985);
 }
 
 .ctme-fav-title {
@@ -821,12 +821,12 @@
   padding: 12px 14px;
   position: relative;
   cursor: pointer;
-  transition: background 0.14s ease;
+  transition: background 0.14s ease, transform 0.24s cubic-bezier(0.34, 1.46, 0.64, 1);
 }
 
-.ctme-pack-row:active,
 .ctme-pack-row.is-pressed {
   background: #f5f5f7;
+  transform: scale(0.988);
 }
 
 .ctme-pack-row::after {
@@ -907,12 +907,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform 0.24s cubic-bezier(0.34, 1.46, 0.64, 1);
 }
 
-.ctme-sticker-cell:active .ctme-sticker-img-wrap,
 .ctme-sticker-cell.is-pressed .ctme-sticker-img-wrap {
-  transform: scale(0.93);
+  transform: scale(0.91);
 }
 
 .ctme-sticker-img-wrap img {
@@ -946,6 +945,11 @@
   overflow: hidden;
   background: linear-gradient(135deg, #2c3e50 0%, #4b6584 100%);
   cursor: pointer;
+  transition: transform 0.24s cubic-bezier(0.34, 1.46, 0.64, 1);
+}
+
+.ctme-album-cover.is-pressed {
+  transform: scale(0.985);
 }
 
 .ctme-album-cover img {
@@ -1041,7 +1045,7 @@
   flex-direction: column;
   gap: 12px;
   border: 1.5px solid transparent;
-  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform 0.24s cubic-bezier(0.34, 1.46, 0.64, 1);
 }
 
 .ctme-acc-card.is-current {
@@ -1053,6 +1057,13 @@
   align-items: center;
   gap: 12px;
   cursor: pointer;
+  border-radius: 12px;
+  transition: transform 0.24s cubic-bezier(0.34, 1.46, 0.64, 1), opacity 0.14s ease;
+}
+
+.ctme-acc-top.is-pressed {
+  transform: scale(0.975);
+  opacity: 0.78;
 }
 
 .ctme-acc-ava {
@@ -1097,34 +1108,40 @@
   text-overflow: ellipsis;
 }
 
+/* 当前使用保持黑底白字；其余标签使用马卡龙色 */
 .ctme-acc-badge {
   font-size: calc(var(--app-font-size, 15px) - 4px);
   font-weight: 600;
   background: #111111;
   color: #ffffff;
-  padding: 2px 7px;
+  padding: 2px 8px;
   border-radius: 999px;
   flex-shrink: 0;
 }
 
 .ctme-acc-badge.is-mask {
-  background: #f2f2f7;
-  color: #3a3a3c;
+  background: #fff2d6;
+  color: #b87b1e;
 }
 
 .ctme-acc-badge.is-alt {
-  background: #f5f5f7;
-  color: #8e8e93;
+  background: #e4f2ff;
+  color: #3a7ec4;
 }
 
 .ctme-acc-badge.is-char {
-  background: #f3efff;
-  color: #6b4fd1;
+  background: #f0e8ff;
+  color: #7e57c2;
 }
 
 .ctme-acc-badge.is-locked {
-  background: #fff0f3;
-  color: #cf3f5f;
+  background: #ffe8ef;
+  color: #d64d74;
+}
+
+.ctme-acc-badge.is-stealth {
+  background: #e2f7eb;
+  color: #279c63;
 }
 
 .ctme-acc-meta {
@@ -1146,7 +1163,7 @@
 
 /* 未建社媒号的面具快速建立提示卡 */
 .ctme-mask-quick {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.88);
   border: 1px dashed rgba(0, 0, 0, 0.16);
   border-radius: 18px;
   padding: 12px 14px;
@@ -1154,12 +1171,11 @@
   align-items: center;
   gap: 12px;
   cursor: pointer;
-  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1), background 0.14s ease;
+  transition: transform 0.24s cubic-bezier(0.34, 1.46, 0.64, 1), background 0.14s ease;
 }
 
-.ctme-mask-quick:active,
 .ctme-mask-quick.is-pressed {
-  transform: scale(0.98);
+  transform: scale(0.975);
   background: #ffffff;
 }
 
@@ -1194,6 +1210,12 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  transition: transform 0.22s cubic-bezier(0.34, 1.46, 0.64, 1), background 0.14s ease;
+}
+
+.ctme-pwd-eye.is-pressed {
+  transform: scale(0.86);
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .ctme-pwd-err {
@@ -1283,11 +1305,17 @@
   border: none;
   background: #f2f2f7;
   color: #636366;
-  font-size: 16px;
+  font-size: calc(var(--app-font-size, 15px) + 1px);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: transform 0.22s cubic-bezier(0.34, 1.46, 0.64, 1), background 0.14s ease;
+}
+
+.ctme-sheet-close.is-pressed {
+  transform: scale(0.86);
+  background: #e5e5ea;
 }
 
 .ctme-sheet-body {
@@ -1318,7 +1346,7 @@
   font-weight: 600;
   text-align: center;
   cursor: pointer;
-  transition: background 0.14s ease, transform 0.18s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: background 0.14s ease, transform 0.24s cubic-bezier(0.34, 1.46, 0.64, 1);
 }
 
 .ctme-action-btn.is-primary {
@@ -1331,9 +1359,8 @@
   color: #ff3b30;
 }
 
-.ctme-action-btn:active,
 .ctme-action-btn.is-pressed {
-  transform: scale(0.97);
+  transform: scale(0.96);
   opacity: 0.85;
 }
 
@@ -1353,10 +1380,11 @@
   font-size: calc(var(--app-font-size, 15px) - 1px);
   font-weight: 600;
   cursor: pointer;
+  transition: transform 0.24s cubic-bezier(0.34, 1.46, 0.64, 1), background 0.14s ease;
 }
 
-.ctme-quick-amt:active,
 .ctme-quick-amt.is-pressed {
+  transform: scale(0.92);
   background: #111111;
   color: #ffffff;
 }
