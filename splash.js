@@ -1,4 +1,4 @@
-/* splash.js — 77 Phone 纯白巴洛克法阵 + 星纱破界 + 水晶风铃开屏动画 */
+/* splash.js — 77 Phone 纯白巴洛克法阵 + 星纱破界 + 水晶风铃开屏动画（舒缓版） */
 (function () {
   'use strict';
 
@@ -53,7 +53,7 @@
       var ac = ensure();
       if (!ac || ac.state !== 'running') return;
       var t0 = ac.currentTime + (delay || 0);
-      var dur = duration || 1.1;
+      var dur = duration || 1.2;
       var vol = peakGain || 0.055;
 
       var osc1 = ac.createOscillator();
@@ -68,7 +68,7 @@
       subGain.gain.setValueAtTime(0.18, t0);
 
       gain.gain.setValueAtTime(0.0001, t0);
-      gain.gain.exponentialRampToValueAtTime(vol, t0 + 0.014);
+      gain.gain.exponentialRampToValueAtTime(vol, t0 + 0.016);
       gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
 
       osc1.connect(gain);
@@ -78,8 +78,8 @@
 
       osc1.start(t0);
       osc2.start(t0);
-      osc1.stop(t0 + dur + 0.04);
-      osc2.stop(t0 + dur + 0.04);
+      osc1.stop(t0 + dur + 0.05);
+      osc2.stop(t0 + dur + 0.05);
     }
 
     return {
@@ -89,21 +89,21 @@
       tapSparkle: function () {
         var freq = tapScale[tapIdx % tapScale.length];
         tapIdx++;
-        playBell(freq, 0, 0.72, 0.042);
+        playBell(freq, 0, 0.78, 0.042);
       },
       shoot: function () {
-        playBell(1046.5, 0, 0.45, 0.032);
-        playBell(1318.5, 0.055, 0.55, 0.028);
+        playBell(1046.5, 0, 0.55, 0.032);
+        playBell(1318.5, 0.075, 0.65, 0.028);
       },
       bloom: function () {
-        playBell(783.99, 0, 1.25, 0.05);
-        playBell(987.77, 0.07, 1.3, 0.045);
-        playBell(1318.51, 0.14, 1.45, 0.05);
-        playBell(1567.98, 0.22, 1.6, 0.038);
+        playBell(783.99, 0, 1.45, 0.05);
+        playBell(987.77, 0.09, 1.5, 0.045);
+        playBell(1318.51, 0.18, 1.65, 0.05);
+        playBell(1567.98, 0.28, 1.85, 0.038);
       },
       veilOpen: function () {
-        playBell(1174.66, 0, 0.9, 0.034);
-        playBell(1567.98, 0.09, 1.15, 0.038);
+        playBell(1174.66, 0, 1.05, 0.034);
+        playBell(1567.98, 0.12, 1.3, 0.038);
       },
       dispose: function () {
         if (ctx && ctx.close) {
@@ -161,7 +161,7 @@
       '  outline: none;',
       '  opacity: 1;',
       '  transform: scale(1);',
-      '  transition: transform 0.24s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.2s ease, opacity 0.32s ease;',
+      '  transition: transform 0.24s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.2s ease, opacity 0.36s ease;',
       '}',
       '.ps-skip-btn.is-pressed {',
       '  transform: scale(0.91);',
@@ -187,12 +187,12 @@
       '  letter-spacing: 0.14em;',
       '  opacity: 0;',
       '  pointer-events: none;',
-      '  transition: opacity 0.48s ease, transform 0.48s cubic-bezier(0.32, 0.72, 0, 1);',
+      '  transition: opacity 0.58s ease, transform 0.58s cubic-bezier(0.32, 0.72, 0, 1);',
       '}',
       '.ps-tap-hint.is-visible {',
       '  opacity: 0.85;',
       '  transform: translateX(-50%) translateY(0);',
-      '  animation: psHintBreathe 2.4s ease-in-out 0.48s infinite;',
+      '  animation: psHintBreathe 2.6s ease-in-out 0.58s infinite;',
       '}'
     ].join('\n');
     document.head.appendChild(style);
@@ -529,7 +529,7 @@
     ctx.scale(scale, scale);
     ctx.globalAlpha = alpha;
 
-    var tailGrad = ctx.createLinearGradient(-52, 0, 14, 0);
+    var tailGrad = ctx.createLinearGradient(-56, 0, 14, 0);
     tailGrad.addColorStop(0, 'rgba(181, 199, 244, 0)');
     tailGrad.addColorStop(0.5, 'rgba(156, 179, 234, 0.58)');
     tailGrad.addColorStop(1, 'rgba(139, 159, 217, 0.96)');
@@ -537,14 +537,14 @@
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(-52, 0);
+    ctx.moveTo(-56, 0);
     ctx.lineTo(12, 0);
     ctx.stroke();
 
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(-24, 0);
+    ctx.moveTo(-26, 0);
     ctx.lineTo(12, 0);
     ctx.stroke();
 
@@ -627,12 +627,12 @@
       feathers.push({
         x: Math.random() * W,
         y: Math.random() * H * 0.85 - H * 0.15,
-        vy: 18 + Math.random() * 20,
-        swayAmp: 14 + Math.random() * 18,
-        swayFreq: 1.2 + Math.random() * 1.1,
+        vy: 13 + Math.random() * 14,
+        swayAmp: 12 + Math.random() * 16,
+        swayFreq: 0.9 + Math.random() * 0.9,
         phase: Math.random() * Math.PI * 2,
         rot: (Math.random() - 0.5) * 0.8,
-        rotSpd: (Math.random() - 0.5) * 0.5,
+        rotSpd: (Math.random() - 0.5) * 0.36,
         size: 10 + Math.random() * 7,
         alpha: 0.32 + Math.random() * 0.34
       });
@@ -652,14 +652,14 @@
     var trailAcc = 0;
     var ambientAcc = 0;
     var rimAcc = 0;
-    var revealDur = 0.78;
+    var revealDur = 1.05;
 
     function spawnParticle(x, y, opts) {
       opts = opts || {};
       var kinds = ['star', 'star', 'heart', 'cross', 'dot'];
       var kind = opts.kind || kinds[Math.floor(Math.random() * kinds.length)];
       var ang = opts.angle !== undefined ? opts.angle : Math.random() * Math.PI * 2;
-      var spd = opts.speed !== undefined ? opts.speed : (45 + Math.random() * 145);
+      var spd = opts.speed !== undefined ? opts.speed : (38 + Math.random() * 125);
       particles.push({
         x: x,
         y: y,
@@ -669,9 +669,9 @@
         kind: kind,
         color: opts.color || pickColor(),
         life: 0,
-        maxLife: opts.maxLife || (0.55 + Math.random() * 0.55),
-        drag: opts.drag !== undefined ? opts.drag : 3.1,
-        gravity: opts.gravity !== undefined ? opts.gravity : 46
+        maxLife: opts.maxLife || (0.72 + Math.random() * 0.68),
+        drag: opts.drag !== undefined ? opts.drag : 2.6,
+        gravity: opts.gravity !== undefined ? opts.gravity : 36
       });
     }
 
@@ -681,21 +681,21 @@
         var ang = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.42;
         spawnParticle(x, y, {
           angle: ang,
-          speed: (65 + Math.random() * 215) * p,
-          maxLife: 0.62 + Math.random() * 0.65,
-          drag: 2.7,
-          gravity: 50
+          speed: (55 + Math.random() * 185) * p,
+          maxLife: 0.8 + Math.random() * 0.78,
+          drag: 2.3,
+          gravity: 40
         });
       }
-      rings.push({ x: x, y: y, r: 8, maxR: 120 * p, life: 0, maxLife: 0.6, color: '#9cb3ea', width: 2.2 });
-      rings.push({ x: x, y: y, r: 4, maxR: 175 * p, life: 0, maxLife: 0.78, color: '#ccd9fa', width: 1.3 });
+      rings.push({ x: x, y: y, r: 8, maxR: 126 * p, life: 0, maxLife: 0.82, color: '#9cb3ea', width: 2.2 });
+      rings.push({ x: x, y: y, r: 4, maxR: 185 * p, life: 0, maxLife: 1.05, color: '#ccd9fa', width: 1.3 });
     }
 
     function startReveal(fast) {
       if (revealStarted || closed) return;
       revealStarted = true;
       revealStartElapsed = elapsed;
-      revealDur = fast ? 0.54 : 0.78;
+      revealDur = fast ? 0.62 : 1.05;
       overlay.classList.add('is-revealing');
       skipBtn.classList.add('is-hidden');
       tapHint.classList.remove('is-visible');
@@ -711,7 +711,7 @@
       if (immediate) {
         audio.dispose();
       } else {
-        setTimeout(function () { audio.dispose(); }, 600);
+        setTimeout(function () { audio.dispose(); }, 650);
       }
       if (activeCleanup === finishCleanup) activeCleanup = null;
     }
@@ -741,7 +741,7 @@
       audio.unlock();
       audio.tapSparkle();
       spawnBurst(x, y, 12, 0.6);
-      if (hitTriggered && elapsed > 1.72) {
+      if (hitTriggered && elapsed > T_HIT + 0.55) {
         startReveal(false);
       }
     }
@@ -758,9 +758,9 @@
       var t = e.touches && e.touches[0];
       if (t) {
         spawnParticle(t.clientX, t.clientY, {
-          speed: 24 + Math.random() * 52,
-          maxLife: 0.45 + Math.random() * 0.3,
-          gravity: 14
+          speed: 22 + Math.random() * 48,
+          maxLife: 0.55 + Math.random() * 0.35,
+          gravity: 12
         });
       }
     }, { passive: true });
@@ -771,11 +771,11 @@
 
     window.addEventListener('resize', resize);
 
-    // 动画时间轴（秒）— 播放完后停留在轻触进入状态等待点击
-    var T_SWOOP = 0.76;
-    var T_DRAW = 1.10;
-    var T_HIT = 1.38;
-    var T_PERCH = 2.04;
+    // 舒缓梦幻时间轴（秒）— 播放完停在「轻触进入」等待点击
+    var T_SWOOP = 1.25;   // 弧线飞入
+    var T_DRAW = 1.85;    // 蓄力拉弓
+    var T_HIT = 2.30;     // 光箭命中爱心
+    var T_PERCH = 3.25;   // 小天使优雅落位 77 Phone 上方
 
     var sprites = null;
 
@@ -830,19 +830,19 @@
       var perchX = cx;
       var perchY = logoY - logoH * 0.54;
 
-      var veilFade = revealStarted ? 1 - easeInOutCubic(clamp01(revealP * 1.45)) : 1;
+      var veilFade = revealStarted ? 1 - easeInOutCubic(clamp01(revealP * 1.4)) : 1;
 
       // 1) 巴洛克旋转星轨法阵
-      var circleAppear = easeOutQuint(clamp01(elapsed / 0.65));
+      var circleAppear = easeOutQuint(clamp01(elapsed / 0.95));
       var circleBoost = elapsed >= T_HIT
-        ? easeOutQuint(clamp01((elapsed - T_HIT) / 0.45))
-        : (elapsed >= T_SWOOP ? 0.35 * clamp01((elapsed - T_SWOOP) / (T_DRAW - T_SWOOP)) : 0);
+        ? easeOutQuint(clamp01((elapsed - T_HIT) / 0.7))
+        : (elapsed >= T_SWOOP ? 0.38 * clamp01((elapsed - T_SWOOP) / (T_DRAW - T_SWOOP)) : 0);
       var circleR = Math.min(W * 0.42, 178) * (0.9 + 0.1 * circleAppear + 0.06 * circleBoost);
-      drawBaroqueCircle(ctx, cx, logoY - 14, circleR, elapsed * 0.22, circleAppear * veilFade, circleBoost);
+      drawBaroqueCircle(ctx, cx, logoY - 14, circleR, elapsed * 0.14, circleAppear * veilFade, circleBoost);
 
       // 2) 四角极细巴洛克星芒纹饰（命中后点亮）
       if (elapsed >= T_HIT) {
-        var cornerP = easeOutQuint(clamp01((elapsed - T_HIT) / 0.55));
+        var cornerP = easeOutQuint(clamp01((elapsed - T_HIT) / 0.82));
         drawCornerFiligree(ctx, W, H, cornerP * veilFade);
       }
 
@@ -861,7 +861,7 @@
 
       // 4) 命中后全屏冰蓝圣光波纹 & 极轻中心柔光
       if (elapsed >= T_HIT) {
-        var gp = easeOutQuint(clamp01((elapsed - T_HIT) / 0.65));
+        var gp = easeOutQuint(clamp01((elapsed - T_HIT) / 0.95));
         var glowR = logoW * (0.42 + 0.28 * gp);
         var bgGrad = ctx.createRadialGradient(cx, logoY - 12, 8, cx, logoY - 12, glowR);
         bgGrad.addColorStop(0, 'rgba(181, 199, 244, ' + (0.20 * gp * veilFade) + ')');
@@ -872,7 +872,7 @@
         ctx.arc(cx, logoY - 12, glowR, 0, Math.PI * 2);
         ctx.fill();
 
-        var waveP = clamp01((elapsed - T_HIT) / 0.85);
+        var waveP = clamp01((elapsed - T_HIT) / 1.25);
         if (waveP < 1) {
           var wR = Math.hypot(W, H) * 0.65 * easeOutQuint(waveP);
           ctx.save();
@@ -886,9 +886,9 @@
       }
 
       // 5) 右侧待射水晶爱心
-      if (elapsed > 0.14 && elapsed < T_HIT) {
-        var hp = easeOutBack(clamp01((elapsed - 0.14) / 0.4), 1.45);
-        var breathe = 1 + Math.sin(elapsed * 7.2) * 0.075;
+      if (elapsed > 0.24 && elapsed < T_HIT) {
+        var hp = easeOutBack(clamp01((elapsed - 0.24) / 0.58), 1.4);
+        var breathe = 1 + Math.sin(elapsed * 5.2) * 0.075;
         var hs = hp * breathe;
 
         var hGrad = ctx.createRadialGradient(targetX, targetY, 2, targetX, targetY, 34 * hs);
@@ -900,16 +900,16 @@
         ctx.fill();
 
         drawPixelHeart(ctx, targetX, targetY, 3.6 * hs, '#9cb3ea', clamp01(hp) * 0.94, true);
-        drawSparkleStar(ctx, targetX - 24, targetY - 15, 5.2, '#b5c7f4', 0.45 + 0.4 * Math.sin(elapsed * 8.5));
-        drawSparkleStar(ctx, targetX + 22, targetY + 13, 4.2, '#ccd9fa', 0.45 + 0.4 * Math.cos(elapsed * 8.5));
+        drawSparkleStar(ctx, targetX - 24, targetY - 15, 5.2, '#b5c7f4', 0.45 + 0.4 * Math.sin(elapsed * 6.4));
+        drawSparkleStar(ctx, targetX + 22, targetY + 13, 4.2, '#ccd9fa', 0.45 + 0.4 * Math.cos(elapsed * 6.4));
       }
 
       // 6) 77 Phone 巴洛克丝带徽标
       if (elapsed >= T_HIT) {
-        var lp = clamp01((elapsed - T_HIT) / 0.54);
-        var logoScale = lerp(0.72, 1.0, easeOutBack(lp, 1.32)) * (1 + revealP * 0.08);
-        var logoAlpha = easeOutQuint(clamp01((elapsed - T_HIT) / 0.32)) * veilFade;
-        var logoFloat = (1 - easeOutQuint(lp)) * 16;
+        var lp = clamp01((elapsed - T_HIT) / 0.82);
+        var logoScale = lerp(0.72, 1.0, easeOutBack(lp, 1.28)) * (1 + revealP * 0.08);
+        var logoAlpha = easeOutQuint(clamp01((elapsed - T_HIT) / 0.48)) * veilFade;
+        var logoFloat = (1 - easeOutQuint(lp)) * 18;
         drawSprite(sprites && sprites.logo, cx, logoY + logoFloat, logoW, 0, logoScale, logoScale, logoAlpha);
       }
 
@@ -933,51 +933,51 @@
         var stretch = 1 + Math.sin(u1 * Math.PI) * 0.04;
         aSx = lerp(0.84, 1, t1) * stretch;
         aSy = lerp(0.84, 1, t1) / Math.sqrt(stretch);
-        aAlpha = clamp01(elapsed / 0.2) * veilFade;
+        aAlpha = clamp01(elapsed / 0.34) * veilFade;
 
         trailAcc += dt;
-        if (trailAcc > 0.032) {
+        if (trailAcc > 0.045) {
           trailAcc = 0;
           spawnParticle(ax - angelW * 0.2, ay + (Math.random() - 0.5) * 18, {
             kind: Math.random() > 0.35 ? 'star' : 'heart',
             angle: Math.PI + (Math.random() - 0.5) * 0.7,
-            speed: 22 + Math.random() * 48,
-            maxLife: 0.55 + Math.random() * 0.32,
-            gravity: 14
+            speed: 18 + Math.random() * 40,
+            maxLife: 0.72 + Math.random() * 0.4,
+            gravity: 12
           });
         }
       } else if (elapsed < T_DRAW) {
         var u2 = easeInOutSine(clamp01((elapsed - T_SWOOP) / (T_DRAW - T_SWOOP)));
-        ax = aimX - u2 * 11;
+        ax = aimX - u2 * 12;
         ay = aimY - u2 * 5;
-        aRot = lerp(0.02, -0.09, u2);
+        aRot = lerp(0.02, -0.095, u2);
         aSx = 1 - u2 * 0.025;
         aSy = 1 + u2 * 0.03;
 
         var bx = ax + angelW * 0.43;
         var by = ay + angelW * 0.1;
-        var cGrad = ctx.createRadialGradient(bx, by, 1, bx, by, 20 * u2 + 4);
-        cGrad.addColorStop(0, 'rgba(181, 199, 244, ' + (0.78 * u2) + ')');
+        var cGrad = ctx.createRadialGradient(bx, by, 1, bx, by, 22 * u2 + 4);
+        cGrad.addColorStop(0, 'rgba(181, 199, 244, ' + (0.8 * u2) + ')');
         cGrad.addColorStop(1, 'rgba(181, 199, 244, 0)');
         ctx.fillStyle = cGrad;
         ctx.beginPath();
-        ctx.arc(bx, by, 20 * u2 + 4, 0, Math.PI * 2);
+        ctx.arc(bx, by, 22 * u2 + 4, 0, Math.PI * 2);
         ctx.fill();
-        drawSparkleStar(ctx, bx, by, 5 + 8 * u2, '#9cb3ea', 0.42 + 0.58 * u2);
+        drawSparkleStar(ctx, bx, by, 5 + 8.5 * u2, '#9cb3ea', 0.42 + 0.58 * u2);
       } else if (elapsed < T_HIT) {
         if (!shotSoundPlayed) {
           shotSoundPlayed = true;
           audio.shoot();
         }
         var u3 = easeOutQuint(clamp01((elapsed - T_DRAW) / (T_HIT - T_DRAW)));
-        ax = lerp(aimX - 11, aimX + 6, u3);
+        ax = lerp(aimX - 12, aimX + 6, u3);
         ay = lerp(aimY - 5, aimY - 1, u3);
-        aRot = lerp(-0.09, 0.05, u3);
+        aRot = lerp(-0.095, 0.05, u3);
         aSx = 1 + Math.sin(u3 * Math.PI) * 0.045;
         aSy = 1 - Math.sin(u3 * Math.PI) * 0.03;
       } else if (elapsed < T_PERCH) {
         var u4 = clamp01((elapsed - T_HIT) / (T_PERCH - T_HIT));
-        var t4 = easeOutBack(u4, 0.72);
+        var t4 = easeOutBack(u4, 0.68);
         var mX = (aimX + perchX) * 0.5 - 12;
         var mY = Math.min(aimY, perchY) - 44;
         ax = cubicBezier(aimX + 6, mX, perchX - 14, perchX, clamp01(t4));
@@ -989,23 +989,23 @@
         // 停驻在 77 Phone 上方柔和悬浮，等待用户轻触进入
         var ft = elapsed - T_PERCH;
         ax = perchX;
-        ay = perchY + Math.sin(ft * 2.6) * 4.5 - revealP * 14;
-        aRot = Math.sin(ft * 1.8) * 0.022;
+        ay = perchY + Math.sin(ft * 2.0) * 5 - revealP * 14;
+        aRot = Math.sin(ft * 1.4) * 0.022;
         aSx = 0.94 * (1 + revealP * 0.06);
         aSy = aSx;
 
         ambientAcc += dt;
-        if (!revealStarted && ambientAcc > 0.16) {
+        if (!revealStarted && ambientAcc > 0.2) {
           ambientAcc = 0;
           spawnParticle(
             cx + (Math.random() - 0.5) * logoW * 0.92,
             logoY + (Math.random() - 0.5) * logoH * 0.85,
             {
               kind: Math.random() > 0.35 ? 'star' : 'heart',
-              speed: 12 + Math.random() * 24,
-              vyBias: -24,
-              maxLife: 0.75 + Math.random() * 0.45,
-              gravity: -8
+              speed: 10 + Math.random() * 20,
+              vyBias: -20,
+              maxLife: 0.9 + Math.random() * 0.55,
+              gravity: -6
             }
           );
         }
@@ -1016,25 +1016,25 @@
       // 8) 丝带光箭飞行
       if (elapsed >= T_DRAW && elapsed <= T_HIT) {
         var ap = clamp01((elapsed - T_DRAW) / (T_HIT - T_DRAW));
-        var ae = 1 - Math.pow(1 - ap, 2.4);
-        var startBX = (aimX - 11) + angelW * 0.43;
+        var ae = 1 - Math.pow(1 - ap, 2.1);
+        var startBX = (aimX - 12) + angelW * 0.43;
         var startBY = (aimY - 5) + angelW * 0.1;
 
         var arX = lerp(startBX, targetX, ae);
-        var arY = lerp(startBY, targetY, ae) - Math.sin(ae * Math.PI) * 18;
+        var arY = lerp(startBY, targetY, ae) - Math.sin(ae * Math.PI) * 20;
         var nextAe = clamp01(ae + 0.03);
         var nX = lerp(startBX, targetX, nextAe);
-        var nY = lerp(startBY, targetY, nextAe) - Math.sin(nextAe * Math.PI) * 18;
+        var nY = lerp(startBY, targetY, nextAe) - Math.sin(nextAe * Math.PI) * 20;
         var arAngle = Math.atan2(nY - arY, nX - arX);
 
-        arrowTrail.push({ x: arX, y: arY, life: 0, maxLife: 0.28 });
+        arrowTrail.push({ x: arX, y: arY, life: 0, maxLife: 0.4 });
         spawnParticle(arX - Math.cos(arAngle) * 10, arY - Math.sin(arAngle) * 10, {
           kind: 'star',
           angle: arAngle + Math.PI + (Math.random() - 0.5) * 0.6,
-          speed: 25 + Math.random() * 50,
+          speed: 22 + Math.random() * 44,
           size: 3 + Math.random() * 2.5,
-          maxLife: 0.34,
-          gravity: 10
+          maxLife: 0.46,
+          gravity: 8
         });
 
         drawLightArrow(ctx, arX, arY, arAngle, 1.05, 1);
@@ -1073,7 +1073,7 @@
         spawnBurst(cx, logoY, 18, 0.95);
         setTimeout(function () {
           if (!closed && !revealStarted) tapHint.classList.add('is-visible');
-        }, 460);
+        }, 700);
       }
 
       // 10) 扩散柔光环
@@ -1101,11 +1101,11 @@
         var easeRev = easeInOutCubic(revealP);
         var maxPortalR = Math.hypot(W, H) * 0.68;
         var holeR = maxPortalR * easeRev;
-        var feather = 78;
+        var feather = 84;
 
         ctx.save();
         ctx.globalCompositeOperation = 'destination-out';
-        var holeGrad = ctx.createRadialGradient(cx, logoY, Math.max(0, holeR - feather), cx, logoY, holeR + 28);
+        var holeGrad = ctx.createRadialGradient(cx, logoY, Math.max(0, holeR - feather), cx, logoY, holeR + 30);
         holeGrad.addColorStop(0, 'rgba(0, 0, 0, 1)');
         holeGrad.addColorStop(0.72, 'rgba(0, 0, 0, 0.92)');
         holeGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
@@ -1130,16 +1130,16 @@
           ctx.restore();
 
           rimAcc += dt;
-          if (rimAcc > 0.025) {
+          if (rimAcc > 0.03) {
             rimAcc = 0;
             for (var k = 0; k < 2; k++) {
               var ra = Math.random() * Math.PI * 2;
               spawnParticle(cx + Math.cos(ra) * holeR, logoY + Math.sin(ra) * holeR, {
                 kind: Math.random() > 0.35 ? 'star' : 'heart',
                 angle: ra + (Math.random() - 0.5) * 0.4,
-                speed: 24 + Math.random() * 60,
+                speed: 20 + Math.random() * 52,
                 size: 3 + Math.random() * 3,
-                maxLife: 0.42,
+                maxLife: 0.52,
                 gravity: 6
               });
             }
