@@ -10,6 +10,7 @@
   display: flex;
   align-items: center;
   padding: 6px 18px 12px;
+  flex-shrink: 0;
 }
 
 .app-back {
@@ -28,11 +29,12 @@
     0 2px 5px rgba(0, 0, 0, 0.05),
     inset 0 2px 2px rgba(255, 255, 255, 1),
     inset 0 -1.5px 3px rgba(0, 0, 0, 0.07);
-  transition: transform 0.15s ease;
+  transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-.app-back:active {
-  transform: scale(0.92);
+.app-back:active,
+.app-back.is-pressed {
+  transform: scale(0.91);
 }
 
 .app-back svg {
@@ -47,6 +49,7 @@
 
 .app-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 4px 16px 100px;
@@ -125,7 +128,11 @@
   border-radius: 999px;
   background: #e5e5ea;
   position: relative;
-  transition: background 0.22s ease;
+  transition: background 0.22s ease, transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.lg-switch.is-pressed {
+  transform: scale(0.95);
 }
 
 .lg-switch.on {
@@ -141,7 +148,7 @@
   top: 2px;
   left: 2px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.18);
-  transition: transform 0.22s ease;
+  transition: transform 0.24s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .lg-switch.on .lg-switch-thumb {
@@ -161,13 +168,16 @@
 .mini-btn {
   padding: 6px 11px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: calc(var(--app-font-size, 15px) - 3px);
   color: #333333;
   background: #f2f2f7;
+  transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.18s ease;
 }
 
-.mini-btn:active {
-  transform: scale(0.95);
+.mini-btn:active,
+.mini-btn.is-pressed {
+  transform: scale(0.93);
+  background: #e5e5ea;
 }
 
 /* p2 风格字号滑块 */
@@ -294,7 +304,7 @@
 }
 
 .font-check {
-  font-size: 14px;
+  font-size: calc(var(--app-font-size, 15px) - 1px);
   font-weight: 600;
   color: #111111;
   opacity: 0;
@@ -305,11 +315,16 @@
 }
 
 .font-del {
-  font-size: 12px;
+  font-size: calc(var(--app-font-size, 15px) - 3px);
   color: #8e8e93;
   padding: 3px 8px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.05);
+  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.font-del.is-pressed {
+  transform: scale(0.92);
 }
 
 .font-add-btn {
@@ -320,10 +335,12 @@
   font-size: calc(var(--app-font-size, 15px) - 1px);
   color: #111111;
   font-weight: 500;
+  transition: background-color 0.18s ease;
 }
 
-.font-add-btn:active {
-  background: rgba(0, 0, 0, 0.04);
+.font-add-btn:active,
+.font-add-btn.is-pressed {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 /* 底部小胶囊液态玻璃 */
@@ -373,14 +390,15 @@
   flex: 1;
   text-align: center;
   padding: 9px 0;
-  font-size: 14px;
+  font-size: calc(var(--app-font-size, 15px) - 1px);
   font-weight: 500;
   color: #666666;
   border-radius: 999px;
-  transition: color 0.2s ease, transform 0.15s ease;
+  transition: color 0.2s ease, transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-.lg-tab:active {
+.lg-tab:active,
+.lg-tab.is-pressed {
   transform: scale(0.94);
 }
 
@@ -396,7 +414,7 @@
   color: #8e8e93;
 }
 
-/* 图标页（模仿 p2） */
+/* 图标页 */
 .icon-sec-row {
   display: flex;
   align-items: center;
@@ -406,7 +424,7 @@
 }
 
 .icon-sec-title {
-  font-size: 12px;
+  font-size: calc(var(--app-font-size, 15px) - 3px);
   font-weight: 600;
   color: #8e8e93;
   letter-spacing: 0.6px;
@@ -421,15 +439,18 @@
 .icon-pack-btn {
   padding: 5px 11px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: calc(var(--app-font-size, 15px) - 3px);
   font-weight: 500;
   color: #111111;
   background: #ffffff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.18s ease;
 }
 
-.icon-pack-btn:active {
-  transform: scale(0.95);
+.icon-pack-btn:active,
+.icon-pack-btn.is-pressed {
+  transform: scale(0.93);
+  background: #f2f2f7;
 }
 
 .home-icon-card {
@@ -450,7 +471,7 @@
 }
 
 .home-tag {
-  font-size: 11px;
+  font-size: calc(var(--app-font-size, 15px) - 4px);
   font-weight: 600;
   color: #8e8e93;
   background: #f2f2f7;
@@ -489,10 +510,12 @@
   font-size: 26px;
   color: #8e8e93;
   background: #fafafa;
+  transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-.icon-upload-box:active {
-  transform: scale(0.94);
+.icon-upload-box:active,
+.icon-upload-box.is-pressed {
+  transform: scale(0.93);
 }
 
 .icon-default-box {
@@ -507,7 +530,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
+  font-size: calc(var(--app-font-size, 15px) - 2px);
   font-weight: 600;
   color: #111111;
 }
@@ -517,12 +540,12 @@
 }
 
 .home-icon-slot-label {
-  font-size: 12px;
+  font-size: calc(var(--app-font-size, 15px) - 3px);
   color: #666666;
 }
 
 .home-icon-note {
-  font-size: 12px;
+  font-size: calc(var(--app-font-size, 15px) - 3px);
   color: #aeaeb2;
   line-height: 1.5;
 }
@@ -553,6 +576,11 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10);
   background-size: cover;
   background-position: center;
+  transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.icon-grid-box.is-pressed {
+  transform: scale(0.92);
 }
 
 .icon-grid-box.has-img {
@@ -619,10 +647,12 @@
   background-position: center;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   border: 0.5px solid rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-.icon-pack-thumb:active {
-  transform: scale(0.96);
+.icon-pack-thumb:active,
+.icon-pack-thumb.is-pressed {
+  transform: scale(0.95);
 }
 
 .icon-pack-del {
@@ -655,10 +685,13 @@
   font-size: var(--app-font-size, 15px);
   font-weight: 500;
   color: #ff3b30;
+  transition: background-color 0.18s ease, transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-.icon-clear-btn:active {
+.icon-clear-btn:active,
+.icon-clear-btn.is-pressed {
   background: rgba(0, 0, 0, 0.04);
+  transform: scale(0.98);
 }
 
 /* 图标包导出预览弹窗 */
@@ -697,7 +730,7 @@
 }
 
 .icon-pack-sheet-tip {
-  font-size: 12px;
+  font-size: calc(var(--app-font-size, 15px) - 3px);
   color: #8e8e93;
   text-align: center;
   line-height: 1.45;
@@ -731,10 +764,11 @@
   text-align: center;
   padding: 11px 0;
   border-radius: 999px;
-  font-size: 14px;
+  font-size: calc(var(--app-font-size, 15px) - 1px);
   font-weight: 500;
   background: #f2f2f7;
   color: #111111;
+  transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .icon-pack-action.primary {
@@ -742,6 +776,7 @@
   color: #ffffff;
 }
 
-.icon-pack-action:active {
-  transform: scale(0.96);
+.icon-pack-action:active,
+.icon-pack-action.is-pressed {
+  transform: scale(0.95);
 }
