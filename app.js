@@ -134,7 +134,7 @@ window.applyHomeScreenIcon = function (url) {
   PhoneDB.get('home_screen_icon').then(function (url) {
     if (url) window.applyHomeScreenIcon(url);
   });
-  ['appearance', 'api', 'books', 'offline', 'archive', 'presets', 'lorebook', 'beautify', 'memory', 'takeout', 'appstore', 'games', 'shopping', 'chat', 'netflix', 'converter', 'imessage', 'photos', 'music', 'settings'].forEach(function (id) {
+  ['appearance', 'api', 'books', 'offline', 'archive', 'presets', 'lorebook', 'beautify', 'memory', 'takeout', 'appstore', 'games', 'shopping', 'chat', 'netflix', 'converter', 'mask', 'imessage', 'photos', 'music', 'settings'].forEach(function (id) {
     PhoneDB.get('icon_' + id).then(function (url) {
       if (url) window.applyAppIcon(id, url);
     });
@@ -189,6 +189,7 @@ window.applyHomeScreenIcon = function (url) {
     memory: '记忆',
     takeout: '小团外卖',
     converter: '转换器',
+    mask: '面具',
     offline: '线下',
     beautify: '美化',
     photos: '照片',
@@ -264,7 +265,7 @@ window.applyHomeScreenIcon = function (url) {
       '.home-edit-menu-item {' +
         'width: 100%; height: 45px; padding: 0 16px; border: none;' +
         'border-bottom: 1px solid rgba(0,0,0,0.06); background: transparent;' +
-        'color: #111111; font-family: inherit; font-size: 14.5px; font-weight: 500;' +
+        'color: #111111; font-family: inherit; font-size: var(--app-font-size, 15px); font-weight: 500;' +
         'display: flex; align-items: center; gap: 12px; cursor: pointer;' +
         'transition: background-color 0.16s ease;' +
       '}' +
@@ -274,7 +275,7 @@ window.applyHomeScreenIcon = function (url) {
         'position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 46px);' +
         'transform: translateX(-50%) translateY(-8px) scale(0.95);' +
         'padding: 8px 16px; border-radius: 999px; background: rgba(17,17,17,0.88); color: #ffffff;' +
-        'font-size: 13px; font-weight: 500; z-index: 9999; opacity: 0; pointer-events: none;' +
+        'font-size: calc(var(--app-font-size, 15px) - 2px); font-weight: 500; z-index: 9999; opacity: 0; pointer-events: none;' +
         'transition: transform 0.24s cubic-bezier(0.32,0.72,0,1), opacity 0.24s ease;' +
       '}' +
       '.home-toast.is-show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }' +
@@ -441,8 +442,11 @@ window.applyHomeScreenIcon = function (url) {
     if (!data || !Array.isArray(data.page0) || !Array.isArray(data.page1) || !Array.isArray(data.dock)) return;
 
     var allMap = {};
+    var defaultGridMap = {};
     homeEl.querySelectorAll('.app[data-app]').forEach(function (el) {
-      allMap[el.getAttribute('data-app')] = el;
+      var id = el.getAttribute('data-app');
+      allMap[id] = el;
+      defaultGridMap[id] = el.closest('.grid') || grids[1];
     });
 
     var used = {};
@@ -463,7 +467,8 @@ window.applyHomeScreenIcon = function (url) {
 
     Object.keys(allMap).forEach(function (id) {
       if (!used[id]) {
-        grids[1].appendChild(allMap[id]);
+        var targetGrid = defaultGridMap[id] || grids[1];
+        targetGrid.appendChild(allMap[id]);
         syncAppNameVisibility(allMap[id]);
       }
     });
