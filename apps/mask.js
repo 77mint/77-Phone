@@ -1,4 +1,4 @@
-/* apps/mask.js - 面具（用户人设管理 + 性别 + 右上角导出 + PNG/JSON 导入导出 + 角色绑定） */
+/* apps/mask.js - 面具（人物档案卡布局 + 性别 + 右上角导出 + PNG/JSON 导入导出 + 角色绑定） */
 (function () {
   var STORAGE_KEY = 'phone_masks_v1';
   var AVATAR_PREFIX = 'mask_avatar_';
@@ -216,39 +216,37 @@
         '</div>' +
 
         '<div class="msk-editor-scroll" id="mskEditorScroll">' +
-          '<div class="msk-avatar-section">' +
-            '<button class="msk-avatar-picker" id="mskAvatarPicker" type="button" aria-label="上传头像">' +
-              '<div class="msk-avatar-inner" id="mskAvatarPreview"></div>' +
-              '<span class="msk-avatar-cam-badge">' +
-                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>' +
-              '</span>' +
-            '</button>' +
-            '<div class="msk-avatar-actions">' +
-              '<button class="msk-text-btn" id="mskAvatarPickTextBtn" type="button">更换头像</button>' +
-              '<button class="msk-text-btn is-danger" id="mskAvatarClearBtn" type="button" style="display:none;">移除头像</button>' +
+          /* 上半区：左竖版头像 + 右三行（姓名 / 性别 / 年龄） */
+          '<div class="msk-profile-top">' +
+            '<div class="msk-portrait-box" id="mskAvatarPicker" role="button" tabindex="0" aria-label="上传头像">' +
+              '<div class="msk-portrait-inner" id="mskAvatarPreview"></div>' +
+              '<button class="msk-portrait-clear" id="mskAvatarClearBtn" type="button" aria-label="移除头像">' +
+                '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+              '</button>' +
+            '</div>' +
+            '<div class="msk-profile-fields">' +
+              '<div class="msk-field">' +
+                '<label class="msk-field-label" for="mskNameInput">姓名</label>' +
+                '<input class="msk-input" id="mskNameInput" type="text" placeholder="人设姓名" autocomplete="off">' +
+              '</div>' +
+              '<div class="msk-field">' +
+                '<label class="msk-field-label" for="mskGenderInput">性别</label>' +
+                '<input class="msk-input" id="mskGenderInput" type="text" placeholder="女 / 男 / 未知" autocomplete="off">' +
+              '</div>' +
+              '<div class="msk-field">' +
+                '<label class="msk-field-label" for="mskAgeInput">年龄</label>' +
+                '<input class="msk-input" id="mskAgeInput" type="text" placeholder="如：21、未知" autocomplete="off">' +
+              '</div>' +
             '</div>' +
           '</div>' +
 
-          '<div class="msk-section-label"><span>基础人设</span></div>' +
-          '<div class="msk-form-card">' +
-            '<div class="msk-field">' +
-              '<label class="msk-field-label" for="mskNameInput">姓名</label>' +
-              '<input class="msk-input" id="mskNameInput" type="text" placeholder="输入人设姓名" autocomplete="off">' +
-            '</div>' +
-            '<div class="msk-field">' +
-              '<label class="msk-field-label" for="mskGenderInput">性别</label>' +
-              '<input class="msk-input" id="mskGenderInput" type="text" placeholder="如：女、男、未知" autocomplete="off">' +
-            '</div>' +
-            '<div class="msk-field">' +
-              '<label class="msk-field-label" for="mskAgeInput">年龄</label>' +
-              '<input class="msk-input" id="mskAgeInput" type="text" placeholder="如：21、未知" autocomplete="off">' +
-            '</div>' +
-            '<div class="msk-field msk-field-col">' +
-              '<label class="msk-field-label" for="mskSettingInput">设定</label>' +
-              '<textarea class="msk-textarea" id="mskSettingInput" placeholder="写下外貌、性格、身份背景、与角色的关系等设定..."></textarea>' +
-            '</div>' +
+          /* 中间：整块大卡放设定 */
+          '<div class="msk-setting-card">' +
+            '<label class="msk-field-label" for="mskSettingInput">设定</label>' +
+            '<textarea class="msk-textarea" id="mskSettingInput" placeholder="写下外貌、性格、身份背景、与角色的关系等设定..."></textarea>' +
           '</div>' +
 
+          /* 底部：绑定角色 */
           '<div class="msk-section-label">' +
             '<span>绑定角色</span>' +
             '<span id="mskBindCountLabel">已选 0 个</span>' +
@@ -297,7 +295,6 @@
   var editorScroll = document.getElementById('mskEditorScroll');
   var avatarPicker = document.getElementById('mskAvatarPicker');
   var avatarPreview = document.getElementById('mskAvatarPreview');
-  var avatarPickTextBtn = document.getElementById('mskAvatarPickTextBtn');
   var avatarClearBtn = document.getElementById('mskAvatarClearBtn');
   var nameInput = document.getElementById('mskNameInput');
   var genderInput = document.getElementById('mskGenderInput');
@@ -345,7 +342,7 @@
         img.onload = function () {
           var w = img.width || 1;
           var h = img.height || 1;
-          var limit = maxSide || 640;
+          var limit = maxSide || 720;
           if (w > limit || h > limit) {
             if (w >= h) {
               h = Math.round((h * limit) / w);
@@ -637,20 +634,19 @@
     });
   }
 
-  /* 渲染编辑页头像预览 */
+  /* 渲染编辑页竖版头像预览 */
   function renderEditorAvatar() {
     if (draftAvatarDataUrl) {
       avatarPreview.innerHTML = '<img src="' + draftAvatarDataUrl + '" alt="">';
-      avatarClearBtn.style.display = '';
+      avatarClearBtn.classList.add('is-show');
     } else {
       avatarPreview.innerHTML =
-        '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round">' +
-          '<path d="M4 7c0-1.5 3.6-3 8-3s8 1.5 8 3v4c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10V7z"/>' +
-          '<path d="M8.5 11.2c.6-.7 1.9-.7 2.5 0"/>' +
-          '<path d="M13 11.2c.6-.7 1.9-.7 2.5 0"/>' +
-          '<path d="M9.5 15.5c1.5 1 3.5 1 5 0"/>' +
-        '</svg>';
-      avatarClearBtn.style.display = 'none';
+        '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>' +
+          '<circle cx="12" cy="13" r="4"/>' +
+        '</svg>' +
+        '<span class="msk-portrait-hint">上传头像</span>';
+      avatarClearBtn.classList.remove('is-show');
     }
   }
 
@@ -885,7 +881,7 @@
     if (isPng) {
       Promise.all([
         file.arrayBuffer(),
-        compressImageFile(file, 640)
+        compressImageFile(file, 720)
       ]).then(function (results) {
         var buf = results[0];
         var avatarDataUrl = results[1];
@@ -1029,42 +1025,50 @@
 
     var canvas = document.createElement('canvas');
     canvas.width = 512;
-    canvas.height = 512;
+    canvas.height = 682;
     var ctx = canvas.getContext('2d');
 
     if (draftAvatarDataUrl) {
       var img = new Image();
       img.onload = function () {
+        var targetRatio = canvas.width / canvas.height;
+        var imgRatio = img.width / img.height;
+        var sx = 0;
+        var sy = 0;
         var sw = img.width;
         var sh = img.height;
-        var side = Math.min(sw, sh);
-        var sx = (sw - side) / 2;
-        var sy = (sh - side) / 2;
-        ctx.drawImage(img, sx, sy, side, side, 0, 0, 512, 512);
+        if (imgRatio > targetRatio) {
+          sw = img.height * targetRatio;
+          sx = (img.width - sw) / 2;
+        } else {
+          sh = img.width / targetRatio;
+          sy = (img.height - sh) / 2;
+        }
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
         buildFromCanvas(canvas);
       };
       img.onerror = function () {
-        drawFallbackCard(ctx, payload.name);
+        drawFallbackCard(ctx, canvas.width, canvas.height, payload.name);
         buildFromCanvas(canvas);
       };
       img.src = draftAvatarDataUrl;
     } else {
-      drawFallbackCard(ctx, payload.name);
+      drawFallbackCard(ctx, canvas.width, canvas.height, payload.name);
       buildFromCanvas(canvas);
     }
   }
 
-  function drawFallbackCard(ctx, name) {
+  function drawFallbackCard(ctx, w, h, name) {
     ctx.fillStyle = '#1c1c1e';
-    ctx.fillRect(0, 0, 512, 512);
+    ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 120px -apple-system, "PingFang SC", sans-serif';
+    ctx.font = 'bold 132px -apple-system, "PingFang SC", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText((name || '面').charAt(0), 256, 240);
-    ctx.fillStyle = 'rgba(255,255,255,0.65)';
-    ctx.font = '600 28px -apple-system, "PingFang SC", sans-serif';
-    ctx.fillText(name || '面具', 256, 360);
+    ctx.fillText((name || '面').charAt(0), w / 2, h * 0.44);
+    ctx.fillStyle = 'rgba(255,255,255,0.68)';
+    ctx.font = '600 30px -apple-system, "PingFang SC", sans-serif';
+    ctx.fillText(name || '面具', w / 2, h * 0.64);
   }
 
   function triggerDownload(blob, filename) {
@@ -1140,12 +1144,8 @@
     saveCurrentMask();
   });
 
-  bindTap(avatarPicker, function () {
-    avatarFileInput.value = '';
-    avatarFileInput.click();
-  });
-
-  bindTap(avatarPickTextBtn, function () {
+  bindTap(avatarPicker, function (e) {
+    if (e && e.target && e.target.closest('#mskAvatarClearBtn')) return;
     avatarFileInput.value = '';
     avatarFileInput.click();
   });
@@ -1175,7 +1175,7 @@
   avatarFileInput.addEventListener('change', function () {
     var file = avatarFileInput.files && avatarFileInput.files[0];
     if (!file) return;
-    compressImageFile(file, 512).then(function (dataUrl) {
+    compressImageFile(file, 720).then(function (dataUrl) {
       draftAvatarDataUrl = dataUrl;
       draftAvatarCleared = false;
       renderEditorAvatar();
