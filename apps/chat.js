@@ -4,7 +4,8 @@
    - 微信小圆角头像 + 名字对齐头像上缘/预览对齐下缘 + 可点进聊天窗口
    - 适配 iOS visualViewport，原生键盘弹起不遮挡输入框
    - 支持 P1 长按流式转文字、P2 独占麦克风真录音（可回放）、默认展开转文字白卡、滑动引用
-   - 支持 Char 视角切换（气泡左右互换、隐藏右上角复杂按钮、预留 Char 自然生活与关系备注接口）
+   - 支持 Char 视角切换（气泡左右互换、隐藏右上角复杂按钮、自动隐藏 CoT、预留关系备注接口）
+   - 支持气泡头顶 CoT 思维链胶囊（点按顺滑展开、连发仅挂第一条）
    ========================================================= */
 
 (function () {
@@ -71,6 +72,7 @@
     let currentPlayingAudio = null;
     let playAnimTimer = null;
     let userAvatarCache = {};
+    let expandedCotIds = new Set();
 
     // 长按录音 / 语音转文字状态
     let holdState = {
@@ -124,6 +126,27 @@
             }
         } catch (e) {}
         return c.avatar || '';
+    }
+
+    /* ---------------- CoT 思维链开关与字段读取 ---------------- */
+    function isCotEnabled() {
+        try {
+            if (window.PhoneChatMe && typeof window.PhoneChatMe.getPrefs === 'function') {
+                const prefs = window.PhoneChatMe.getPrefs() || {};
+                if (typeof prefs.showCot === 'boolean') return prefs.showCot;
+                if (typeof prefs.showCoT === 'boolean') return prefs.showCoT;
+                if (typeof prefs.cot === 'boolean') return prefs.cot;
+                if (typeof prefs.showThinking === 'boolean') return prefs.showThinking;
+                if (typeof prefs.thinking === 'boolean') return prefs.thinking;
+            }
+        } catch (e) {}
+        return true;
+    }
+
+    function getMsgCotText(m) {
+        if (!m) return '';
+        const raw = m.cot || m.thinking || m.thought || m.reasoning || '';
+        return String(raw).trim();
     }
 
     /* ---------------- 当前视角辅助（User 视角 vs Char 视角） ---------------- */
@@ -370,6 +393,42 @@
         if (plusBtn) plusBtn.classList.toggle('is-hidden', activeTab !== 'messages' || pov.isChar);
     }
 
+    function bindTactilePress(root) {
+        if (!root || root.dataset.tactileBound === '1') return;
+        root.dataset.tactileBound = '1';
+        const sel = '.ct-glass-circle, .ct-plus-item, .ct-row, .ct-tab-btn, .ct-room-icon-btn, .ct-pill-btn, .ct-primary-btn, .ct-modal-close, .ct-cot-pill, .ct-msg-bubble.ct-gift-bubble';
+        let pressedEl = null;
+        let sx = 0, sy = 0;
+
+        root.addEventListener('touchstart', (e) => {
+            const target = e.target.closest(sel);
+            if (!target) return;
+            pressedEl = target;
+            if (e.touches[0]) {
+                sx = e.touches[0].clientX;
+                sy = e.touches[0].clientY;
+            }
+            target.classList.add('is-pressed');
+        }, { passive: true });
+
+        root.addEventListener('touchmove', (e) => {
+            if (!pressedEl || !e.touches[0]) return;
+            if (Math.hypot(e.touches[0].clientX - sx, e.touches[0].clientY - sy) > 10) {
+                pressedEl.classList.remove('is-pressed');
+                pressedEl = null;
+            }
+        }, { passive: true });
+
+        const clearPress = () => {
+            if (pressedEl) {
+                pressedEl.classList.remove('is-pressed');
+                pressedEl = null;
+            }
+        };
+        root.addEventListener('touchend', clearPress, { passive: true });
+        root.addEventListener('touchcancel', clearPress, { passive: true });
+    }
+
     function mount() {
         const root = document.getElementById('app-chat');
         if (!root || root.dataset.mounted === '1') return;
@@ -505,6 +564,7 @@
             </div>
         `;
 
+        bindTactilePress(root);
         bindEvents();
         renderActiveTab();
     }
@@ -879,6 +939,7 @@
             stopPlayingVoiceUI();
             resetRoomViewport();
             pendingQuote = null;
+            expandedCotIds.clear();
             renderQuoteBar();
             document.getElementById('ctRoomView').classList.remove('open');
             currentThreadId = null;
@@ -1008,6 +1069,7 @@
         // 切号（如切入 Char 视角 / 切回主号）时自动同步刷新
         window.addEventListener('phone:chat-account-changed', () => {
             userAvatarCache = {};
+            expandedCotIds.clear();
             const room = document.getElementById('ctRoomView');
             if (room && room.classList.contains('open')) {
                 room.classList.remove('open');
@@ -1114,6 +1176,7 @@
         if (!t) return;
         currentThreadId = threadId;
         pendingQuote = null;
+        expandedCotIds.clear();
         renderQuoteBar();
 
         const chars = getArchiveChars();
@@ -1145,6 +1208,7 @@
         if (!currentThreadId) return;
         const box = document.getElementById('ctRoomMessages');
         const pov = getActivePov();
+        const showCot = !pov.isChar && isCotEnabled();
         const threads = pov.isChar ? getCharPovThreads(pov.charId) : getThreads();
         const t = threads.find(item => item.id === currentThreadId);
         const chars = getArchiveChars();
@@ -1161,7 +1225,7 @@
         const userRemark = pov.isChar ? getCharRemarkForUser(pov.charId) : '我';
         let lastShownTime = '';
 
-        box.innerHTML = msgs.map(m => {
+        box.innerHTML = msgs.map((m, idx) => {
             // 在 Char 视角下：Char 发的消息在右边(me)，User 发的消息在左边(对方)
             const isCharSender = m.sender === 'char' || (m.sender !== 'me' && !!m.charId);
             const isMe = pov.isChar ? (isCharSender && (!m.charId || m.charId === pov.charId)) : (m.sender === 'me');
@@ -1188,6 +1252,39 @@
             if (m.time && m.time !== '在线' && m.time !== lastShownTime) {
                 lastShownTime = m.time;
                 timeHtml = `<div class="ct-msg-time">${escapeHtml(m.time)}</div>`;
+            }
+
+            // CoT 思维链：仅在 User 视角 + 开关开启 + 对方气泡 + 连发首条时显示
+            let cotHtml = '';
+            const cotText = getMsgCotText(m);
+            if (showCot && !isMe && cotText) {
+                const prev = idx > 0 ? msgs[idx - 1] : null;
+                const prevIsSameCharBurst = prev
+                    && (prev.sender === 'char' || (prev.sender !== 'me' && !!prev.charId))
+                    && (!m.charId || !prev.charId || m.charId === prev.charId)
+                    && (!m.time || !prev.time || m.time === prev.time)
+                    && !!getMsgCotText(prev);
+
+                if (!prevIsSameCharBurst) {
+                    const isOpen = expandedCotIds.has(m.id);
+                    const durVal = m.cotDuration || m.thinkingTime;
+                    const pillLabel = m.cotTitle
+                        ? m.cotTitle
+                        : (durVal ? `已思考 ${durVal}s` : '思考过程');
+                    cotHtml = `
+                        <div class="ct-cot-wrap${isOpen ? ' open' : ''}" data-cot-id="${escapeHtml(m.id)}">
+                            <button type="button" class="ct-cot-pill" aria-expanded="${isOpen ? 'true' : 'false'}">
+                                <span class="ct-cot-label">${escapeHtml(pillLabel)}</span>
+                                <svg class="ct-cot-chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                            </button>
+                            <div class="ct-cot-body">
+                                <div class="ct-cot-inner">
+                                    <div class="ct-cot-card">${escapeHtml(cotText)}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
             }
 
             const isVoice = m.type === 'voice';
@@ -1237,6 +1334,7 @@
 
             return `${timeHtml}
                 <div class="ct-msg-group ${isMe ? 'me' : ''}" data-msg-id="${escapeHtml(m.id)}" data-sender-name="${escapeHtml(senderName)}">
+                    ${cotHtml}
                     <div class="ct-msg-row ${isMe ? 'me' : ''}">
                         ${avHtml}
                         <div class="ct-msg-bubble ${isVoice ? 'is-voice-msg' : ''}"${bubbleStyle}>${bubbleInner}</div>
@@ -1248,6 +1346,22 @@
         }).join('');
 
         hydrateUserAvatars(box);
+
+        box.querySelectorAll('.ct-cot-pill').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const wrap = btn.closest('.ct-cot-wrap');
+                if (!wrap) return;
+                const cid = wrap.dataset.cotId;
+                const nextOpen = !wrap.classList.contains('open');
+                wrap.classList.toggle('open', nextOpen);
+                btn.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+                if (cid) {
+                    if (nextOpen) expandedCotIds.add(cid);
+                    else expandedCotIds.delete(cid);
+                }
+            });
+        });
 
         box.querySelectorAll('.ct-msg-group').forEach(group => {
             const isMe = group.classList.contains('me');
@@ -1720,7 +1834,8 @@
 
     window.PhoneChat = {
         getThreads: getThreads,
-        getContactIds: getContactIds
+        getContactIds: getContactIds,
+        refreshMessages: renderRoomMessages
     };
 
     if (document.readyState === 'loading') {
