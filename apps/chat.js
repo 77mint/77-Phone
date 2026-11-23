@@ -4,12 +4,16 @@
    - 微信小圆角头像 + 名字对齐头像上缘/预览对齐下缘 + 可点进聊天窗口
    - 适配 iOS visualViewport，原生键盘弹起不遮挡输入框
    - 支持 P1 长按流式转文字、P2 独占麦克风真录音（可回放）、默认展开转文字白卡、滑动引用
+   - 支持 Char 视角切换（气泡左右互换、隐藏右上角复杂按钮、预留 Char 自然生活与关系备注接口）
    ========================================================= */
 
 (function () {
     const STORAGE_CONTACTS_KEY = 'chat_contacts_v1';
     const STORAGE_THREADS_KEY = 'chat_threads_v1';
     const STORAGE_MSGS_PREFIX = 'chat_msgs_v1_';
+    const STORAGE_CHAR_REMARKS = 'chat_char_user_remarks_v1';
+    const STORAGE_CHAR_THREADS_PREFIX = 'chat_char_threads_v1_';
+    const STORAGE_CHAR_CONTACTS_PREFIX = 'chat_char_contacts_v1_';
     const BUILTIN_ID = 'assistant-shuixiaojiu';
 
     const SVG_VOICE_CIRCLE = `
@@ -66,6 +70,7 @@
     let pendingQuote = null;
     let currentPlayingAudio = null;
     let playAnimTimer = null;
+    let userAvatarCache = {};
 
     // 长按录音 / 语音转文字状态
     let holdState = {
@@ -121,6 +126,87 @@
         return c.avatar || '';
     }
 
+    /* ---------------- 当前视角辅助（User 视角 vs Char 视角） ---------------- */
+    function getActivePov() {
+        try {
+            if (window.PhoneChatMe && typeof window.PhoneChatMe.getActiveAccount === 'function') {
+                const acc = window.PhoneChatMe.getActiveAccount();
+                if (acc && acc.type === 'char' && acc.charId) {
+                    const chars = getArchiveChars();
+                    const ch = chars.find(c => c.id === acc.charId) || null;
+                    return { isChar: true, charId: acc.charId, charObj: ch, account: acc };
+                }
+                return { isChar: false, charId: '', charObj: null, account: acc };
+            }
+        } catch (e) {}
+        return { isChar: false, charId: '', charObj: null, account: null };
+    }
+
+    function getUserSelfAccount() {
+        try {
+            if (window.PhoneChatMe && typeof window.PhoneChatMe.getAccounts === 'function') {
+                const list = window.PhoneChatMe.getAccounts() || [];
+                const active = window.PhoneChatMe.getActiveAccount();
+                if (active && active.type !== 'char') return active;
+                return list.find(a => a.type !== 'char') || { id: 'acc_default', name: '我' };
+            }
+        } catch (e) {}
+        return { id: 'acc_default', name: '我' };
+    }
+
+    function getCharRemarkForUser(charId) {
+        const map = loadJSON(STORAGE_CHAR_REMARKS, {});
+        if (map && map[charId]) return map[charId];
+        const userAcc = getUserSelfAccount();
+        return (userAcc && userAcc.name) || '我';
+    }
+
+    function resolveUserAvatarAsync(cb) {
+        const acc = getUserSelfAccount();
+        if (!acc) { cb(''); return; }
+        const cacheKey = acc.avatarDbKey || (acc.maskId ? ('mask_' + acc.maskId) : '');
+        if (cacheKey && userAvatarCache[cacheKey]) {
+            cb(userAvatarCache[cacheKey]);
+            return;
+        }
+        if (acc.avatarDbKey && window.PhoneDB && typeof window.PhoneDB.get === 'function') {
+            Promise.resolve(window.PhoneDB.get(acc.avatarDbKey)).then(url => {
+                if (url) {
+                    userAvatarCache[cacheKey] = url;
+                    cb(url);
+                } else if (acc.maskId && window.PhoneMask && typeof window.PhoneMask.getMaskAvatar === 'function') {
+                    Promise.resolve(window.PhoneMask.getMaskAvatar(acc.maskId)).then(mUrl => {
+                        if (mUrl) userAvatarCache[cacheKey] = mUrl;
+                        cb(mUrl || '');
+                    }).catch(() => cb(''));
+                } else {
+                    cb('');
+                }
+            }).catch(() => cb(''));
+            return;
+        }
+        if (acc.maskId && window.PhoneMask && typeof window.PhoneMask.getMaskAvatar === 'function') {
+            Promise.resolve(window.PhoneMask.getMaskAvatar(acc.maskId)).then(mUrl => {
+                if (mUrl) userAvatarCache[cacheKey] = mUrl;
+                cb(mUrl || '');
+            }).catch(() => cb(''));
+            return;
+        }
+        cb('');
+    }
+
+    function hydrateUserAvatars(container) {
+        if (!container) return;
+        const els = container.querySelectorAll('[data-user-avatar-box]');
+        if (!els.length) return;
+        resolveUserAvatarAsync(url => {
+            if (!url) return;
+            els.forEach(el => {
+                el.innerHTML = `<img src="${escapeHtml(url)}" alt="" />`;
+            });
+        });
+    }
+
     function getContactIds() {
         const archiveChars = getArchiveChars();
         const validSet = new Set(archiveChars.map(c => c.id));
@@ -152,6 +238,32 @@
             saveJSON(STORAGE_THREADS_KEY, list);
         }
         return list;
+    }
+
+    function getCharPovThreads(povCharId) {
+        const userName = getCharRemarkForUser(povCharId);
+        const dmId = 'dm-' + povCharId;
+        const userThreads = getThreads();
+        const baseDm = userThreads.find(t => t.id === dmId);
+        const msgs = getThreadMessages(dmId);
+        const last = msgs.length ? msgs[msgs.length - 1] : null;
+        const lastText = last
+            ? (last.type === 'voice' ? `[语音 ${last.duration || 1}"]` : (last.text || ''))
+            : ((baseDm && baseDm.lastMsg) || '点击开始聊天');
+        const lastTime = (last && last.time) || (baseDm && baseDm.lastTime) || '';
+
+        const mainUserThread = {
+            id: dmId,
+            type: 'dm-user',
+            charId: povCharId,
+            name: userName,
+            lastMsg: lastText,
+            lastTime: lastTime
+        };
+
+        const naturalLife = loadJSON(STORAGE_CHAR_THREADS_PREFIX + povCharId, []);
+        const extra = Array.isArray(naturalLife) ? naturalLife : [];
+        return [mainUserThread].concat(extra);
     }
 
     function getThreadMessages(threadId) {
@@ -206,6 +318,12 @@
         return `<div class="${boxCls}">${escapeHtml(fallbackChar)}</div>`;
     }
 
+    function renderUserAvatarHtml(displayName, cls) {
+        const boxCls = cls || 'ct-avatar';
+        const fallbackChar = (displayName || '我').slice(0, 1);
+        return `<div class="${boxCls}" data-user-avatar-box="1">${escapeHtml(fallbackChar)}</div>`;
+    }
+
     function syncRoomViewport() {
         const room = document.getElementById('ctRoomView');
         const app = document.querySelector('#app-chat .ct-app');
@@ -242,6 +360,14 @@
         room.style.bottom = '0px';
         room.style.height = '';
         room.classList.remove('is-kb-open');
+    }
+
+    function syncTopButtonsVisibility() {
+        const pov = getActivePov();
+        const backBtn = document.getElementById('ctBackBtn');
+        const plusBtn = document.getElementById('ctPlusBtn');
+        if (backBtn) backBtn.classList.toggle('is-hidden', activeTab !== 'messages');
+        if (plusBtn) plusBtn.classList.toggle('is-hidden', activeTab !== 'messages' || pov.isChar);
     }
 
     function mount() {
@@ -540,7 +666,6 @@
         updateOverlayUI();
         overlay.classList.add('open');
 
-        // 分开独占麦克风：语音条只录真音频，转文字才开语音识别
         if (mode === 'dictate') {
             startSpeechRecognition();
         } else {
@@ -565,7 +690,6 @@
         }
         if (nextZone !== holdState.zone) {
             holdState.zone = nextZone;
-            // 在语音模式下右滑到「转文字」时，释放录音并切到语音识别
             if (holdState.mode === 'voice' && nextZone === 'alt' && !holdState.recognition) {
                 if (holdState.recorder && holdState.recorder.state !== 'inactive') {
                     try { holdState.recorder.stop(); } catch (e) {}
@@ -697,8 +821,7 @@
                 const titles = { messages: '讯息', contacts: '联系人', moments: '朋友圈', me: '我的' };
                 document.getElementById('ctTitle').textContent = titles[activeTab] || 'Chat';
 
-                document.getElementById('ctBackBtn').classList.toggle('is-hidden', activeTab !== 'messages');
-                plusBtn.classList.toggle('is-hidden', activeTab !== 'messages');
+                syncTopButtonsVisibility();
                 renderActiveTab();
             });
         });
@@ -786,7 +909,6 @@
             setTimeout(syncRoomViewport, 80);
         });
 
-        // P1 输入框：为空时屏蔽 iOS 原生长按复制粘贴菜单，区分轻点打字与长按流式转文字
         let dictateTimer = null;
         let dictateTriggered = false;
         let inputTouchMoved = false;
@@ -841,7 +963,6 @@
             if (holdState.active) finishHoldOverlay();
         });
 
-        // P2 按住说话按钮
         const holdBtn = document.getElementById('ctHoldTalkBtn');
         holdBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
@@ -854,7 +975,6 @@
             startHoldOverlay('voice');
         });
 
-        // 全局跟踪触摸与松手
         window.addEventListener('touchmove', (e) => {
             if (holdState.active && e.touches[0]) {
                 moveHoldOverlay(e.touches[0].clientX, e.touches[0].clientY);
@@ -884,9 +1004,24 @@
         window.addEventListener('phone-archive-updated', () => {
             renderActiveTab();
         });
+
+        // 切号（如切入 Char 视角 / 切回主号）时自动同步刷新
+        window.addEventListener('phone:chat-account-changed', () => {
+            userAvatarCache = {};
+            const room = document.getElementById('ctRoomView');
+            if (room && room.classList.contains('open')) {
+                room.classList.remove('open');
+                currentThreadId = null;
+            }
+            syncTopButtonsVisibility();
+            if (activeTab !== 'me') {
+                renderActiveTab();
+            }
+        });
     }
 
     function renderActiveTab() {
+        syncTopButtonsVisibility();
         const scroll = document.getElementById('ctMainScroll');
         if (scroll) {
             scroll.classList.toggle('is-gray', activeTab === 'moments' || activeTab === 'me');
@@ -899,8 +1034,11 @@
 
     function renderMessagesTab() {
         const scroll = document.getElementById('ctMainScroll');
+        const pov = getActivePov();
         const chars = getArchiveChars();
-        const threads = getThreads().filter(t => {
+
+        let threads = pov.isChar ? getCharPovThreads(pov.charId) : getThreads();
+        threads = threads.filter(t => {
             if (!searchKeyword) return true;
             const charObj = t.type === 'dm' ? chars.find(c => c.id === t.charId) : null;
             const name = charObj ? getCharDisplayName(charObj) : (t.name || '');
@@ -909,15 +1047,24 @@
 
         let listHtml = '';
         if (threads.length === 0) {
-            listHtml = '<div class="ct-empty">还没有匹配的聊天<br>点右上角 <b>+</b> 添加联系人或发起群聊</div>';
+            listHtml = pov.isChar
+                ? '<div class="ct-empty">暂无聊天记录</div>'
+                : '<div class="ct-empty">还没有匹配的聊天<br>点右上角 <b>+</b> 添加联系人或发起群聊</div>';
         } else {
             listHtml = '<div class="ct-flat-list">' + threads.map(t => {
                 const isGroup = t.type === 'group';
-                const charObj = !isGroup ? chars.find(c => c.id === t.charId) : null;
-                const displayName = charObj ? getCharDisplayName(charObj) : (t.name || '未命名聊天');
+                const isUserTarget = t.type === 'dm-user';
+                const charObj = (!isGroup && !isUserTarget) ? chars.find(c => c.id === t.charId) : null;
+                const displayName = isUserTarget
+                    ? (t.name || '我')
+                    : (charObj ? getCharDisplayName(charObj) : (t.name || '未命名聊天'));
+                const avatarHtml = isUserTarget
+                    ? renderUserAvatarHtml(displayName)
+                    : renderAvatarHtml(charObj, isGroup);
+
                 return `
                     <div class="ct-row ct-thread-row" data-thread-id="${escapeHtml(t.id)}">
-                        ${renderAvatarHtml(charObj, isGroup)}
+                        ${avatarHtml}
                         <div class="ct-row-main">
                             <div class="ct-row-top">
                                 <div class="ct-row-name">${escapeHtml(displayName)}</div>
@@ -940,6 +1087,8 @@
             ${listHtml}
         `;
 
+        hydrateUserAvatars(scroll);
+
         const input = document.getElementById('ctThreadSearch');
         input.addEventListener('input', (e) => {
             searchKeyword = e.target.value.trim().toLowerCase();
@@ -959,15 +1108,24 @@
     }
 
     function openChatRoom(threadId) {
-        const threads = getThreads();
+        const pov = getActivePov();
+        const threads = pov.isChar ? getCharPovThreads(pov.charId) : getThreads();
         const t = threads.find(item => item.id === threadId);
         if (!t) return;
         currentThreadId = threadId;
         pendingQuote = null;
         renderQuoteBar();
+
         const chars = getArchiveChars();
         const charObj = t.type === 'dm' ? chars.find(c => c.id === t.charId) : null;
-        document.getElementById('ctRoomTitle').textContent = charObj ? getCharDisplayName(charObj) : (t.name || '聊天');
+        document.getElementById('ctRoomTitle').textContent = t.type === 'dm-user'
+            ? (t.name || '我')
+            : (charObj ? getCharDisplayName(charObj) : (t.name || '聊天'));
+
+        // Char 视角下隐藏右上角复杂设置按钮
+        const moreBtn = document.getElementById('ctRoomMoreBtn');
+        if (moreBtn) moreBtn.style.visibility = pov.isChar ? 'hidden' : '';
+
         resetRoomViewport();
         renderRoomMessages();
         document.getElementById('ctRoomView').classList.add('open');
@@ -986,10 +1144,13 @@
     function renderRoomMessages() {
         if (!currentThreadId) return;
         const box = document.getElementById('ctRoomMessages');
-        const threads = getThreads();
+        const pov = getActivePov();
+        const threads = pov.isChar ? getCharPovThreads(pov.charId) : getThreads();
         const t = threads.find(item => item.id === currentThreadId);
         const chars = getArchiveChars();
-        const defaultChar = (t && t.type === 'dm') ? chars.find(c => c.id === t.charId) : null;
+        const defaultChar = pov.isChar
+            ? pov.charObj
+            : ((t && t.type === 'dm') ? chars.find(c => c.id === t.charId) : null);
         const msgs = getThreadMessages(currentThreadId);
 
         if (msgs.length === 0) {
@@ -997,14 +1158,31 @@
             return;
         }
 
+        const userRemark = pov.isChar ? getCharRemarkForUser(pov.charId) : '我';
         let lastShownTime = '';
+
         box.innerHTML = msgs.map(m => {
-            const isMe = m.sender === 'me';
-            const cObj = isMe ? null : (chars.find(c => c.id === m.charId) || defaultChar);
-            const senderName = isMe ? '我' : getCharDisplayName(cObj);
-            const avHtml = isMe
-                ? '<div class="ct-msg-avatar">我</div>'
-                : renderAvatarHtml(cObj, false, 'ct-msg-avatar');
+            // 在 Char 视角下：Char 发的消息在右边(me)，User 发的消息在左边(对方)
+            const isCharSender = m.sender === 'char' || (m.sender !== 'me' && !!m.charId);
+            const isMe = pov.isChar ? (isCharSender && (!m.charId || m.charId === pov.charId)) : (m.sender === 'me');
+
+            let senderName = '';
+            let avHtml = '';
+            if (pov.isChar) {
+                if (isMe) {
+                    senderName = getCharDisplayName(pov.charObj);
+                    avHtml = renderAvatarHtml(pov.charObj, false, 'ct-msg-avatar');
+                } else {
+                    senderName = userRemark;
+                    avHtml = renderUserAvatarHtml(userRemark, 'ct-msg-avatar');
+                }
+            } else {
+                const cObj = isMe ? null : (chars.find(c => c.id === m.charId) || defaultChar);
+                senderName = isMe ? '我' : getCharDisplayName(cObj);
+                avHtml = isMe
+                    ? '<div class="ct-msg-avatar">我</div>'
+                    : renderAvatarHtml(cObj, false, 'ct-msg-avatar');
+            }
 
             let timeHtml = '';
             if (m.time && m.time !== '在线' && m.time !== lastShownTime) {
@@ -1032,7 +1210,6 @@
                 ? `<div class="ct-msg-quote">${escapeHtml(m.quote.senderName)}：${escapeHtml(m.quote.text)}</div>`
                 : '';
 
-            // 默认展开语音转文字 / 翻译白卡（方案1）
             let subcardHtml = '';
             if (isVoice && m.transcript) {
                 subcardHtml = `
@@ -1070,7 +1247,8 @@
             `;
         }).join('');
 
-        // 滑动引用：我方左滑引用，对方右滑引用
+        hydrateUserAvatars(box);
+
         box.querySelectorAll('.ct-msg-group').forEach(group => {
             const isMe = group.classList.contains('me');
             let sx = 0, sy = 0, swiping = false, triggered = false;
@@ -1127,7 +1305,6 @@
             group.addEventListener('touchcancel', endSwipe);
         });
 
-        // 点击语音条播放 + 声波闪烁动画
         box.querySelectorAll('[data-play-msg]').forEach(el => {
             el.addEventListener('click', () => {
                 const mid = el.dataset.playMsg;
@@ -1159,11 +1336,13 @@
 
     function sendTextMessage(text) {
         if (!currentThreadId || !text) return;
+        const pov = getActivePov();
         const nowTime = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
         const msgs = getThreadMessages(currentThreadId);
         const msgObj = {
             id: 'm-' + Date.now(),
-            sender: 'me',
+            sender: pov.isChar ? 'char' : 'me',
+            charId: pov.isChar ? pov.charId : undefined,
             text: text,
             time: nowTime
         };
@@ -1188,11 +1367,13 @@
 
     function sendVoiceMessage(duration, audioData, transcript) {
         if (!currentThreadId) return;
+        const pov = getActivePov();
         const nowTime = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
         const msgs = getThreadMessages(currentThreadId);
         const msgObj = {
             id: 'm-' + Date.now(),
-            sender: 'me',
+            sender: pov.isChar ? 'char' : 'me',
+            charId: pov.isChar ? pov.charId : undefined,
             type: 'voice',
             duration: duration,
             audio: audioData || '',
@@ -1230,6 +1411,66 @@
 
     function renderContactsTab() {
         const scroll = document.getElementById('ctMainScroll');
+        const pov = getActivePov();
+
+        if (pov.isChar) {
+            const userRemark = getCharRemarkForUser(pov.charId);
+            const naturalContacts = loadJSON(STORAGE_CHAR_CONTACTS_PREFIX + pov.charId, []);
+            const extraList = Array.isArray(naturalContacts) ? naturalContacts : [];
+
+            const showUser = !contactKeyword || userRemark.toLowerCase().includes(contactKeyword);
+            const rows = [];
+            if (showUser) {
+                rows.push(`
+                    <div class="ct-row" data-pov-user-dm="dm-${escapeHtml(pov.charId)}">
+                        ${renderUserAvatarHtml(userRemark)}
+                        <div class="ct-row-main">
+                            <div class="ct-row-name">${escapeHtml(userRemark)}</div>
+                        </div>
+                    </div>
+                `);
+            }
+            extraList.forEach(nc => {
+                const nm = nc && nc.name ? nc.name : '好友';
+                if (contactKeyword && !nm.toLowerCase().includes(contactKeyword)) return;
+                rows.push(`
+                    <div class="ct-row">
+                        <div class="ct-avatar">${escapeHtml(nm.slice(0, 1))}</div>
+                        <div class="ct-row-main">
+                            <div class="ct-row-name">${escapeHtml(nm)}</div>
+                        </div>
+                    </div>
+                `);
+            });
+
+            scroll.innerHTML = `
+                <div class="ct-search-bar">
+                    <div class="ct-search-wrap">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input class="ct-search-input" id="ctContactSearch" placeholder="搜索联系人" value="${escapeHtml(contactKeyword)}" />
+                    </div>
+                </div>
+                ${rows.length ? '<div class="ct-flat-list">' + rows.join('') + '</div>' : '<div class="ct-empty">暂无匹配的联系人</div>'}
+            `;
+            hydrateUserAvatars(scroll);
+            const input = document.getElementById('ctContactSearch');
+            input.addEventListener('input', (e) => {
+                contactKeyword = e.target.value.trim().toLowerCase();
+                renderContactsTab();
+                const again = document.getElementById('ctContactSearch');
+                if (again) {
+                    again.focus();
+                    again.setSelectionRange(again.value.length, again.value.length);
+                }
+            });
+            scroll.querySelectorAll('[data-pov-user-dm]').forEach(row => {
+                row.addEventListener('click', () => {
+                    openChatRoom(row.dataset.povUserDm);
+                });
+            });
+            return;
+        }
+
         const chars = getArchiveChars();
         const addedIds = getContactIds();
         const list = chars.filter(c => addedIds.includes(c.id))
