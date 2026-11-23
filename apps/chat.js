@@ -6,7 +6,7 @@
    - 支持 P1 长按流式转文字、P2 独占麦克风真录音（可回放）、默认展开转文字白卡、滑动引用
    - 支持 Char 视角切换（气泡左右互换、隐藏右上角复杂按钮、自动隐藏 CoT、预留关系备注接口）
    - 支持气泡头顶 CoT 思维链胶囊（点按顺滑展开、连发仅挂第一条）
-   - 支持顶部备注位「对方正在输入中…」状态切换
+   - 支持顶部备注位「对方正在输入中…」状态切换 + 派发 phone:chat-user-sent 给 chat-ai.js
    ========================================================= */
 
 (function () {
@@ -1514,6 +1514,12 @@
         }
 
         renderRoomMessages();
+
+        if (!pov.isChar) {
+            window.dispatchEvent(new CustomEvent('phone:chat-user-sent', {
+                detail: { threadId: currentThreadId, msg: msgObj }
+            }));
+        }
     }
 
     function sendVoiceMessage(duration, audioData, transcript) {
@@ -1549,6 +1555,12 @@
         }
 
         renderRoomMessages();
+
+        if (!pov.isChar) {
+            window.dispatchEvent(new CustomEvent('phone:chat-user-sent', {
+                detail: { threadId: currentThreadId, msg: msgObj }
+            }));
+        }
     }
 
     function sendRoomMessage() {
