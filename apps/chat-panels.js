@@ -3,14 +3,14 @@
    - 照片：支持单张无框图 + 多张合并叠卡（展开后竖排一张一张显示）
    - 转账：默认 6 位密码支付（任意 6 位数字）、双方交互收款/退还、褪色气泡、iOS 按键手感
    - 礼物：1:1 微信蓝底星点金丝带礼物卡（送出弹窗 + 实时预览 + 拆礼物详情）
-   - 笑脸图标：1:1 替换为微信平顶大笑脸 SVG
+   - 笑脸图标：1:1 还原微信平顶大笑脸比例与线宽
    ========================================================= */
 (function () {
   var STORAGE_THREADS_KEY = 'chat_threads_v1';
   var STORAGE_MSGS_PREFIX = 'chat_msgs_v1_';
   var STORAGE_WALLET_KEY = 'chat_wallet_balance_v1';
 
-  var SVG_WX_SMILE = '<svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.8"/><circle cx="8.8" cy="9.7" r="1.35" fill="currentColor" stroke="none"/><circle cx="15.2" cy="9.7" r="1.35" fill="currentColor" stroke="none"/><path d="M7.6 13.4H16.4C16.1 16.5 14.3 18.2 12 18.2C9.7 18.2 7.9 16.5 7.6 13.4Z"/></svg>';
+  var SVG_WX_SMILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10.1"/><circle cx="8.7" cy="9.6" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.3" cy="9.6" r="1.3" fill="currentColor" stroke="none"/><path d="M7.2 13.3H16.8C16.4 16.2 14.5 17.9 12 17.9C9.5 17.9 7.6 16.2 7.2 13.3Z"/></svg>';
   var SVG_PHOTO = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M21 5v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM6 17h12l-3.8-5-2.9 3.6-2-2.4L6 17zm2.5-7a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/></svg>';
   var SVG_TRANSFER_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h14l-4-4"/><path d="M19 15H5l4 4"/></svg>';
   var SVG_GIFT_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.95" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C9.5 3 12 8 12 8s2.5-5 4.5-5a2.5 2.5 0 0 1 0 5"/></svg>';
@@ -106,10 +106,13 @@
   }
 
   function applyWechatSmileIcon() {
-    var plusBtn = document.getElementById('ctRoomPlusBtn');
-    if (!plusBtn) return;
-    var emojiBtn = document.getElementById('ctRoomEmojiBtn') || plusBtn.previousElementSibling;
-    if (emojiBtn && emojiBtn.classList && emojiBtn.classList.contains('ct-room-icon-btn')) {
+    var voiceBtn = document.getElementById('ctRoomVoiceBtn');
+    var sendBtn = document.getElementById('ctRoomSendBtn');
+    var emojiBtn =
+      document.getElementById('ctRoomEmojiBtn') ||
+      (voiceBtn && voiceBtn.nextElementSibling && voiceBtn.nextElementSibling.classList && voiceBtn.nextElementSibling.classList.contains('ct-room-icon-btn') ? voiceBtn.nextElementSibling : null) ||
+      (sendBtn && sendBtn.previousElementSibling && sendBtn.previousElementSibling.classList && sendBtn.previousElementSibling.classList.contains('ct-room-icon-btn') ? sendBtn.previousElementSibling : null);
+    if (emojiBtn) {
       emojiBtn.innerHTML = SVG_WX_SMILE;
     }
   }
