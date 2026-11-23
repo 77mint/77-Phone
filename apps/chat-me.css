@@ -106,8 +106,8 @@
 }
 
 .ctme-role-tag.is-char {
-  background: #eef2ff;
-  color: #4f5d95;
+  background: #f3efff;
+  color: #6b4fd1;
 }
 
 .ctme-sub-id {
@@ -1118,13 +1118,13 @@
 }
 
 .ctme-acc-badge.is-char {
-  background: #eef2ff;
-  color: #4f5d95;
+  background: #f3efff;
+  color: #6b4fd1;
 }
 
 .ctme-acc-badge.is-locked {
-  background: #fff4e5;
-  color: #c26d00;
+  background: #fff0f3;
+  color: #cf3f5f;
 }
 
 .ctme-acc-meta {
