@@ -3,14 +3,13 @@
    - 照片：支持单张无框图 + 多张合并叠卡（展开后竖排一张一张显示）
    - 转账：默认 6 位密码支付（任意 6 位数字）、双方交互收款/退还、褪色气泡、iOS 按键手感
    - 礼物：1:1 微信蓝底星点金丝带礼物卡（送出弹窗 + 实时预览 + 拆礼物详情）
-   - 笑脸图标：1:1 还原微信平顶大笑脸比例与线宽
+   - 笑脸图标：动态读取同排按钮真实 SVG 外圆半径与尺寸，零像素误差对齐
    ========================================================= */
 (function () {
   var STORAGE_THREADS_KEY = 'chat_threads_v1';
   var STORAGE_MSGS_PREFIX = 'chat_msgs_v1_';
   var STORAGE_WALLET_KEY = 'chat_wallet_balance_v1';
 
-  var SVG_WX_SMILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10.1"/><circle cx="8.7" cy="9.6" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.3" cy="9.6" r="1.3" fill="currentColor" stroke="none"/><path d="M7.2 13.3H16.8C16.4 16.2 14.5 17.9 12 17.9C9.5 17.9 7.6 16.2 7.2 13.3Z"/></svg>';
   var SVG_PHOTO = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M21 5v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM6 17h12l-3.8-5-2.9 3.6-2-2.4L6 17zm2.5-7a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/></svg>';
   var SVG_TRANSFER_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h14l-4-4"/><path d="M19 15H5l4 4"/></svg>';
   var SVG_GIFT_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.95" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C9.5 3 12 8 12 8s2.5-5 4.5-5a2.5 2.5 0 0 1 0 5"/></svg>';
@@ -105,16 +104,56 @@
     document.head.appendChild(st);
   }
 
+  /* 动态克隆同排圆形图标的精确尺寸、外圆半径与线宽，保证 100% 同大 */
   function applyWechatSmileIcon() {
     var voiceBtn = document.getElementById('ctRoomVoiceBtn');
     var sendBtn = document.getElementById('ctRoomSendBtn');
+    var plusBtn = document.getElementById('ctRoomPlusBtn');
     var emojiBtn =
       document.getElementById('ctRoomEmojiBtn') ||
       (voiceBtn && voiceBtn.nextElementSibling && voiceBtn.nextElementSibling.classList && voiceBtn.nextElementSibling.classList.contains('ct-room-icon-btn') ? voiceBtn.nextElementSibling : null) ||
       (sendBtn && sendBtn.previousElementSibling && sendBtn.previousElementSibling.classList && sendBtn.previousElementSibling.classList.contains('ct-room-icon-btn') ? sendBtn.previousElementSibling : null);
-    if (emojiBtn) {
-      emojiBtn.innerHTML = SVG_WX_SMILE;
-    }
+    if (!emojiBtn) return;
+
+    var refSvg =
+      (sendBtn && sendBtn.querySelector('svg')) ||
+      (voiceBtn && voiceBtn.querySelector('svg')) ||
+      (plusBtn && plusBtn.querySelector('svg'));
+
+    var w = (refSvg && refSvg.getAttribute('width')) || '28';
+    var h = (refSvg && refSvg.getAttribute('height')) || w;
+    var vb = (refSvg && refSvg.getAttribute('viewBox')) || '0 0 24 24';
+    var refCircle = refSvg ? refSvg.querySelector('circle') : null;
+    var sw = (refCircle && refCircle.getAttribute('stroke-width')) || (refSvg && refSvg.getAttribute('stroke-width')) || '1.55';
+    var cx = refCircle ? parseFloat(refCircle.getAttribute('cx')) : 12;
+    var cy = refCircle ? parseFloat(refCircle.getAttribute('cy')) : 12;
+    var r = refCircle ? parseFloat(refCircle.getAttribute('r')) : 10.2;
+    if (isNaN(cx)) cx = 12;
+    if (isNaN(cy)) cy = 12;
+    if (isNaN(r) || r <= 0) r = 10.2;
+
+    var exL = (cx - r * 0.32).toFixed(2);
+    var exR = (cx + r * 0.32).toFixed(2);
+    var ey = (cy - r * 0.23).toFixed(2);
+    var er = (r * 0.13).toFixed(2);
+
+    var mxL = (cx - r * 0.47).toFixed(2);
+    var mxR = (cx + r * 0.47).toFixed(2);
+    var myTop = (cy + r * 0.13).toFixed(2);
+    var myBot = (cy + r * 0.58).toFixed(2);
+    var mcL = (cx - r * 0.43).toFixed(2);
+    var mcR = (cx + r * 0.43).toFixed(2);
+    var mcL2 = (cx - r * 0.24).toFixed(2);
+    var mcR2 = (cx + r * 0.24).toFixed(2);
+    var myCtrl = (cy + r * 0.42).toFixed(2);
+
+    emojiBtn.innerHTML =
+      '<svg width="' + w + '" height="' + h + '" viewBox="' + vb + '" fill="none" stroke="currentColor" stroke-width="' + sw + '" stroke-linecap="round" stroke-linejoin="round">' +
+        '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '"/>' +
+        '<circle cx="' + exL + '" cy="' + ey + '" r="' + er + '" fill="currentColor" stroke="none"/>' +
+        '<circle cx="' + exR + '" cy="' + ey + '" r="' + er + '" fill="currentColor" stroke="none"/>' +
+        '<path d="M' + mxL + ' ' + myTop + 'H' + mxR + 'C' + mcR + ' ' + myCtrl + ' ' + mcR2 + ' ' + myBot + ' ' + cx + ' ' + myBot + 'C' + mcL2 + ' ' + myBot + ' ' + mcL + ' ' + myCtrl + ' ' + mxL + ' ' + myTop + 'Z"/>' +
+      '</svg>';
   }
 
   function loadJSON(key, fb) {
