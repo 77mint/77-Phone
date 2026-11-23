@@ -2,7 +2,7 @@
    Chat 我的页（仿微信「我」独立模块 + 全套二级子页）
    - 不改动 apps/chat.js / apps/chat.css，独立接管我的 tab
    - 功能：个人资料 / 钱包 / 收藏 / 表情包 / 朋友圈 / 设置 / 切换账号
-   - 支持：绑定「面具」主号、小号、带密码锁的 Char 账号视角（密码仅能问 Char 获取）
+   - 支持：绑定「面具」主号、小号、硬核带锁 Char 账号视角（偷偷看 / 留痕登录）
    ========================================================= */
 (function () {
   var rendering = false;
@@ -224,7 +224,7 @@
     return Promise.resolve('');
   }
 
-  /* ---------------- 账号、面具绑定与 Char 密码锁 ---------------- */
+  /* ---------------- 账号、面具绑定与 Char 硬核密码锁 ---------------- */
   function getAccounts() {
     var list = readJSON(KEY_ACCOUNTS, null);
     if (!Array.isArray(list) || !list.length) {
@@ -284,7 +284,7 @@
     return String(Math.floor(1000 + Math.random() * 9000));
   }
 
-  // 获取某 Char 的隐藏密码（若尚未生成则静默随机生成，仅供 AI 上下文读取，不在 UI 展示）
+  // 固定默认密码：只在该 Char 首次初始化时生成一次，永不反复随机覆盖
   function getCharPasscode(charId) {
     if (!charId) return '';
     var map = getCharPasscodeStore();
@@ -293,6 +293,7 @@
         code: generateRandomPasscode(),
         unlocked: false,
         resetAllowed: false,
+        loginMode: 'stealth',
         updatedAt: Date.now()
       };
       saveCharPasscodeStore(map);
@@ -304,6 +305,12 @@
     if (!charId) return false;
     var map = getCharPasscodeStore();
     return !!(map[charId] && map[charId].unlocked);
+  }
+
+  function getCharLoginMode(charId) {
+    if (!charId) return 'stealth';
+    var map = getCharPasscodeStore();
+    return (map[charId] && map[charId].loginMode === 'normal') ? 'normal' : 'stealth';
   }
 
   function isCharResetAllowed(charId) {
@@ -322,12 +329,14 @@
     return true;
   }
 
-  function verifyCharPasscode(charId, inputCode) {
+  function verifyCharPasscode(charId, inputCode, loginMode) {
     if (!charId) return false;
     var realCode = getCharPasscode(charId);
     if (String(inputCode || '').trim() === String(realCode).trim()) {
       var map = getCharPasscodeStore();
       map[charId].unlocked = true;
+      map[charId].loginMode = loginMode === 'normal' ? 'normal' : 'stealth';
+      map[charId].lastLoginAt = Date.now();
       saveCharPasscodeStore(map);
       return true;
     }
@@ -348,7 +357,7 @@
     }
   }
 
-  // 供后续 chat-ai.js 调用：Char 自主修改自己的密码并重新上锁
+  // 供后续 chat-ai.js 调用：Char 自主修改密码并重新上锁（默认密码稳定，仅剧情需要时调用）
   function setCharPasscode(charId, newCode, relock) {
     var prefs = getPrefs();
     if (!prefs.allowCharChangePasscode) return false;
@@ -408,25 +417,34 @@
     return created;
   }
 
+  /* ---------------- 账号数据隔离（钱包 / 账单 / 收藏按账号独立，默认主号兼容旧键） ---------------- */
+  function scopedKey(baseKey, accountId) {
+    var id = accountId || getActiveAccount().id;
+    if (!id || id === 'acc_default') return baseKey;
+    return baseKey + '_' + id;
+  }
+
   function getWalletBalance() {
-    var raw = localStorage.getItem(KEY_WALLET_BAL);
+    var raw = localStorage.getItem(scopedKey(KEY_WALLET_BAL));
     var num = parseFloat(raw);
     return isFinite(num) ? num : 0;
   }
 
   function setWalletBalance(val) {
     var n = Math.max(0, Math.round((parseFloat(val) || 0) * 100) / 100);
-    localStorage.setItem(KEY_WALLET_BAL, n.toFixed(2));
+    localStorage.setItem(scopedKey(KEY_WALLET_BAL), n.toFixed(2));
     return n;
   }
 
   function getWalletLogs() {
-    var logs = readJSON(KEY_WALLET_LOGS, []);
+    var logs = readJSON(scopedKey(KEY_WALLET_LOGS), []);
     return Array.isArray(logs) ? logs : [];
   }
 
   function addWalletLog(type, amount, title) {
-    var logs = getWalletLogs();
+    var key = scopedKey(KEY_WALLET_LOGS);
+    var logs = readJSON(key, []);
+    if (!Array.isArray(logs)) logs = [];
     logs.unshift({
       id: genId('bill'),
       type: type === 'out' ? 'out' : 'in',
@@ -435,18 +453,19 @@
       createdAt: Date.now()
     });
     if (logs.length > 200) logs = logs.slice(0, 200);
-    writeJSON(KEY_WALLET_LOGS, logs);
+    writeJSON(key, logs);
   }
 
   function getFavorites() {
-    var list = readJSON(KEY_FAVORITES, []);
+    var list = readJSON(scopedKey(KEY_FAVORITES), []);
     return Array.isArray(list) ? list : [];
   }
 
   function saveFavorites(list) {
-    writeJSON(KEY_FAVORITES, list);
+    writeJSON(scopedKey(KEY_FAVORITES), list);
   }
 
+  // 表情包全局共享
   function getStickerPacks() {
     var list = readJSON(KEY_STICKERS, []);
     return Array.isArray(list) ? list : [];
@@ -470,20 +489,32 @@
     writeJSON(KEY_PREFS, p);
   }
 
-  /* ---------------- 交互反馈 & Toast & 视口同步 ---------------- */
+  /* ---------------- 交互反馈（全元素按压手感 + 滑动取消） ---------------- */
+  var PRESS_SELECTOR = '.ctme-row, .ctme-profile, .ctme-back-btn, .ctme-pill-btn, .ctme-item, .ctme-btn, .ctme-wallet-btn, .ctme-fav-card, .ctme-pack-row, .ctme-sticker-cell, .ctme-action-btn, .ctme-mini-pill, .ctme-quick-amt, .ctme-mask-quick, .ctme-chip, .ctme-acc-top, .ctme-switch, .ctme-avatar-lg, .ctme-album-cover, .ctme-pwd-eye, .ctme-sheet-close';
+
   function bindPressFeedback(root) {
-    if (!root) return;
-    var targets = root.querySelectorAll('.ctme-row, .ctme-profile, .ctme-back-btn, .ctme-pill-btn, .ctme-item, .ctme-btn, .ctme-wallet-btn, .ctme-fav-card, .ctme-pack-row, .ctme-sticker-cell, .ctme-action-btn, .ctme-mini-pill, .ctme-quick-amt, .ctme-mask-quick, .ctme-chip');
-    targets.forEach(function (el) {
-      if (el._ctmePressBound) return;
-      el._ctmePressBound = true;
-      el.addEventListener('touchstart', function () {
-        el.classList.add('is-pressed');
-      }, { passive: true });
-      var clear = function () { el.classList.remove('is-pressed'); };
-      el.addEventListener('touchend', clear, { passive: true });
-      el.addEventListener('touchcancel', clear, { passive: true });
-    });
+    if (!root || root._ctmePressDelegated) return;
+    root._ctmePressDelegated = true;
+    var activePressed = null;
+
+    function clearPressed() {
+      if (activePressed) {
+        activePressed.classList.remove('is-pressed');
+        activePressed = null;
+      }
+    }
+
+    root.addEventListener('touchstart', function (e) {
+      var target = e.target && e.target.closest ? e.target.closest(PRESS_SELECTOR) : null;
+      if (target) {
+        clearPressed();
+        activePressed = target;
+        activePressed.classList.add('is-pressed');
+      }
+    }, { passive: true });
+    root.addEventListener('touchmove', clearPressed, { passive: true });
+    root.addEventListener('touchend', clearPressed, { passive: true });
+    root.addEventListener('touchcancel', clearPressed, { passive: true });
   }
 
   function showToast(msg) {
@@ -552,6 +583,7 @@
       '</div>';
     document.body.appendChild(modalBackdropEl);
 
+    bindPressFeedback(modalBackdropEl);
     modalBackdropEl.addEventListener('click', function (e) {
       if (e.target === modalBackdropEl) closeSheet();
     });
@@ -570,7 +602,6 @@
     requestAnimationFrame(function () {
       bd.classList.add('is-open');
     });
-    bindPressFeedback(body);
     keepInputVisible(body);
     if (typeof onReady === 'function') onReady(body);
   }
@@ -604,6 +635,7 @@
     overlayEl.className = 'ctme-overlay';
     overlayEl.id = 'ctmeOverlay';
     appEl.appendChild(overlayEl);
+    bindPressFeedback(overlayEl);
     return overlayEl;
   }
 
@@ -644,7 +676,6 @@
     requestAnimationFrame(function () {
       ov.classList.add('is-open');
     });
-    bindPressFeedback(ov);
     keepInputVisible(ov);
     return ov;
   }
@@ -1627,7 +1658,7 @@
           '<div class="ctme-item-right">' + SVG_ARROW + '</div>' +
         '</div>' +
         '<div class="ctme-item" id="ctmeSetClearBills">' +
-          '<div class="ctme-item-label" style="color:#ff3b30;">清空钱包账单记录</div>' +
+          '<div class="ctme-item-label" style="color:#ff3b30;">清空当前账号账单记录</div>' +
           '<div class="ctme-item-right">' + SVG_ARROW + '</div>' +
         '</div>' +
       '</div>'
@@ -1671,20 +1702,28 @@
     });
 
     ov.querySelector('#ctmeSetClearBills').addEventListener('click', function () {
-      openConfirm('清空账单记录', '仅清空历史账单流水，不会影响你当前的零钱余额。', '确认清空', function () {
-        writeJSON(KEY_WALLET_LOGS, []);
+      openConfirm('清空账单记录', '仅清空当前账号的历史账单流水，不会影响零钱余额。', '确认清空', function () {
+        writeJSON(scopedKey(KEY_WALLET_LOGS), []);
         showToast('已清空账单记录');
       });
     });
   }
 
-  /* ---------------- 切换账号子页（面具主号 / 小号 / 带锁 Char 账号） ---------------- */
+  /* ---------------- 切换账号子页（面具主号 / 小号 / 硬核带锁 Char 账号） ---------------- */
   function openCharPasswordSheet(ch) {
     getCharPasscode(ch.id);
+    var lastMode = getCharLoginMode(ch.id);
 
     openSheet('登录「' + (ch.name || 'Char') + '」的账号',
       '<div class="ctme-hint-box">' +
         '登录 TA 的账号需要输入专属密码，密码只有 TA 自己知道——去聊天里问问 TA 吧。' +
+      '</div>' +
+      '<div class="ctme-field">' +
+        '<label class="ctme-field-label">登录方式</label>' +
+        '<select class="ctme-select" id="ctmeCharLoginMode">' +
+          '<option value="stealth" ' + (lastMode === 'stealth' ? 'selected' : '') + '>悄悄偷看（隐身登录，不留通知痕迹）</option>' +
+          '<option value="normal" ' + (lastMode === 'normal' ? 'selected' : '') + '>正常登录（会给 TA 发登录提醒，可能会顶号）</option>' +
+        '</select>' +
       '</div>' +
       '<div class="ctme-field">' +
         '<label class="ctme-field-label">账号密码</label>' +
@@ -1697,6 +1736,7 @@
       '<button type="button" class="ctme-action-btn is-primary" id="ctmeCharPwdSubmit">验证并登录</button>',
       function (body) {
         var inp = body.querySelector('#ctmeCharPwdInput');
+        var modeSel = body.querySelector('#ctmeCharLoginMode');
         var eye = body.querySelector('#ctmeCharPwdEye');
         var errEl = body.querySelector('#ctmeCharPwdErr');
         var submit = body.querySelector('#ctmeCharPwdSubmit');
@@ -1711,11 +1751,14 @@
             errEl.textContent = '请先输入密码';
             return;
           }
-          if (verifyCharPasscode(ch.id, val)) {
+          var mode = modeSel ? modeSel.value : 'stealth';
+          if (verifyCharPasscode(ch.id, val, mode)) {
             var charAcc = getOrCreateCharAccount(ch);
             setActiveAccount(charAcc.id);
             closeSheet();
-            showToast('已切换到「' + (ch.name || 'Char') + '」视角');
+            showToast(mode === 'normal'
+              ? '已登录「' + (ch.name || 'Char') + '」账号（已留痕）'
+              : '已悄悄切入「' + (ch.name || 'Char') + '」视角');
             renderTopPage();
           } else {
             errEl.textContent = '密码不对，再去聊天里套套话吧';
@@ -1808,6 +1851,14 @@
         ? ('ID: ' + a.chatId)
         : (a.signature || a.bio || (linkedMask ? '已绑定「面具」人设，点击切换' : '点击切换为此账号'));
 
+      var canDelete = list.length > 1 && a.id !== 'acc_default';
+      var actionsHtml = (!isCur || canDelete)
+        ? '<div class="ctme-acc-actions">' +
+            (!isCur ? '<button type="button" class="ctme-mini-pill" style="background:#111;color:#fff;" data-acc-switch="' + esc(a.id) + '">切换使用</button>' : '') +
+            (canDelete ? '<button type="button" class="ctme-mini-pill is-danger" data-acc-del="' + esc(a.id) + '">删除</button>' : '') +
+          '</div>'
+        : '';
+
       return '<div class="ctme-acc-card ' + (isCur ? 'is-current' : '') + '" data-acc-id="' + esc(a.id) + '">' +
         '<div class="ctme-acc-top" data-acc-switch="' + esc(a.id) + '">' +
           '<div class="ctme-acc-ava" data-acc-ava-id="' + esc(a.id) + '">' + esc((a.name || '我').slice(0, 1)) + '</div>' +
@@ -1820,11 +1871,7 @@
             '<div class="ctme-acc-meta">' + esc(metaText) + '</div>' +
           '</div>' +
         '</div>' +
-        '<div class="ctme-acc-actions">' +
-          (!isCur ? '<button type="button" class="ctme-mini-pill" style="background:#111;color:#fff;" data-acc-switch="' + esc(a.id) + '">切换使用</button>' : '') +
-          '<button type="button" class="ctme-mini-pill" data-acc-edit="' + esc(a.id) + '">编辑资料</button>' +
-          (list.length > 1 && a.id !== 'acc_default' ? '<button type="button" class="ctme-mini-pill is-danger" data-acc-del="' + esc(a.id) + '">删除</button>' : '') +
-        '</div>' +
+        actionsHtml +
       '</div>';
     }
 
@@ -1848,6 +1895,7 @@
       ? chars.map(function (ch) {
           getCharPasscode(ch.id);
           var unlocked = isCharUnlocked(ch.id);
+          var loginMode = getCharLoginMode(ch.id);
           var charAcc = list.find(function (a) { return a.type === 'char' && a.charId === ch.id; });
           var isCur = !!(charAcc && charAcc.id === activeId);
 
@@ -1858,7 +1906,9 @@
                 '<div class="ctme-acc-name-line">' +
                   '<span class="ctme-acc-name">' + esc(ch.name || '未命名角色') + '</span>' +
                   '<span class="ctme-acc-badge is-char">Char 视角</span>' +
-                  (!unlocked ? '<span class="ctme-acc-badge is-locked">需要密码</span>' : '') +
+                  (!unlocked
+                    ? '<span class="ctme-acc-badge is-locked">需要密码</span>'
+                    : (loginMode === 'stealth' ? '<span class="ctme-acc-badge is-stealth">悄悄偷看</span>' : '')) +
                   (isCur ? '<span class="ctme-acc-badge">当前登录</span>' : '') +
                 '</div>' +
                 '<div class="ctme-acc-meta">' +
@@ -1981,13 +2031,6 @@
         var ch = chars.find(function (x) { return x.id === cid; });
         if (!ch) return;
         openCharForceResetSheet(ch);
-      });
-    });
-
-    ov.querySelectorAll('[data-acc-edit]').forEach(function (btn) {
-      btn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        pushPage({ id: 'profile', accountId: btn.getAttribute('data-acc-edit') });
       });
     });
 
@@ -2235,12 +2278,15 @@
     lockCharAccount: lockCharAccount,
     isCharResetAllowed: isCharResetAllowed,
     setCharResetAllowed: setCharResetAllowed,
+    getCharLoginMode: getCharLoginMode,
     getWalletBalance: getWalletBalance,
     setWalletBalance: setWalletBalance,
     addWalletLog: addWalletLog,
     getFavorites: getFavorites,
     addFavorite: function (item) {
-      var list = getFavorites();
+      var key = scopedKey(KEY_FAVORITES);
+      var list = readJSON(key, []);
+      if (!Array.isArray(list)) list = [];
       list.unshift(Object.assign({
         id: genId('fav'),
         title: '',
@@ -2249,7 +2295,7 @@
         source: '',
         createdAt: Date.now()
       }, item || {}));
-      saveFavorites(list);
+      writeJSON(key, list);
     },
     getStickerPacks: getStickerPacks,
     getStickerImage: function (dbKey) {
