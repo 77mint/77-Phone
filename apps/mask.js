@@ -1,4 +1,4 @@
-/* apps/mask.js - 面具（用户人设管理 + PNG/JSON 导入导出 + 角色绑定） */
+/* apps/mask.js - 面具（用户人设管理 + 性别 + 右上角导出 + PNG/JSON 导入导出 + 角色绑定） */
 (function () {
   var STORAGE_KEY = 'phone_masks_v1';
   var AVATAR_PREFIX = 'mask_avatar_';
@@ -10,6 +10,7 @@
   var avatarCache = {};
   var charAvatarCache = {};
   var fabOpen = false;
+  var exportMenuOpen = false;
   var editingId = null;
   var draftAvatarDataUrl = '';
   var draftAvatarCleared = false;
@@ -193,7 +194,25 @@
             '</button>' +
             '<h2 class="msk-editor-title" id="mskEditorTitle">新增面具</h2>' +
           '</div>' +
-          '<button class="msk-save-btn" id="mskSaveBtn" type="button">保存</button>' +
+          '<div class="msk-editor-header-right">' +
+            '<button class="msk-export-top-btn" id="mskExportTopBtn" type="button">' +
+              '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' +
+              '<span>导出</span>' +
+            '</button>' +
+            '<button class="msk-save-btn" id="mskSaveBtn" type="button">保存</button>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="msk-export-popover-mask" id="mskExportPopoverMask"></div>' +
+        '<div class="msk-export-popover" id="mskExportPopover">' +
+          '<button class="msk-export-popover-item" id="mskExportPngBtn" type="button">' +
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' +
+            '<span>导出 PNG 面具卡</span>' +
+          '</button>' +
+          '<button class="msk-export-popover-item" id="mskExportJsonBtn" type="button">' +
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
+            '<span>导出 JSON</span>' +
+          '</button>' +
         '</div>' +
 
         '<div class="msk-editor-scroll" id="mskEditorScroll">' +
@@ -217,6 +236,10 @@
               '<input class="msk-input" id="mskNameInput" type="text" placeholder="输入人设姓名" autocomplete="off">' +
             '</div>' +
             '<div class="msk-field">' +
+              '<label class="msk-field-label" for="mskGenderInput">性别</label>' +
+              '<input class="msk-input" id="mskGenderInput" type="text" placeholder="如：女、男、未知" autocomplete="off">' +
+            '</div>' +
+            '<div class="msk-field">' +
               '<label class="msk-field-label" for="mskAgeInput">年龄</label>' +
               '<input class="msk-input" id="mskAgeInput" type="text" placeholder="如：21、未知" autocomplete="off">' +
             '</div>' +
@@ -231,17 +254,6 @@
             '<span id="mskBindCountLabel">已选 0 个</span>' +
           '</div>' +
           '<div class="msk-bind-card" id="mskBindList"></div>' +
-
-          '<div class="msk-export-row" id="mskExportRow" style="display:none;">' +
-            '<button class="msk-action-btn" id="mskExportPngBtn" type="button">' +
-              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' +
-              '<span>导出 PNG 卡</span>' +
-            '</button>' +
-            '<button class="msk-action-btn" id="mskExportJsonBtn" type="button">' +
-              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' +
-              '<span>导出 JSON</span>' +
-            '</button>' +
-          '</div>' +
 
           '<button class="msk-delete-btn" id="mskDeleteBtn" type="button" style="display:none;">删除面具</button>' +
         '</div>' +
@@ -276,6 +288,11 @@
   var editorEl = document.getElementById('mskEditor');
   var editorBackBtn = document.getElementById('mskEditorBackBtn');
   var editorTitle = document.getElementById('mskEditorTitle');
+  var exportTopBtn = document.getElementById('mskExportTopBtn');
+  var exportPopoverMask = document.getElementById('mskExportPopoverMask');
+  var exportPopover = document.getElementById('mskExportPopover');
+  var exportPngBtn = document.getElementById('mskExportPngBtn');
+  var exportJsonBtn = document.getElementById('mskExportJsonBtn');
   var saveBtn = document.getElementById('mskSaveBtn');
   var editorScroll = document.getElementById('mskEditorScroll');
   var avatarPicker = document.getElementById('mskAvatarPicker');
@@ -283,13 +300,11 @@
   var avatarPickTextBtn = document.getElementById('mskAvatarPickTextBtn');
   var avatarClearBtn = document.getElementById('mskAvatarClearBtn');
   var nameInput = document.getElementById('mskNameInput');
+  var genderInput = document.getElementById('mskGenderInput');
   var ageInput = document.getElementById('mskAgeInput');
   var settingInput = document.getElementById('mskSettingInput');
   var bindCountLabel = document.getElementById('mskBindCountLabel');
   var bindListEl = document.getElementById('mskBindList');
-  var exportRow = document.getElementById('mskExportRow');
-  var exportPngBtn = document.getElementById('mskExportPngBtn');
-  var exportJsonBtn = document.getElementById('mskExportJsonBtn');
   var deleteBtn = document.getElementById('mskDeleteBtn');
 
   var deleteModal = document.getElementById('mskDeleteModal');
@@ -313,6 +328,12 @@
     fabOpen = !!open;
     fabWrap.classList.toggle('is-open', fabOpen);
     fabScrim.classList.toggle('is-open', fabOpen);
+  }
+
+  function setExportMenuOpen(open) {
+    exportMenuOpen = !!open;
+    exportPopover.classList.toggle('is-open', exportMenuOpen);
+    exportPopoverMask.classList.toggle('is-open', exportMenuOpen);
   }
 
   /* 压缩图片到合适尺寸，避免 IndexedDB 过大 */
@@ -497,6 +518,7 @@
     if (!raw || typeof raw !== 'object') return null;
     var d = raw.data && typeof raw.data === 'object' ? raw.data : raw;
     var name = String(d.name || raw.name || '').trim();
+    var gender = String(d.gender || raw.gender || '').trim();
     var age = String(d.age || raw.age || '').trim();
     var setting = '';
     if (typeof d.setting === 'string' && d.setting.trim()) {
@@ -514,6 +536,7 @@
     if (!name && !setting && !avatar) return null;
     return {
       name: name || '未命名面具',
+      gender: gender,
       age: age,
       setting: setting,
       avatar: avatar
@@ -572,7 +595,8 @@
             '<div class="msk-card-info">' +
               '<div class="msk-card-name-row">' +
                 '<span class="msk-card-name">' + escHtml(m.name || '未命名面具') + '</span>' +
-                (m.age ? '<span class="msk-card-age">' + escHtml(m.age) + '</span>' : '') +
+                (m.gender ? '<span class="msk-card-tag">' + escHtml(m.gender) + '</span>' : '') +
+                (m.age ? '<span class="msk-card-tag">' + escHtml(m.age) + '</span>' : '') +
               '</div>' +
               '<div class="msk-card-setting">' + escHtml(m.setting || '暂无设定') + '</div>' +
             '</div>' +
@@ -588,7 +612,6 @@
 
     listScroll.innerHTML = html;
 
-    /* 绑定卡片点击手感 */
     listScroll.querySelectorAll('.msk-card[data-mask-id]').forEach(function (card) {
       var id = card.getAttribute('data-mask-id');
       bindTap(card, function () {
@@ -596,7 +619,6 @@
       });
     });
 
-    /* 异步填充面具头像 */
     masks.forEach(function (m) {
       fetchMaskAvatar(m.id).then(function (url) {
         if (!url) return;
@@ -605,7 +627,6 @@
       });
     });
 
-    /* 异步填充绑定角色的小头像 */
     chars.forEach(function (c) {
       fetchCharAvatar(c).then(function (url) {
         if (!url) return;
@@ -700,6 +721,7 @@
   /* 打开新建/编辑页 */
   function openEditor(id, prefill) {
     setFabOpen(false);
+    setExportMenuOpen(false);
     editingId = id || null;
     draftAvatarCleared = false;
 
@@ -708,11 +730,11 @@
       if (!target) return;
       editorTitle.textContent = '编辑面具';
       nameInput.value = target.name || '';
+      genderInput.value = target.gender || '';
       ageInput.value = target.age || '';
       settingInput.value = target.setting || '';
       draftBoundCharIds = Array.isArray(target.boundCharIds) ? target.boundCharIds.slice() : [];
       draftAvatarDataUrl = avatarCache[editingId] || '';
-      exportRow.style.display = '';
       deleteBtn.style.display = '';
       renderEditorAvatar();
       fetchMaskAvatar(editingId).then(function (url) {
@@ -724,11 +746,11 @@
     } else {
       editorTitle.textContent = '新增面具';
       nameInput.value = (prefill && prefill.name) ? prefill.name : '';
+      genderInput.value = (prefill && prefill.gender) ? prefill.gender : '';
       ageInput.value = (prefill && prefill.age) ? prefill.age : '';
       settingInput.value = (prefill && prefill.setting) ? prefill.setting : '';
       draftBoundCharIds = [];
       draftAvatarDataUrl = (prefill && prefill.avatar) ? prefill.avatar : '';
-      exportRow.style.display = 'none';
       deleteBtn.style.display = 'none';
       renderEditorAvatar();
     }
@@ -740,6 +762,7 @@
   }
 
   function closeEditor() {
+    setExportMenuOpen(false);
     if (document.activeElement && editorEl.contains(document.activeElement)) {
       document.activeElement.blur();
     }
@@ -750,7 +773,9 @@
 
   /* 保存当前面具 */
   function saveCurrentMask() {
+    setExportMenuOpen(false);
     var name = nameInput.value.trim();
+    var gender = genderInput.value.trim();
     var age = ageInput.value.trim();
     var setting = settingInput.value.trim();
 
@@ -780,6 +805,7 @@
       var target = masks.find(function (m) { return m.id === editingId; });
       if (target) {
         target.name = name;
+        target.gender = gender;
         target.age = age;
         target.setting = setting;
         target.boundCharIds = uniqueBound;
@@ -789,6 +815,7 @@
       masks.unshift({
         id: id,
         name: name,
+        gender: gender,
         age: age,
         setting: setting,
         boundCharIds: uniqueBound,
@@ -821,6 +848,7 @@
   /* 删除面具 */
   function openDeleteModal() {
     if (!editingId) return;
+    setExportMenuOpen(false);
     var target = masks.find(function (m) { return m.id === editingId; });
     var n = target ? target.name : '这个面具';
     deleteModalDesc.textContent = '删除「' + n + '」后将解除已绑定角色的关联，无法恢复。';
@@ -884,6 +912,7 @@
           masks.unshift({
             id: newId,
             name: norm.name,
+            gender: norm.gender,
             age: norm.age,
             setting: norm.setting,
             boundCharIds: [],
@@ -900,7 +929,6 @@
             showToast('已导入面具「' + norm.name + '」');
           });
         } else {
-          /* 普通无元数据 PNG：直接作为头像拉起新建页 */
           openEditor(null, { avatar: avatarDataUrl });
           showToast('已载入 PNG 为头像，请补充信息');
         }
@@ -910,7 +938,6 @@
       return;
     }
 
-    /* JSON 导入（支持单个或数组） */
     var reader = new FileReader();
     reader.onload = function () {
       try {
@@ -926,6 +953,7 @@
           masks.unshift({
             id: newId,
             name: norm.name,
+            gender: norm.gender,
             age: norm.age,
             setting: norm.setting,
             boundCharIds: [],
@@ -958,9 +986,11 @@
 
   /* 导出当前面具为 JSON */
   function exportCurrentAsJson() {
+    setExportMenuOpen(false);
     var payload = {
       type: 'phone_mask_v1',
       name: nameInput.value.trim() || '未命名面具',
+      gender: genderInput.value.trim(),
       age: ageInput.value.trim(),
       setting: settingInput.value.trim(),
       avatar: draftAvatarDataUrl || ''
@@ -972,9 +1002,11 @@
 
   /* 导出当前面具为 PNG 卡（内嵌 phone_mask tEXt 块，可无损再导入） */
   function exportCurrentAsPng() {
+    setExportMenuOpen(false);
     var payload = {
       type: 'phone_mask_v1',
       name: nameInput.value.trim() || '未命名面具',
+      gender: genderInput.value.trim(),
       age: ageInput.value.trim(),
       setting: settingInput.value.trim()
     };
@@ -1088,6 +1120,22 @@
     closeEditor();
   });
 
+  bindTap(exportTopBtn, function () {
+    setExportMenuOpen(!exportMenuOpen);
+  });
+
+  bindTap(exportPopoverMask, function () {
+    setExportMenuOpen(false);
+  });
+
+  bindTap(exportPngBtn, function () {
+    exportCurrentAsPng();
+  });
+
+  bindTap(exportJsonBtn, function () {
+    exportCurrentAsJson();
+  });
+
   bindTap(saveBtn, function () {
     saveCurrentMask();
   });
@@ -1106,14 +1154,6 @@
     draftAvatarDataUrl = '';
     draftAvatarCleared = true;
     renderEditorAvatar();
-  });
-
-  bindTap(exportPngBtn, function () {
-    exportCurrentAsPng();
-  });
-
-  bindTap(exportJsonBtn, function () {
-    exportCurrentAsJson();
   });
 
   bindTap(deleteBtn, function () {
@@ -1159,12 +1199,13 @@
     }
   });
 
-  /* 打开 App 时刷新列表（确保刚在档案里新建的角色立即可见） */
+  /* 打开 App 时刷新列表 */
   var screenObserver = new MutationObserver(function () {
     if (screenEl.classList.contains('open')) {
       renderList();
     } else {
       setFabOpen(false);
+      setExportMenuOpen(false);
     }
   });
   screenObserver.observe(screenEl, { attributes: true, attributeFilter: ['class'] });
@@ -1178,6 +1219,7 @@
         return {
           id: m.id,
           name: m.name,
+          gender: m.gender || '',
           age: m.age,
           setting: m.setting,
           boundCharIds: Array.isArray(m.boundCharIds) ? m.boundCharIds.slice() : [],
@@ -1188,14 +1230,14 @@
     },
     getMaskById: function (id) {
       var found = masks.find(function (m) { return m.id === id; });
-      return found ? Object.assign({}, found, { boundCharIds: (found.boundCharIds || []).slice() }) : null;
+      return found ? Object.assign({}, found, { gender: found.gender || '', boundCharIds: (found.boundCharIds || []).slice() }) : null;
     },
     getMaskForChar: function (charId) {
       if (!charId) return null;
       var found = masks.find(function (m) {
         return Array.isArray(m.boundCharIds) && m.boundCharIds.indexOf(charId) !== -1;
       });
-      return found ? Object.assign({}, found, { boundCharIds: (found.boundCharIds || []).slice() }) : null;
+      return found ? Object.assign({}, found, { gender: found.gender || '', boundCharIds: (found.boundCharIds || []).slice() }) : null;
     },
     getMaskAvatar: function (id) {
       return fetchMaskAvatar(id);
