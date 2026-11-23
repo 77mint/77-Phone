@@ -292,6 +292,7 @@
       map[charId] = {
         code: generateRandomPasscode(),
         unlocked: false,
+        resetAllowed: false,
         updatedAt: Date.now()
       };
       saveCharPasscodeStore(map);
@@ -303,6 +304,22 @@
     if (!charId) return false;
     var map = getCharPasscodeStore();
     return !!(map[charId] && map[charId].unlocked);
+  }
+
+  function isCharResetAllowed(charId) {
+    if (!charId) return false;
+    var map = getCharPasscodeStore();
+    return !!(map[charId] && map[charId].resetAllowed);
+  }
+
+  // 供后续 chat-ai.js 调用：Char 在对话中允许/收回 User 强制改密码权限
+  function setCharResetAllowed(charId, allowed) {
+    if (!charId) return false;
+    getCharPasscode(charId);
+    var map = getCharPasscodeStore();
+    map[charId].resetAllowed = !!allowed;
+    saveCharPasscodeStore(map);
+    return true;
   }
 
   function verifyCharPasscode(charId, inputCode) {
@@ -337,13 +354,12 @@
     if (!prefs.allowCharChangePasscode) return false;
     var clean = String(newCode || '').trim();
     if (!clean) return false;
+    getCharPasscode(charId);
     var map = getCharPasscodeStore();
-    map[charId] = {
-      code: clean,
-      unlocked: relock === false ? !!(map[charId] && map[charId].unlocked) : false,
-      updatedAt: Date.now(),
-      changedByChar: true
-    };
+    map[charId].code = clean;
+    map[charId].unlocked = relock === false ? !!map[charId].unlocked : false;
+    map[charId].updatedAt = Date.now();
+    map[charId].changedByChar = true;
     saveCharPasscodeStore(map);
 
     if (relock !== false) {
@@ -354,6 +370,21 @@
         showToast((active.name || '对方') + ' 修改了账号密码，已重新上锁');
       }
     }
+    return true;
+  }
+
+  // User 在获得 Char 允许后执行强制改密码
+  function forceResetCharPasscode(charId, newCode) {
+    if (!charId || !isCharResetAllowed(charId)) return false;
+    var clean = String(newCode || '').trim();
+    if (!clean) return false;
+    getCharPasscode(charId);
+    var map = getCharPasscodeStore();
+    map[charId].code = clean;
+    map[charId].unlocked = true;
+    map[charId].updatedAt = Date.now();
+    map[charId].changedByChar = false;
+    saveCharPasscodeStore(map);
     return true;
   }
 
@@ -1531,7 +1562,7 @@
     });
   }
 
-  /* ---------------- 6. 设置子页（已去掉「当前账号资料」） ---------------- */
+  /* ---------------- 6. 设置子页 ---------------- */
   function renderSettingsPage() {
     var acc = getActiveAccount();
     var allAccs = getAccounts();
@@ -1559,7 +1590,7 @@
         '</div>' +
         '<div class="ctme-item" data-pref-toggle="allowCharChangePasscode">' +
           '<div>' +
-            '<div class="ctme-item-label">允许 Char 自主改密</div>' +
+            '<div class="ctme-item-label">允许 Char 自主修改密码</div>' +
             '<div class="ctme-item-desc">开启后，Char 可在对话中自己改掉微信密码并重新上锁</div>' +
           '</div>' +
           '<button type="button" class="ctme-switch ' + (prefs.allowCharChangePasscode ? 'is-on' : '') + '"></button>' +
@@ -1649,7 +1680,6 @@
 
   /* ---------------- 切换账号子页（面具主号 / 小号 / 带锁 Char 账号） ---------------- */
   function openCharPasswordSheet(ch) {
-    // 确保后台已有随机默认密码，但不展示在界面上
     getCharPasscode(ch.id);
 
     openSheet('登录「' + (ch.name || 'Char') + '」的账号',
@@ -1702,6 +1732,57 @@
     );
   }
 
+  function openCharForceResetSheet(ch) {
+    if (!isCharResetAllowed(ch.id)) {
+      openSheet('强制改密码',
+        '<div class="ctme-hint-box">' +
+          '「' + esc(ch.name || '对方') + '」还没有允许你修改 TA 的账号密码。<br>去聊天里和 TA 商量，让 TA 在对话中给你授权后才能强制改密。' +
+        '</div>' +
+        '<button type="button" class="ctme-action-btn is-primary" id="ctmeForceDeniedOk">知道了</button>',
+        function (body) {
+          body.querySelector('#ctmeForceDeniedOk').addEventListener('click', closeSheet);
+        }
+      );
+      return;
+    }
+
+    openSheet('强制修改「' + (ch.name || 'Char') + '」密码',
+      '<div class="ctme-hint-box">' +
+        '已获得「' + esc(ch.name || 'TA') + '」的改密授权，你可以为 TA 设置一个新密码并直接解锁。' +
+      '</div>' +
+      '<div class="ctme-field">' +
+        '<label class="ctme-field-label">新密码</label>' +
+        '<div class="ctme-pwd-wrap">' +
+          '<input type="password" class="ctme-input" id="ctmeForceNewPwd" placeholder="输入新的账号密码" autocomplete="off">' +
+          '<button type="button" class="ctme-pwd-eye" id="ctmeForcePwdEye" aria-label="显示密码">' + SVG_EYE + '</button>' +
+        '</div>' +
+        '<div class="ctme-pwd-err" id="ctmeForcePwdErr"></div>' +
+      '</div>' +
+      '<button type="button" class="ctme-action-btn is-primary" id="ctmeForceSave">确认修改密码</button>',
+      function (body) {
+        var inp = body.querySelector('#ctmeForceNewPwd');
+        var eye = body.querySelector('#ctmeForcePwdEye');
+        var errEl = body.querySelector('#ctmeForcePwdErr');
+        eye.addEventListener('click', function () {
+          inp.type = inp.type === 'password' ? 'text' : 'password';
+        });
+        body.querySelector('#ctmeForceSave').addEventListener('click', function () {
+          var val = (inp.value || '').trim();
+          if (!val) {
+            errEl.textContent = '请输入新密码';
+            return;
+          }
+          if (forceResetCharPasscode(ch.id, val)) {
+            closeSheet();
+            showToast('已为「' + (ch.name || 'TA') + '」重设密码');
+            renderTopPage();
+          }
+        });
+        setTimeout(function () { inp.focus(); }, 180);
+      }
+    );
+  }
+
   function renderAccountsPage() {
     var list = getAccounts();
     var activeId = getActiveAccount().id;
@@ -1711,7 +1792,6 @@
     var maskAccounts = list.filter(function (a) { return a.type !== 'char' && (a.maskId || a.type === 'mask' || a.id === 'acc_default'); });
     var altAccounts = list.filter(function (a) { return a.type === 'alt' || (a.type !== 'char' && !a.maskId && a.type !== 'mask' && a.id !== 'acc_default'); });
 
-    // 检测尚未建立社媒主号的面具
     var unboundMasks = masks.filter(function (m) {
       return !list.some(function (a) { return a.maskId === m.id; });
     });
@@ -1766,7 +1846,7 @@
 
     var charSectionHtml = chars.length
       ? chars.map(function (ch) {
-          getCharPasscode(ch.id); // 静默初始化默认密码
+          getCharPasscode(ch.id);
           var unlocked = isCharUnlocked(ch.id);
           var charAcc = list.find(function (a) { return a.type === 'char' && a.charId === ch.id; });
           var isCur = !!(charAcc && charAcc.id === activeId);
@@ -1796,6 +1876,7 @@
                     ? '<button type="button" class="ctme-mini-pill" style="background:#111;color:#fff;" data-char-login="' + esc(ch.id) + '">切换为 TA</button>'
                     : '') +
                   '<button type="button" class="ctme-mini-pill" data-char-lock="' + esc(ch.id) + '">重新上锁</button>')) +
+              '<button type="button" class="ctme-mini-pill" data-char-force-reset="' + esc(ch.id) + '">强制改密码</button>' +
             '</div>' +
           '</div>';
         }).join('')
@@ -1812,7 +1893,6 @@
     );
     if (!ov) return;
 
-    // 加载各类头像
     ov.querySelectorAll('.ctme-acc-ava[data-acc-ava-id]').forEach(function (el) {
       var id = el.getAttribute('data-acc-ava-id');
       var accObj = list.find(function (x) { return x.id === id; });
@@ -1831,7 +1911,6 @@
       });
     });
 
-    // 自建账号切换
     ov.querySelectorAll('[data-acc-switch]').forEach(function (el) {
       el.addEventListener('click', function () {
         var id = el.getAttribute('data-acc-switch');
@@ -1842,7 +1921,6 @@
       });
     });
 
-    // 快速用面具建立社媒主号
     ov.querySelectorAll('[data-quick-mask]').forEach(function (el) {
       el.addEventListener('click', function () {
         var mid = el.getAttribute('data-quick-mask');
@@ -1868,7 +1946,6 @@
       });
     });
 
-    // Char 账号登录（未解锁弹出密码框，已解锁直接切）
     ov.querySelectorAll('[data-char-login]').forEach(function (el) {
       el.addEventListener('click', function (e) {
         e.stopPropagation();
@@ -1887,7 +1964,6 @@
       });
     });
 
-    // 重新上锁 Char 账号
     ov.querySelectorAll('[data-char-lock]').forEach(function (btn) {
       btn.addEventListener('click', function (e) {
         e.stopPropagation();
@@ -1895,6 +1971,16 @@
         lockCharAccount(cid);
         showToast('已重新上锁，下次登录需重新输入密码');
         renderTopPage();
+      });
+    });
+
+    ov.querySelectorAll('[data-char-force-reset]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var cid = btn.getAttribute('data-char-force-reset');
+        var ch = chars.find(function (x) { return x.id === cid; });
+        if (!ch) return;
+        openCharForceResetSheet(ch);
       });
     });
 
@@ -2147,6 +2233,8 @@
     setCharPasscode: setCharPasscode,
     isCharUnlocked: isCharUnlocked,
     lockCharAccount: lockCharAccount,
+    isCharResetAllowed: isCharResetAllowed,
+    setCharResetAllowed: setCharResetAllowed,
     getWalletBalance: getWalletBalance,
     setWalletBalance: setWalletBalance,
     addWalletLog: addWalletLog,
