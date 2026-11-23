@@ -4,6 +4,7 @@
    - 微信小圆角头像（6px）+ 名字对齐上缘/预览对齐下缘
    - 修复气泡居中与尖角对齐 + 1:1 微信蓝底星点礼物卡
    - 气泡头顶 CoT 思维链胶囊 + 顺滑展开卡片
+   - 顶部备注位「对方正在输入中…」状态样式
    - 跟随真实手机系统深浅色自动切换日夜模式
    - 全文字跟随「外观」--app-font-size 全局缩放
    ========================================================= */
@@ -432,6 +433,19 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: opacity 0.18s ease;
+}
+
+.ct-room-title.is-typing {
+    font-size: var(--app-font-size, 15px);
+    font-weight: 500;
+    color: #555555;
+    animation: ctTypingPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes ctTypingPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
 }
 
 .ct-room-messages {
@@ -1403,6 +1417,10 @@
     .ct-modal-title,
     .ct-plus-item {
         color: #f2f2f7;
+    }
+
+    .ct-room-title.is-typing {
+        color: #a1a1a6;
     }
 
     .ct-row::after {
