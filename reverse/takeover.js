@@ -1,6 +1,6 @@
 /* =========================================================
    反向互动 · 顶号全屏模块 (reverse/takeover.js)
-   - 三套独立视觉：p1(眩晕密字墙) / p2(红字叠满屏) / p3(阴湿宋体排版)
+   - 三套独立视觉：p1(清晰眩晕密字) / p2(全屏红字叠红字) / p3(阴湿宋体排版)
    - 零游戏感 UI：纯上滑手势挣脱 + 真实暗黑系统「下线通知」弹窗互顶
    - 暴露 window.PhoneChatTakeover（preview / trigger / close）
    ========================================================= */
@@ -18,16 +18,19 @@
       deviceText: '另一台设备',
       bgPhrases: [
         '为什么不回我消息', '我一直在看着你', '你在和谁说话',
-        '别想甩掉我', '不要丢下我', '只能看着我', '我什么都可以做'
+        '别想甩掉我', '不要丢下我', '只能看着我', '我什么都可以做',
+        '别关掉', '把手机给我', '你只能看见我', '为什么不理我'
       ],
       midPhrases: [
         '为什么不来找我', '别不要我', '你在看什么？',
-        '你别想甩掉我', '快说你爱我', '永远在一起'
+        '你别想甩掉我', '快说你爱我', '永远在一起',
+        '别想从我身边逃走', '我就在你身后'
       ],
       topPhrases: [
-        '我在你家楼下', '一直都在看着你', '别想逃', '你在和谁聊天'
+        '我在你家楼下', '一直都在看着你', '别想逃', '你在和谁聊天',
+        '现在就看着我', '不准切出去'
       ],
-      hugeWords: ['看着我', '别走', '只有我'],
+      hugeWords: ['看着我', '别走', '只有我', '我爱你'],
       hijackTexts: ['不许退', '看着我', '别关掉']
     },
     p3: {
@@ -174,23 +177,23 @@
     });
   }
 
-  /* ---------------- 风格 P1：魔怔眩晕密字墙 ---------------- */
+  /* ---------------- 风格 P1：清晰锐利 + 摇晃眩晕密字墙 ---------------- */
   function mountStyleP1(container, pack) {
     const wrap = document.createElement('div');
     wrap.className = 'cto-p1-wrap';
     const phrase = pack.phrase || '你只能是我的';
-    const lineText = Array(8).fill(phrase).join(' ');
-    const rows = 28;
+    const lineText = Array(8).fill(phrase).join('　');
+    const rows = 36;
 
     for (let i = 0; i < rows; i++) {
       const row = document.createElement('div');
       row.className = 'cto-p1-row';
       row.textContent = lineText;
-      row.dataset.txt = lineText;
-      row.style.setProperty('--cto-x', `${Math.round((Math.random() - 0.5) * 46)}px`);
-      row.style.setProperty('--cto-dx', `${(i % 2 === 0 ? 1 : -1) * (8 + (i % 5) * 2)}px`);
-      row.style.setProperty('--cto-sk', `${i % 2 === 0 ? -2.4 : 2.4}deg`);
-      row.style.setProperty('--cto-d', `${-(i * 0.14).toFixed(2)}s`);
+      const baseShift = -(i % 3) * 34 - Math.round(Math.random() * 18);
+      row.style.setProperty('--cto-x', `${baseShift}px`);
+      row.style.setProperty('--cto-dx', `${(i % 2 === 0 ? 1 : -1) * (6 + (i % 4) * 2)}px`);
+      row.style.setProperty('--cto-sk', `${i % 2 === 0 ? -1.8 : 1.8}deg`);
+      row.style.setProperty('--cto-d', `${-(i * 0.12).toFixed(2)}s`);
       wrap.appendChild(row);
     }
 
@@ -202,18 +205,16 @@
     };
   }
 
-  /* ---------------- 风格 P2：红字叠红字 · 层层淹没 ---------------- */
+  /* ---------------- 风格 P2：全屏密密麻麻红字叠红字 ---------------- */
   function mountStyleP2(container, pack) {
     const wrap = document.createElement('div');
     wrap.className = 'cto-p2-wrap';
     container.appendChild(wrap);
 
-    function spawnOne(text, level, delayMs) {
+    function spawnAt(text, level, x, y, delayMs) {
       const el = document.createElement('div');
       el.className = `cto-p2-item ${level} ${Math.random() > 0.35 ? 'is-sway' : ''}`;
       el.textContent = text;
-      const x = 10 + Math.random() * 80;
-      const y = 8 + Math.random() * 82;
       el.style.left = x.toFixed(1) + '%';
       el.style.top = y.toFixed(1) + '%';
       el.style.setProperty('--cto-op', level === 'lv-bg' ? '0.68' : (level === 'lv-mid' ? '0.88' : '0.96'));
@@ -224,29 +225,46 @@
       addTimer(() => el.classList.add('show'), delayMs);
     }
 
-    function spawnBurst(count, baseDelay) {
-      const bg = pack.bgPhrases || [];
-      const mid = pack.midPhrases || [];
-      const top = pack.topPhrases || [];
-      const huge = pack.hugeWords || [];
+    function pick(arr) {
+      return arr[Math.floor(Math.random() * arr.length)] || '看着我';
+    }
 
-      for (let i = 0; i < count; i++) {
-        const r = Math.random();
-        let level = 'lv-bg';
-        let pool = bg;
-        if (r > 0.86 && huge.length) { level = 'lv-huge'; pool = huge; }
-        else if (r > 0.64 && top.length) { level = 'lv-top'; pool = top; }
-        else if (r > 0.32 && mid.length) { level = 'lv-mid'; pool = mid; }
-        const text = pool[Math.floor(Math.random() * pool.length)] || '看着我';
-        spawnOne(text, level, baseDelay + i * 55);
+    const bg = pack.bgPhrases || [];
+    const mid = pack.midPhrases || [];
+    const top = pack.topPhrases || [];
+    const huge = pack.hugeWords || [];
+
+    // 底层全屏网格打底（48 条铺满边角与上下，无黑洞）
+    let idx = 0;
+    for (let r = 0; r < 12; r++) {
+      for (let c = 0; c < 4; c++) {
+        const x = 6 + c * 29 + (Math.random() - 0.5) * 14;
+        const y = 3 + r * 8.4 + (Math.random() - 0.5) * 4;
+        spawnAt(pick(bg), 'lv-bg', x, y, 20 + idx * 14);
+        idx++;
       }
     }
 
-    spawnBurst(28, 80);
+    // 中层与顶层重叠覆盖（40 条错落叠压）
+    for (let i = 0; i < 40; i++) {
+      const r = Math.random();
+      let level = 'lv-mid';
+      let pool = mid;
+      if (r > 0.84 && huge.length) { level = 'lv-huge'; pool = huge; }
+      else if (r > 0.56 && top.length) { level = 'lv-top'; pool = top; }
+      const x = 8 + Math.random() * 84;
+      const y = 5 + Math.random() * 90;
+      spawnAt(pick(pool), level, x, y, 220 + i * 24);
+    }
 
     return {
       intensify() {
-        spawnBurst(10, 20);
+        for (let i = 0; i < 14; i++) {
+          const r = Math.random();
+          const level = r > 0.72 ? 'lv-huge' : (r > 0.35 ? 'lv-top' : 'lv-mid');
+          const pool = level === 'lv-huge' ? huge : (level === 'lv-top' ? top : mid);
+          spawnAt(pick(pool), level, 8 + Math.random() * 84, 5 + Math.random() * 90, i * 22);
+        }
       }
     };
   }
@@ -386,7 +404,6 @@
         deviceText: pack.deviceText,
         onExit: () => {
           alertOpen = false;
-          // 主动放弃 -> 真正被对方接管定格
           pulseRedShake();
           tipEl.textContent = '已由对方接管';
           tipEl.classList.remove('is-hidden');
@@ -424,7 +441,6 @@
       });
     }
 
-    /* 纯手势：本能上滑挣脱 / 轻点唤出系统弹窗 */
     let touchStartY = 0;
     let touchStartX = 0;
     let touchMoved = false;
@@ -449,7 +465,6 @@
       if (Math.abs(dy) > 8 || dx > 8) touchMoved = true;
 
       if (dy < 0) {
-        // 阻尼感：上滑越高阻力越大
         const resisted = Math.max(-220, dy * 0.62);
         lastDeltaY = dy;
         stage.style.transform = `translate3d(0, ${resisted.toFixed(1)}px, 0)`;
@@ -485,7 +500,6 @@
       stage.style.transform = '';
     }, { passive: true });
 
-    // 桌面端点击调试兼容
     stage.addEventListener('click', (e) => {
       if (settled || alertOpen) return;
       if (e.target.closest('#ctoPreviewClose')) return;
