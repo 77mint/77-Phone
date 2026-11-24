@@ -1,33 +1,32 @@
 /* =========================================================
    反向互动 · 顶号实时博弈模块 (reverse/takeover.js)
-   - 单一纯正视觉：暗血红宋体全屏叠字（高密度铺满）
-   - 真实 AI 互动：每次点击「重新登录」实时请求 AI，由 Char 人设与当下关系决定
-     是否放行登录，或生成新一批暗红台词继续压满屏幕
+   - 单一纯正视觉：无缝暗红底墙 + 210+ 条暗血红宋体全屏叠压
+   - 100% 真实 AI 博弈：无固定次数脚本，每次点「重新登录」实时请求 AI 决定
    - 暴露 window.PhoneChatTakeover（preview / trigger / close）
    ========================================================= */
 
 (function () {
   const PREVIEW_CHAR_KEY = 'phone_takeover_preview_char_v1';
 
-  const FALLBACK_BG = [
+  const BASE_BG = [
     '为什么不回我消息', '我一直在看着你', '你在和谁说话',
     '别想甩掉我', '不要丢下我', '只能看着我', '我什么都可以做',
     '别关掉', '把手机给我', '你只能看见我', '为什么不理我',
     '你刚才去哪里了', '别装作没看到', '永远别想逃走'
   ];
 
-  const FALLBACK_MID = [
+  const BASE_MID = [
     '为什么不来找我', '别不要我', '你在看什么？',
     '你别想甩掉我', '快说你爱我', '永远在一起',
     '别想从我身边逃走', '我就在你身后', '还要点几次重新登录？'
   ];
 
-  const FALLBACK_TOP = [
+  const BASE_TOP = [
     '我在你家楼下', '一直都在看着你', '别想逃', '你在和谁聊天',
     '现在就看着我', '不准切出去', '你以为能顶掉我吗'
   ];
 
-  const FALLBACK_HUGE = ['看着我', '别走', '只有我', '我爱你'];
+  const BASE_HUGE = ['看着我', '别走', '只有我', '我爱你'];
 
   let activeTimers = [];
   let activeStageEl = null;
@@ -71,6 +70,32 @@
     }
   }
 
+  /* ---------------- 兼容读取 API 配置 ---------------- */
+  function resolveActiveApiConfig() {
+    let rawCfg = null;
+    try {
+      if (window.PhoneAPI && typeof window.PhoneAPI.getConfig === 'function') {
+        rawCfg = window.PhoneAPI.getConfig('chat');
+      }
+    } catch (e) {}
+
+    if (!rawCfg) {
+      try {
+        const stored = localStorage.getItem('phone_api_config_v2');
+        if (stored) rawCfg = JSON.parse(stored);
+      } catch (e) {}
+    }
+
+    if (!rawCfg) return null;
+    const node = rawCfg.active || rawCfg.primary || rawCfg;
+    const url = (node.url || node.apiUrl || node.baseUrl || '').trim();
+    const key = (node.key || node.apiKey || '').trim();
+    const model = (node.model || node.modelName || '').trim();
+    const provider = node.provider || rawCfg.provider || 'openai';
+    if (!url || !key || !model) return null;
+    return { provider, url, key, model };
+  }
+
   /* ---------------- 读取 Char 人设与最近聊天上下文 ---------------- */
   function getCharsList() {
     try {
@@ -112,18 +137,11 @@
     return { charObj, charName, persona, recentLines };
   }
 
-  /* ---------------- 实时请求 AI 决定「重新登录」结果 ---------------- */
+  /* ---------------- 实时请求 AI 决定「重新登录」结果（无固定次数） ---------------- */
   async function requestTakeoverTurn(ctx, attemptNum, clashHistory) {
-    let apiCfg = null;
-    try {
-      if (window.PhoneAPI && typeof window.PhoneAPI.getConfig === 'function') {
-        apiCfg = window.PhoneAPI.getConfig('chat');
-      }
-    } catch (e) {}
-
-    const active = apiCfg && apiCfg.active;
-    if (!active || !active.key || !active.url || !active.model) {
-      return null;
+    const active = resolveActiveApiConfig();
+    if (!active) {
+      return { error: '未检测到可用的聊天 API 配置，请先在「API」中填写接口地址、Key 和模型。' };
     }
 
     const systemPrompt = [
@@ -132,32 +150,30 @@
       ctx.recentLines.length ? `【最近聊天上下文】\n${ctx.recentLines.join('\n')}` : '',
       `【当前情境】`,
       `你刚刚登录了 User 的账号，把 User 踢下线了。现在 User 屏幕弹出系统「下线通知」弹窗，正在第 ${attemptNum} 次点击「重新登录」试图把你顶下去。`,
-      `不要套用固定模板，完全基于你此刻的性格、感情状态和刚才聊过的内容自己决定：`,
-      `1. 你此刻是继续死死占着账号不让 User 登回去（allow: false），还是心软/被执着打动/彻底退让放行让 User 登回来（allow: true）？`,
-      `2. 如果不放行，给出弹窗里显示的短句（modalText，25字以内，贴合你此刻语气），以及 10~14 句铺上屏幕的暗红执念/情绪短句（lines，每句 2~10 字）。`,
+      `没有任何预设次数限制，完全基于你此刻的性格、感情状态和刚才聊过的内容自己决定：`,
+      `1. 你此刻是继续占着账号不让 User 登回去（allow: false），还是心软/退让/被顶下线而放行让 User 登回来（allow: true）？`,
+      `2. 如果不放行，给出弹窗里显示的短句（modalText，25字以内，贴合你此刻语气），以及 12~16 句铺上屏幕的暗红执念/情绪短句（lines，每句 2~10 字）。`,
       `3. 如果放行（allow: true），给出弹窗最后闪过的一句话（modalText，18字以内）。`,
-      `严格只输出 JSON，不要 markdown 代码块，格式如下：`,
-      `{"allow":false,"modalText":"...","lines":["...","..."]}`
+      `严格只输出 JSON，不要 markdown 代码块，格式：{"allow":false,"modalText":"...","lines":["...","..."]}`
     ].filter(Boolean).join('\n\n');
 
     const userPrompt = clashHistory.length
       ? `前几轮顶号过程：\n${clashHistory.join('\n')}\n现在 User 第 ${attemptNum} 次点击了「重新登录」。请立即做出真实反应。`
       : `现在 User 第 ${attemptNum} 次点击了「重新登录」。请立即做出真实反应。`;
 
-    const provider = active.provider || 'openai';
-    const baseUrl = String(active.url).replace(/\/+$/, '');
+    const baseUrl = active.url.replace(/\/+$/, '');
     let endpoint = baseUrl;
     let headers = { 'Content-Type': 'application/json' };
     let body = {};
 
-    if (provider === 'google') {
+    if (active.provider === 'google') {
       endpoint = `${baseUrl}/models/${encodeURIComponent(active.model)}:generateContent?key=${encodeURIComponent(active.key)}`;
       body = {
         systemInstruction: { parts: [{ text: systemPrompt }] },
         contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
         generationConfig: { temperature: 0.95 }
       };
-    } else if (provider === 'anthropic') {
+    } else if (active.provider === 'anthropic') {
       endpoint = baseUrl.endsWith('/messages') ? baseUrl : `${baseUrl}/messages`;
       headers['x-api-key'] = active.key;
       headers['anthropic-version'] = '2023-06-01';
@@ -187,13 +203,15 @@
       body: JSON.stringify(body)
     });
 
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    if (!res.ok) {
+      throw new Error('HTTP ' + res.status);
+    }
     const data = await res.json();
 
     let rawText = '';
-    if (provider === 'google') {
+    if (active.provider === 'google') {
       rawText = data?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
-    } else if (provider === 'anthropic') {
+    } else if (active.provider === 'anthropic') {
       rawText = Array.isArray(data?.content) ? data.content.map(c => c.text || '').join('') : '';
     } else {
       rawText = data?.choices?.[0]?.message?.content || '';
@@ -211,7 +229,9 @@
     } catch (e) {}
 
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
+    if (!jsonMatch) {
+      return { allow: false, modalText: rawText.slice(0, 28) || '你别想把我顶下去。', lines: [] };
+    }
     return JSON.parse(jsonMatch[0]);
   }
 
@@ -226,6 +246,7 @@
     const stage = document.createElement('div');
     stage.className = 'cto-stage';
     stage.innerHTML = `
+      <div class="cto-underlay" id="ctoUnderlay"></div>
       <div class="cto-wall" id="ctoWall"></div>
       <div class="cto-sys-mask" id="ctoSysMask">
         <div class="cto-sys-dialog" id="ctoSysDialog">
@@ -244,6 +265,7 @@
     document.body.appendChild(stage);
     activeStageEl = stage;
 
+    const underlayEl = stage.querySelector('#ctoUnderlay');
     const wallEl = stage.querySelector('#ctoWall');
     const maskEl = stage.querySelector('#ctoSysMask');
     const dialogEl = stage.querySelector('#ctoSysDialog');
@@ -255,13 +277,28 @@
     bindPressed(exitBtn);
     bindPressed(reloginBtn);
 
+    function pick(arr) {
+      return arr[Math.floor(Math.random() * arr.length)] || '看着我';
+    }
+
+    /* 1. 底层无缝铺满 44 行暗红密字，彻底消除黑缝 */
+    for (let r = 0; r < 44; r++) {
+      const row = document.createElement('div');
+      row.className = 'cto-underlay-row';
+      const segs = [];
+      for (let k = 0; k < 6; k++) segs.push(pick(BASE_BG));
+      row.textContent = segs.join(' ');
+      row.style.setProperty('--cto-ux', `${-Math.round(Math.random() * 60)}px`);
+      underlayEl.appendChild(row);
+    }
+
     function spawnItem(text, level, x, y, delayMs) {
       const el = document.createElement('div');
-      el.className = `cto-item ${level} ${Math.random() > 0.3 ? 'is-sway' : ''}`;
+      el.className = `cto-item ${level} ${Math.random() > 0.35 ? 'is-sway' : ''}`;
       el.textContent = text;
       el.style.left = x.toFixed(1) + '%';
       el.style.top = y.toFixed(1) + '%';
-      el.style.setProperty('--cto-op', level === 'lv-bg' ? '0.68' : (level === 'lv-mid' ? '0.86' : '0.96'));
+      el.style.setProperty('--cto-op', level === 'lv-bg' ? '0.72' : (level === 'lv-mid' ? '0.88' : '0.96'));
       el.style.setProperty('--cto-dx', `${((Math.random() - 0.5) * 6).toFixed(1)}px`);
       el.style.setProperty('--cto-dy', `${((Math.random() - 0.5) * 5).toFixed(1)}px`);
       el.style.setProperty('--cto-d', `${-(Math.random() * 4).toFixed(2)}s`);
@@ -269,39 +306,34 @@
       addTimer(() => el.classList.add('show'), delayMs);
     }
 
-    function pick(arr) {
-      return arr[Math.floor(Math.random() * arr.length)] || '看着我';
-    }
-
-    /* 初始 165 条高密度暗红字铺满整屏（15行×6列底层 + 75条中顶层叠压） */
+    /* 2. 中层 + 顶层叠压 210 条暗红字，全屏无死角 */
     let idx = 0;
-    for (let r = 0; r < 15; r++) {
+    for (let r = 0; r < 18; r++) {
       for (let c = 0; c < 6; c++) {
-        const x = 4 + c * 18.5 + (Math.random() - 0.5) * 10;
-        const y = 2.5 + r * 6.8 + (Math.random() - 0.5) * 3.6;
-        spawnItem(pick(FALLBACK_BG), 'lv-bg', x, y, 10 + idx * 7);
+        const x = 3 + c * 18.8 + (Math.random() - 0.5) * 10;
+        const y = 2 + r * 5.6 + (Math.random() - 0.5) * 3;
+        spawnItem(pick(BASE_BG), 'lv-bg', x, y, 8 + idx * 5);
         idx++;
       }
     }
-    for (let i = 0; i < 75; i++) {
+    for (let i = 0; i < 105; i++) {
       const r = Math.random();
       let level = 'lv-mid';
-      let pool = FALLBACK_MID;
-      if (r > 0.86) { level = 'lv-huge'; pool = FALLBACK_HUGE; }
-      else if (r > 0.55) { level = 'lv-top'; pool = FALLBACK_TOP; }
-      spawnItem(pick(pool), level, 5 + Math.random() * 90, 3 + Math.random() * 94, 180 + i * 14);
+      let pool = BASE_MID;
+      if (r > 0.85) { level = 'lv-huge'; pool = BASE_HUGE; }
+      else if (r > 0.52) { level = 'lv-top'; pool = BASE_TOP; }
+      spawnItem(pick(pool), level, 4 + Math.random() * 92, 2 + Math.random() * 96, 120 + i * 10);
     }
 
     function pileExtraLines(lines) {
-      const arr = (Array.isArray(lines) && lines.length) ? lines : FALLBACK_TOP;
+      const arr = (Array.isArray(lines) && lines.length) ? lines : BASE_TOP;
       arr.forEach((txt, i) => {
         const clean = String(txt || '').trim();
         if (!clean) return;
         const level = clean.length <= 4 ? 'lv-huge' : (i % 3 === 0 ? 'lv-top' : 'lv-mid');
-        spawnItem(clean, level, 6 + Math.random() * 88, 4 + Math.random() * 92, i * 32);
+        spawnItem(clean, level, 5 + Math.random() * 90, 3 + Math.random() * 94, i * 26);
       });
-      // 上限保护防 DOM 过载
-      while (wallEl.children.length > 280) {
+      while (wallEl.children.length > 340) {
         wallEl.removeChild(wallEl.firstChild);
       }
     }
@@ -334,22 +366,20 @@
       vibrate(16);
 
       let result = null;
+      let errMsg = '';
       try {
         result = await requestTakeoverTurn(ctx, attempt, clashHistory);
       } catch (e) {
-        result = null;
+        errMsg = e && e.message ? e.message : '请求失败';
       }
 
-      // 若未配置 API 或请求异常，才走自然概率兜底
-      if (!result) {
-        const allowNow = attempt >= 3 && Math.random() > 0.45;
-        result = {
-          allow: allowNow,
-          modalText: allowNow
-            ? '连接已恢复。'
-            : `重新登录被拦截：我话还没说完，不准退出（第 ${attempt} 次）。`,
-          lines: allowNow ? [] : [pick(FALLBACK_TOP), pick(FALLBACK_MID), pick(FALLBACK_HUGE), pick(FALLBACK_TOP), pick(FALLBACK_MID)]
-        };
+      if (errMsg || (result && result.error)) {
+        titleEl.textContent = '连接异常';
+        descEl.textContent = (result && result.error) || `接口请求失败（${errMsg}），请检查 API 设置后重试，或点「退出」。`;
+        busy = false;
+        reloginBtn.disabled = false;
+        reloginBtn.textContent = '重新登录';
+        return;
       }
 
       if (result.allow) {
@@ -360,7 +390,6 @@
         return;
       }
 
-      // 被拦下：叠上 AI 新生成的暗红字并震动
       vibrate([28, 22, 34]);
       stage.classList.remove('is-shaking');
       void stage.offsetWidth;
@@ -381,7 +410,7 @@
 
     requestAnimationFrame(() => {
       stage.classList.add('open');
-      addTimer(() => maskEl.classList.add('open'), 180);
+      addTimer(() => maskEl.classList.add('open'), 160);
       vibrate([20, 25, 20]);
     });
   }
