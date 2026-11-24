@@ -1,8 +1,8 @@
 /* =========================================================
-   反向互动 · 顶号全屏模块 (reverse/takeover.css)
-   - 三种动态氛围：crimson(黑红) / obsidian(纯黑冷白) / scarlet(暗红)
-   - 全文字跟随全局 --app-font-size 与 --app-font
-   - 全控件配齐 iOS .is-pressed 物理按压手感
+   反向互动 · 顶号实时抢夺模块 (reverse/takeover.css)
+   - 视觉对标：纯黑底 + 密密麻麻红光字墙 + 阴湿宋体错落/竖排低语/猩红关键字
+   - 实时拉锯对抗 + 双结局（硬抢成功 / 放弃或抢输被接管）
+   - 全字号跟随 --app-font-size，全交互配齐 .is-pressed 手感
    ========================================================= */
 
 /* ---------- 外观页临时预览卡片 ---------- */
@@ -17,10 +17,6 @@
 }
 
 .cto-ap-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
   margin-bottom: 12px;
 }
 
@@ -96,7 +92,7 @@
   height: 100vh;
   height: 100dvh;
   z-index: 99980;
-  background: rgba(0, 0, 0, 0.48);
+  background: rgba(0, 0, 0, 0.52);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   display: flex;
@@ -105,7 +101,7 @@
   padding: 28px;
   box-sizing: border-box;
   opacity: 0;
-  transition: opacity 0.22s ease;
+  transition: opacity 0.2s ease;
   font-family: var(--app-font, -apple-system, system-ui, BlinkMacSystemFont, "PingFang SC", sans-serif);
   user-select: none;
   -webkit-user-select: none;
@@ -121,9 +117,9 @@
   background: rgba(255, 255, 255, 0.96);
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.3);
   transform: scale(0.92);
-  transition: transform 0.26s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform 0.24s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .cto-sys-mask.open .cto-sys-dialog {
@@ -180,16 +176,13 @@
   transform: scale(0.97);
 }
 
-/* ---------- 阶段 1：全屏顶号舞台 ---------- */
+/* ---------- 阶段 1：纯黑全屏舞台 ---------- */
 .cto-stage {
-  --cto-bg: #070304;
-  --cto-glow: rgba(255, 28, 52, 0.28);
-  --cto-accent: #ff233d;
-  --cto-text: #ff2e47;
-  --cto-text-alt: #f5f5f7;
-  --cto-muted: rgba(255, 190, 198, 0.62);
-  --cto-btn-bg: rgba(255, 35, 61, 0.16);
-  --cto-btn-border: rgba(255, 45, 68, 0.62);
+  --cto-serif: "Songti SC", "STSong", "Noto Serif SC", "PingFang SC", Georgia, serif;
+  --cto-red: #c91224;
+  --cto-red-bright: #ff263d;
+  --cto-wall-fg: #ffe3e6;
+  --cto-wall-glow: rgba(255, 22, 46, 0.92);
 
   position: fixed;
   inset: 0;
@@ -197,14 +190,14 @@
   height: 100vh;
   height: 100dvh;
   z-index: 99990;
-  background: var(--cto-bg);
-  color: var(--cto-text);
-  font-family: var(--app-font, -apple-system, system-ui, BlinkMacSystemFont, "PingFang SC", sans-serif);
+  background: #000000;
+  color: #f2f2f2;
+  font-family: var(--cto-serif);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   opacity: 0;
-  transition: opacity 0.24s ease;
+  transition: opacity 0.22s ease;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
@@ -215,368 +208,406 @@
   opacity: 1;
 }
 
-/* 氛围 2：纯黑冷白 */
 .cto-stage.mood-obsidian {
-  --cto-bg: #050507;
-  --cto-glow: rgba(255, 255, 255, 0.14);
-  --cto-accent: #f2f2f7;
-  --cto-text: #f5f5f7;
-  --cto-text-alt: #aeaeb2;
-  --cto-muted: rgba(235, 235, 245, 0.56);
-  --cto-btn-bg: rgba(255, 255, 255, 0.12);
-  --cto-btn-border: rgba(255, 255, 255, 0.45);
+  --cto-red: #b80f1a;
+  --cto-red-bright: #d91424;
+  --cto-wall-fg: #e8e8ec;
+  --cto-wall-glow: rgba(255, 255, 255, 0.34);
 }
 
-/* 氛围 3：暗红急促 */
 .cto-stage.mood-scarlet {
-  --cto-bg: #160306;
-  --cto-glow: rgba(255, 42, 70, 0.38);
-  --cto-accent: #ff334b;
-  --cto-text: #ffd6dc;
-  --cto-text-alt: #ff3b52;
-  --cto-muted: rgba(255, 200, 208, 0.68);
-  --cto-btn-bg: rgba(255, 51, 75, 0.22);
-  --cto-btn-border: rgba(255, 92, 112, 0.72);
+  --cto-red: #e0162b;
+  --cto-red-bright: #ff2b44;
+  --cto-wall-fg: #ffd4d9;
+  --cto-wall-glow: rgba(255, 18, 44, 0.98);
 }
 
-.cto-vignette {
+/* 顶部极细 2px 拉锯控制线（无多余文字UI） */
+.cto-tug-track {
   position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(circle at 50% 48%, transparent 32%, var(--cto-glow) 100%);
-  animation: ctoPulse 2.2s ease-in-out infinite;
-  z-index: 1;
+  top: env(safe-area-inset-top, 0px);
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.14);
+  z-index: 40;
+  overflow: hidden;
 }
 
-.cto-stage.mood-scarlet .cto-vignette {
-  animation-duration: 1.35s;
+.cto-tug-enemy {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 65%;
+  background: var(--cto-red-bright);
+  box-shadow: 0 0 10px var(--cto-red-bright);
+  transition: width 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 右上角极弱关闭（仅预览显示） */
+.cto-preview-x {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  right: 14px;
+  z-index: 45;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.42);
+  font-family: var(--app-font, -apple-system, system-ui, sans-serif);
+  font-size: calc(var(--app-font-size, 15px) + 5px);
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1), color 0.16s ease;
+}
+
+.cto-preview-x:active,
+.cto-preview-x.is-pressed {
+  transform: scale(0.84);
+  color: rgba(255, 255, 255, 0.88);
+}
+
+/* 屏幕震动与红/白瞬闪 */
+@keyframes ctoHardShake {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  18% { transform: translate3d(-7px, 3px, 0); }
+  36% { transform: translate3d(7px, -4px, 0); }
+  54% { transform: translate3d(-5px, -2px, 0); }
+  72% { transform: translate3d(5px, 3px, 0); }
+}
+
+.cto-stage.is-shaking {
+  animation: ctoHardShake 0.28s cubic-bezier(0.36, 0.07, 0.19, 0.97);
 }
 
 .cto-flash {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: var(--cto-accent);
+  z-index: 38;
   opacity: 0;
-  z-index: 30;
-  transition: opacity 0.18s ease;
+  background: var(--cto-red);
+  transition: opacity 0.16s ease;
 }
 
-.cto-flash.boom {
-  opacity: 0.28;
+.cto-flash.is-red {
+  background: var(--cto-red);
+  opacity: 0.34;
 }
 
-@keyframes ctoPulse {
-  0%, 100% { opacity: 0.52; }
-  50% { opacity: 1; }
+.cto-flash.is-white {
+  background: #ffffff;
+  opacity: 0.85;
 }
 
-@keyframes ctoShake {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  16% { transform: translate3d(-6px, 3px, 0); }
-  32% { transform: translate3d(6px, -4px, 0); }
-  48% { transform: translate3d(-5px, -2px, 0); }
-  64% { transform: translate3d(5px, 3px, 0); }
-  80% { transform: translate3d(-3px, 1px, 0); }
-}
-
-.cto-stage.is-shaking {
-  animation: ctoShake 0.34s cubic-bezier(0.36, 0.07, 0.19, 0.97);
-}
-
-@keyframes ctoHoldingTremor {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  25% { transform: translate3d(-2px, 1.5px, 0); }
-  50% { transform: translate3d(2px, -1.5px, 0); }
-  75% { transform: translate3d(-1.5px, -1px, 0); }
-}
-
-.cto-stage.is-holding {
-  animation: ctoHoldingTremor 0.14s linear infinite;
-}
-
-.cto-top-bar {
-  position: relative;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 8px;
-  flex-shrink: 0;
-}
-
-.cto-status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 5px 11px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.45);
-  border: 0.5px solid var(--cto-btn-border);
-  font-size: calc(var(--app-font-size, 15px) - 3px);
-  font-weight: 600;
-  color: var(--cto-text-alt);
-  letter-spacing: 0.02em;
-}
-
-.cto-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--cto-accent);
-  box-shadow: 0 0 8px var(--cto-accent);
-  animation: ctoBlink 0.9s steps(2, end) infinite;
-}
-
-@keyframes ctoBlink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.25; }
-}
-
-.cto-exit-btn {
-  border: 0.5px solid rgba(255, 255, 255, 0.24);
-  background: rgba(0, 0, 0, 0.45);
-  color: rgba(255, 255, 255, 0.84);
-  border-radius: 999px;
-  padding: 5px 12px;
-  font-family: inherit;
-  font-size: calc(var(--app-font-size, 15px) - 3px);
-  font-weight: 500;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.16s ease;
-}
-
-.cto-exit-btn:active,
-.cto-exit-btn.is-pressed {
-  transform: scale(0.92);
-  opacity: 0.7;
-}
-
-.cto-field {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  z-index: 5;
-  overflow: hidden;
-  transition: opacity 0.4s ease, filter 0.4s ease;
-}
-
-.cto-stage.is-focus-final .cto-field {
-  opacity: 0.22;
-  filter: blur(1.5px);
-}
-
-.cto-stage.is-reclaimed .cto-field {
-  opacity: 0;
-  transform: scale(1.06);
-  transition: opacity 0.35s ease, transform 0.35s ease;
-}
-
-.cto-line {
-  position: absolute;
-  max-width: 78vw;
-  font-weight: 700;
-  line-height: 1.3;
-  letter-spacing: 0.02em;
-  color: var(--cto-text);
-  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.85);
-  pointer-events: auto;
-  cursor: pointer;
-  word-break: break-word;
-  opacity: 0;
-  transform: translate3d(-50%, -50%, 0) scale(1.26) rotate(var(--cto-rot, 0deg));
-  transition:
-    opacity 0.22s ease,
-    transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.cto-line.show {
-  opacity: var(--cto-alpha, 0.96);
-  transform: translate3d(-50%, -50%, 0) scale(1) rotate(var(--cto-rot, 0deg));
-}
-
-.cto-line.is-alt {
-  color: var(--cto-text-alt);
-}
-
-.cto-line.is-sm {
-  font-size: calc(var(--app-font-size, 15px) - 1px);
-  font-weight: 600;
-}
-
-.cto-line.is-md {
-  font-size: calc(var(--app-font-size, 15px) + 3px);
-  font-weight: 700;
-}
-
-.cto-line.is-lg {
-  font-size: calc(var(--app-font-size, 15px) + 8px);
-  font-weight: 800;
-}
-
-.cto-line.is-sys {
-  font-size: calc(var(--app-font-size, 15px) - 3px);
-  font-weight: 600;
-  color: var(--cto-muted);
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: 0.5px solid var(--cto-btn-border);
-  background: rgba(0, 0, 0, 0.62);
-}
-
-.cto-line.is-tapped {
-  transform: translate3d(-50%, -50%, 0) scale(1.12) rotate(var(--cto-rot, 0deg)) !important;
-  opacity: 1 !important;
-}
-
-.cto-final-wrap {
+/* ---------- 形态 A：密密麻麻红光文字墙（对标 IMG_2486） ---------- */
+.cto-wall {
   position: absolute;
   inset: 0;
-  z-index: 15;
+  z-index: 5;
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  padding: calc(env(safe-area-inset-top, 0px) + 2px) 0 calc(env(safe-area-inset-bottom, 0px) + 92px);
+  box-sizing: border-box;
+  transition: opacity 0.36s ease;
+}
+
+.cto-stage.is-typo-focus .cto-wall {
+  opacity: 0.1;
+  pointer-events: none;
+}
+
+.cto-stage.is-ended .cto-wall {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cto-wall-row {
+  width: 106%;
+  margin-left: -3%;
+  white-space: nowrap;
+  overflow: hidden;
+  font-family: var(--cto-serif);
+  font-size: calc(var(--app-font-size, 15px) + 7px);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  color: var(--cto-wall-fg);
+  text-shadow:
+    0 0 9px var(--cto-wall-glow),
+    -2px 0 2px rgba(255, 0, 32, 0.8),
+    2px 0 2px rgba(170, 0, 22, 0.72);
+  opacity: 0;
+  transform: translate3d(var(--cto-shift, 0px), 0, 0) scaleY(1.06);
+  transition: opacity 0.16s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), filter 0.18s ease;
+  cursor: pointer;
+}
+
+.cto-wall-row.show {
+  opacity: 0.96;
+}
+
+.cto-wall-row.is-dim {
+  opacity: 0.52;
+  filter: blur(0.4px);
+}
+
+.cto-wall-row.is-glitch {
+  transform: translate3d(calc(var(--cto-shift, 0px) + 10px), 0, 0) skewX(-6deg) scaleY(1.08);
+  text-shadow:
+    0 0 14px var(--cto-red-bright),
+    -4px 0 0 rgba(255, 16, 44, 0.92),
+    4px 0 0 rgba(255, 255, 255, 0.45);
+}
+
+.cto-wall-row.is-cracked {
+  opacity: 0 !important;
+  transform: translate3d(var(--cto-shift, 0px), 0, 0) scale(1.08);
+  filter: blur(3px);
+  pointer-events: none;
+}
+
+/* ---------- 形态 B：阴湿宋体错落排版 + 竖排低语 + 猩红关键字（对标 IMG_2487） ---------- */
+.cto-typo {
+  position: absolute;
+  inset: 0;
+  z-index: 18;
+  display: flex;
   align-items: center;
   justify-content: center;
-  padding: 28px;
+  padding: calc(env(safe-area-inset-top, 0px) + 28px) 22px calc(env(safe-area-inset-bottom, 0px) + 116px);
   box-sizing: border-box;
   pointer-events: none;
   opacity: 0;
-  transform: scale(0.92);
-  transition: opacity 0.32s ease, transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+  transform: scale(0.96);
+  transition: opacity 0.34s ease, transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.cto-final-wrap.show {
+.cto-typo.show {
   opacity: 1;
   transform: scale(1);
 }
 
-.cto-final-text {
-  text-align: center;
-  font-size: calc(var(--app-font-size, 15px) + 11px);
-  font-weight: 800;
-  line-height: 1.45;
-  color: var(--cto-text-alt);
-  text-shadow: 0 0 26px var(--cto-glow), 0 4px 20px rgba(0, 0, 0, 0.92);
-  max-width: 86vw;
-  word-break: break-word;
-}
-
-.cto-final-sub {
-  margin-top: 12px;
-  font-size: calc(var(--app-font-size, 15px) - 2px);
-  color: var(--cto-accent);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-
-.cto-controls {
-  position: relative;
-  z-index: 25;
-  flex-shrink: 0;
-  padding: 12px 20px calc(env(safe-area-inset-bottom, 0px) + 22px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.88) 45%, transparent 100%);
-  opacity: 0;
-  transform: translateY(18px);
-  pointer-events: none;
-  transition: opacity 0.28s ease, transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.cto-controls.show {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-}
-
-.cto-feedback {
-  min-height: 18px;
-  font-size: calc(var(--app-font-size, 15px) - 2px);
-  font-weight: 600;
-  color: var(--cto-accent);
-  text-align: center;
-  letter-spacing: 0.02em;
-}
-
-.cto-action-btn {
+.cto-typo-box {
   position: relative;
   width: 100%;
-  max-width: 320px;
-  height: 50px;
-  border-radius: 999px;
-  border: 1px solid var(--cto-btn-border);
-  background: var(--cto-btn-bg);
-  color: var(--cto-text-alt);
-  font-family: inherit;
-  font-size: var(--app-font-size, 15px);
-  font-weight: 700;
-  overflow: hidden;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: none;
-  transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1), border-color 0.2s ease, background-color 0.2s ease;
-}
-
-.cto-action-btn:active,
-.cto-action-btn.is-pressed {
-  transform: scale(0.95);
-}
-
-.cto-action-fill {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 0%;
-  background: var(--cto-accent);
-  opacity: 0.88;
-  z-index: 0;
-  pointer-events: none;
-}
-
-.cto-action-label {
-  position: relative;
-  z-index: 1;
-  pointer-events: none;
-}
-
-.cto-stage.mood-obsidian .cto-action-btn.is-holding-fill .cto-action-label {
-  color: #111111;
-}
-
-.cto-reclaim-banner {
-  position: absolute;
-  inset: 0;
-  z-index: 35;
+  max-width: 340px;
+  min-height: 280px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: rgba(0, 0, 0, 0.82);
+}
+
+/* 竖排细字低语 */
+.cto-vcol {
+  position: absolute;
+  top: 50%;
+  writing-mode: vertical-rl;
+  -webkit-writing-mode: vertical-rl;
+  font-family: var(--cto-serif);
+  font-size: calc(var(--app-font-size, 15px) - 3px);
+  font-weight: 400;
+  letter-spacing: 0.32em;
+  line-height: 1.5;
+  color: rgba(242, 242, 245, 0.48);
+  text-shadow: 0 0 12px rgba(0, 0, 0, 0.95);
+  white-space: nowrap;
   opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.26s ease;
+  transition: opacity 0.6s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.cto-reclaim-banner.show {
+.cto-vcol.left {
+  left: 6px;
+  transform: translateY(-56%);
+}
+
+.cto-vcol.right {
+  right: 8px;
+  transform: translateY(-42%);
+}
+
+.cto-vcol.mid {
+  left: 26%;
+  top: 24%;
+  color: rgba(242, 242, 245, 0.36);
+  transform: translateY(-48%);
+}
+
+.cto-typo.show .cto-vcol {
   opacity: 1;
+  transform: translateY(-50%);
 }
 
-.cto-reclaim-title {
-  font-size: calc(var(--app-font-size, 15px) + 4px);
+/* 主错落白宋体行 */
+.cto-tline {
+  position: relative;
+  z-index: 2;
+  font-family: var(--cto-serif);
+  font-size: calc(var(--app-font-size, 15px) + 14px);
+  font-weight: 500;
+  line-height: 1.24;
+  letter-spacing: 0.04em;
+  color: #efefef;
+  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.96);
+  text-align: center;
+  max-width: 88%;
+  word-break: break-word;
+  opacity: 0;
+  transform: translate3d(var(--cto-tx, 0px), 10px, 0);
+  transition: opacity 0.45s ease, transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cto-tline.show {
+  opacity: 1;
+  transform: translate3d(var(--cto-tx, 0px), 0, 0);
+}
+
+.cto-tline.is-big {
+  font-size: calc(var(--app-font-size, 15px) + 19px);
+}
+
+.cto-tline.is-sub {
+  font-size: calc(var(--app-font-size, 15px) + 10px);
+  color: rgba(235, 235, 238, 0.86);
+}
+
+/* 猩红高亮关键字（放大、渗红、压迫感） */
+.cto-kw {
+  display: inline-block;
+  color: #c8101e;
+  font-size: 1.42em;
   font-weight: 700;
-  color: #ffffff;
+  line-height: 0.95;
+  margin: 0 2px;
+  vertical-align: -0.06em;
+  text-shadow:
+    0 0 18px rgba(210, 12, 32, 0.65),
+    0 2px 12px rgba(0, 0, 0, 0.95);
+  transform: rotate(-3deg);
 }
 
-.cto-reclaim-sub {
+/* ---------- 底部极简抢夺交互区（去游戏感，纯细线宋体） ---------- */
+.cto-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  padding: 20px 26px calc(env(safe-area-inset-bottom, 0px) + 22px);
+  background: linear-gradient(to top, #000000 46%, rgba(0, 0, 0, 0.72) 78%, transparent 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 11px;
+}
+
+.cto-whisper {
+  min-height: 18px;
+  font-family: var(--cto-serif);
   font-size: calc(var(--app-font-size, 15px) - 2px);
-  color: rgba(255, 255, 255, 0.68);
+  color: rgba(255, 255, 255, 0.64);
+  letter-spacing: 0.08em;
+  text-align: center;
+  transition: color 0.18s ease;
+}
+
+.cto-whisper.is-danger {
+  color: var(--cto-red-bright);
+}
+
+.cto-fight-btn {
+  width: 100%;
+  max-width: 268px;
+  height: 46px;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  background: rgba(0, 0, 0, 0.82);
+  color: #f5f5f7;
+  font-family: var(--cto-serif);
+  font-size: calc(var(--app-font-size, 15px) + 1px);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 0.16s cubic-bezier(0.32, 0.72, 0, 1),
+    border-color 0.16s ease,
+    color 0.16s ease,
+    background-color 0.16s ease;
+}
+
+.cto-fight-btn:active,
+.cto-fight-btn.is-pressed {
+  transform: scale(0.95);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* 对方篡改/劫持按钮态 */
+.cto-fight-btn.is-hijacked {
+  border-color: var(--cto-red-bright);
+  color: var(--cto-red-bright);
+  background: rgba(140, 6, 18, 0.28);
+  text-shadow: 0 0 10px rgba(255, 24, 48, 0.7);
+}
+
+.cto-yield-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 12px;
+  color: rgba(255, 255, 255, 0.34);
+  font-family: var(--cto-serif);
+  font-size: calc(var(--app-font-size, 15px) - 3px);
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.16s ease, transform 0.16s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.cto-yield-btn:active,
+.cto-yield-btn.is-pressed {
+  color: rgba(255, 255, 255, 0.72);
+  transform: scale(0.94);
+}
+
+/* 结局底部操作行 */
+.cto-end-actions {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 6px;
+}
+
+.cto-end-actions.show {
+  display: flex;
+}
+
+.cto-end-btn {
+  border: 0.5px solid rgba(255, 255, 255, 0.34);
+  background: rgba(0, 0, 0, 0.72);
+  color: #f2f2f2;
+  padding: 9px 22px;
+  border-radius: 2px;
+  font-family: var(--cto-serif);
+  font-size: calc(var(--app-font-size, 15px) - 1px);
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.16s ease;
+}
+
+.cto-end-btn:active,
+.cto-end-btn.is-pressed {
+  transform: scale(0.94);
+  background: rgba(255, 255, 255, 0.14);
 }
