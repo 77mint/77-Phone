@@ -1,7 +1,7 @@
 /* =========================================================
    Chat 我的页（仿微信「我」独立模块 + 全套二级子页）
    - 不改动 apps/chat.js / apps/chat.css，独立接管我的 tab
-   - 功能：个人资料 / 钱包 / 收藏 / 表情包 / 朋友圈 / 设置 / 切换账号
+   - 功能：个人资料 / 钱包 / 收藏 / 表情包（支持图片/JSON/Word .docx 导入） / 朋友圈 / 设置 / 切换账号
    - 支持：主号、小号（均可绑定不同「面具」）、硬核带锁 Char 账号（偷看 / 正常登录，不可手动重锁）
    ========================================================= */
 (function () {
@@ -186,6 +186,85 @@
     });
   }
 
+  function bytesToDataUrl(uint8, mime) {
+    return new Promise(function (resolve) {
+      var blob = new Blob([uint8], { type: mime || 'image/png' });
+      var reader = new FileReader();
+      reader.onload = function () { resolve(reader.result || ''); };
+      reader.onerror = function () { resolve(''); };
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function guessImageMime(path) {
+    var lower = String(path || '').toLowerCase();
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    return 'image/png';
+  }
+
+  /* ---------------- 纯本地 ZIP / Word (.docx) 解析器 ---------------- */
+  function readUint16LE(view, off) { return view.getUint16(off, true); }
+  function readUint32LE(view, off) { return view.getUint32(off, true); }
+
+  function unzipDocxEntries(buffer) {
+    var bytes = new Uint8Array(buffer);
+    var view = new DataView(buffer);
+    var eocdOffset = -1;
+    var minOff = Math.max(0, bytes.length - 65558);
+
+    for (var i = bytes.length - 22; i >= minOff; i--) {
+      if (bytes[i] === 0x50 && bytes[i + 1] === 0x4b && bytes[i + 2] === 0x05 && bytes[i + 3] === 0x06) {
+        eocdOffset = i;
+        break;
+      }
+    }
+    if (eocdOffset < 0) return Promise.reject(new Error('not_zip'));
+
+    var totalEntries = readUint16LE(view, eocdOffset + 10);
+    var cdOffset = readUint32LE(view, eocdOffset + 16);
+    var dec = new TextDecoder('utf-8');
+    var entries = {};
+    var tasks = [];
+    var ptr = cdOffset;
+
+    for (var idx = 0; idx < totalEntries && ptr + 46 <= bytes.length; idx++) {
+      if (readUint32LE(view, ptr) !== 0x02014b50) break;
+      var method = readUint16LE(view, ptr + 10);
+      var compSize = readUint32LE(view, ptr + 20);
+      var nameLen = readUint16LE(view, ptr + 28);
+      var extraLen = readUint16LE(view, ptr + 30);
+      var commentLen = readUint16LE(view, ptr + 32);
+      var localOff = readUint32LE(view, ptr + 42);
+      var entryName = dec.decode(bytes.subarray(ptr + 46, ptr + 46 + nameLen));
+      ptr += 46 + nameLen + extraLen + commentLen;
+
+      if (!entryName || entryName.endsWith('/')) continue;
+      if (localOff + 30 > bytes.length) continue;
+
+      var lhNameLen = readUint16LE(view, localOff + 26);
+      var lhExtraLen = readUint16LE(view, localOff + 28);
+      var dataStart = localOff + 30 + lhNameLen + lhExtraLen;
+      var compSlice = bytes.subarray(dataStart, dataStart + compSize);
+
+      (function (name, m, slice) {
+        if (m === 0) {
+          entries[name] = slice;
+        } else if (m === 8 && typeof DecompressionStream === 'function') {
+          tasks.push(
+            new Response(new Blob([slice]).stream().pipeThrough(new DecompressionStream('deflate-raw')))
+              .arrayBuffer()
+              .then(function (ab) { entries[name] = new Uint8Array(ab); })
+              .catch(function () {})
+          );
+        }
+      })(entryName, method, compSlice);
+    }
+
+    return Promise.all(tasks).then(function () { return entries; });
+  }
+
   /* ---------------- 外部人设与档案读取（面具 + Char） ---------------- */
   function getMasksSafe() {
     if (window.PhoneMask && typeof window.PhoneMask.getMasks === 'function') {
@@ -287,7 +366,6 @@
     return String(Math.floor(1000 + Math.random() * 9000));
   }
 
-  // 固定默认密码：首次生成后永久不变（水小九默认 shuixiaojiu009），只有 Char 自己改密时才变
   function getCharPasscode(charId, charName) {
     if (!charId) return '';
     var map = getCharPasscodeStore();
@@ -326,7 +404,6 @@
     return !!(map[charId] && map[charId].resetAllowed);
   }
 
-  // 供后续 chat-ai.js 调用：Char 在对话中允许/收回 User 强制改密码权限
   function setCharResetAllowed(charId, allowed) {
     if (!charId) return false;
     getCharPasscode(charId);
@@ -350,7 +427,6 @@
     return false;
   }
 
-  // 供后续 chat-ai.js 调用：Char 偷偷自己修改密码并重新上锁
   function setCharPasscode(charId, newCode, relock) {
     var prefs = getPrefs();
     if (!prefs.allowCharChangePasscode) return false;
@@ -375,7 +451,6 @@
     return true;
   }
 
-  // User 在获得 Char 允许后执行强制改密码
   function forceResetCharPasscode(charId, newCode) {
     if (!charId || !isCharResetAllowed(charId)) return false;
     var clean = String(newCode || '').trim();
@@ -409,7 +484,7 @@
     return created;
   }
 
-  /* ---------------- 账号数据隔离（钱包 / 账单 / 收藏按账号独立，默认主号兼容旧键） ---------------- */
+  /* ---------------- 账号数据隔离 ---------------- */
   function scopedKey(baseKey, accountId) {
     var id = accountId || getActiveAccount().id;
     if (!id || id === 'acc_default') return baseKey;
@@ -457,7 +532,6 @@
     writeJSON(scopedKey(KEY_FAVORITES), list);
   }
 
-  // 表情包全局共享
   function getStickerPacks() {
     var list = readJSON(KEY_STICKERS, []);
     return Array.isArray(list) ? list : [];
@@ -481,7 +555,7 @@
     writeJSON(KEY_PREFS, p);
   }
 
-  /* ---------------- 交互反馈（全元素按压手感 + 滑动取消） ---------------- */
+  /* ---------------- 交互反馈 ---------------- */
   var PRESS_SELECTOR = '.ctme-row, .ctme-profile, .ctme-back-btn, .ctme-pill-btn, .ctme-item, .ctme-btn, .ctme-wallet-btn, .ctme-fav-card, .ctme-pack-row, .ctme-sticker-cell, .ctme-action-btn, .ctme-mini-pill, .ctme-quick-amt, .ctme-mask-quick, .ctme-chip, .ctme-acc-top, .ctme-switch, .ctme-avatar-lg, .ctme-album-cover, .ctme-pwd-eye, .ctme-sheet-close';
 
   function bindPressFeedback(root) {
@@ -686,7 +760,7 @@
     else if (cur.id === 'blocklist') renderBlocklistPage();
   }
 
-  /* ---------------- 头像加载辅助（账号自定义 > 绑定面具 > Char 头像） ---------------- */
+  /* ---------------- 头像加载辅助 ---------------- */
   function resolveAccountAvatar(acc) {
     if (!acc) return Promise.resolve('');
     if (acc.avatarDbKey) {
@@ -717,7 +791,7 @@
     });
   }
 
-  /* ---------------- 1. 个人资料子页（已去掉人设简介框、昵称改为网名） ---------------- */
+  /* ---------------- 1. 个人资料子页 ---------------- */
   function renderProfilePage(targetAccountId) {
     var accounts = getAccounts();
     var acc = targetAccountId
@@ -1101,7 +1175,7 @@
     });
   }
 
-  /* ---------------- 4. 表情包管理（右上角导入） ---------------- */
+  /* ---------------- 4. 表情包管理（图片 / JSON / Word .docx 导入） ---------------- */
   function loadStickerImage(dbKey, imgEl) {
     if (!dbKey || !imgEl) return;
     if (stickerImgCache[dbKey]) {
@@ -1137,14 +1211,15 @@
             '<span class="ctme-row-arrow">' + SVG_ARROW + '</span>' +
           '</div>';
         }).join('') + '</div>'
-      : '<div class="ctme-card"><div class="ctme-empty">还没有表情包<br>点击右上角「导入」批量上传图片或 JSON 表情包</div></div>';
+      : '<div class="ctme-card"><div class="ctme-empty">还没有表情包<br>点击右上角「导入」批量上传图片、JSON 或 Word 文档</div></div>';
 
     var ov = renderSubShell('表情包',
       '<button type="button" class="ctme-pill-btn is-primary" id="ctmeStickerImportBtn">导入</button>',
       '<div class="ctme-section-label">已安装分组（' + packs.length + ' 组 · 共 ' + totalCount + ' 张）</div>' +
       listHtml +
       '<input type="file" id="ctmeStickerBatchFile" accept="image/png,image/jpeg,image/webp,image/gif" multiple style="display:none;">' +
-      '<input type="file" id="ctmeStickerJsonFile" accept=".json,application/json" style="display:none;">'
+      '<input type="file" id="ctmeStickerJsonFile" accept=".json,application/json" style="display:none;">' +
+      '<input type="file" id="ctmeStickerDocxFile" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="display:none;">'
     );
     if (!ov) return;
 
@@ -1160,6 +1235,7 @@
 
     var batchInput = ov.querySelector('#ctmeStickerBatchFile');
     var jsonInput = ov.querySelector('#ctmeStickerJsonFile');
+    var docxInput = ov.querySelector('#ctmeStickerDocxFile');
     var targetPackForImport = null;
 
     batchInput.addEventListener('change', function () {
@@ -1174,6 +1250,13 @@
       jsonInput.value = '';
       if (!f) return;
       importStickerJsonFile(f);
+    });
+
+    docxInput.addEventListener('change', function () {
+      var f = docxInput.files && docxInput.files[0];
+      docxInput.value = '';
+      if (!f) return;
+      importStickerDocxFile(f, targetPackForImport);
     });
 
     ov.querySelector('#ctmeStickerImportBtn').addEventListener('click', function () {
@@ -1195,6 +1278,7 @@
           '<input type="text" class="ctme-input" id="ctmeNewPackNameInput" placeholder="例如：猫猫日常（留空默认「我的表情包」）">' +
         '</div>' +
         '<button type="button" class="ctme-action-btn is-primary" id="ctmeDoBatchImg">批量选择图片导入（PNG / JPG / GIF / WebP）</button>' +
+        '<button type="button" class="ctme-action-btn" id="ctmeDoImportDocx">导入 Word 文档 (.docx)</button>' +
         '<button type="button" class="ctme-action-btn" id="ctmeDoImportJson">导入表情包 JSON 文件</button>' +
         '<button type="button" class="ctme-action-btn" id="ctmeDoCreateEmptyPack">仅新建空白分组</button>',
         function (body) {
@@ -1210,14 +1294,23 @@
             newWrap.style.display = sel.value === '__new__' ? '' : 'none';
           });
 
-          body.querySelector('#ctmeDoBatchImg').addEventListener('click', function () {
+          function readTarget(defaultName) {
             if (sel.value === '__new__') {
-              targetPackForImport = { createNew: true, name: (newInp.value || '').trim() || '我的表情包' };
-            } else {
-              targetPackForImport = { createNew: false, packId: sel.value };
+              return { createNew: true, name: (newInp.value || '').trim() || defaultName || '' };
             }
+            return { createNew: false, packId: sel.value };
+          }
+
+          body.querySelector('#ctmeDoBatchImg').addEventListener('click', function () {
+            targetPackForImport = readTarget('我的表情包');
             closeSheet();
             batchInput.click();
+          });
+
+          body.querySelector('#ctmeDoImportDocx').addEventListener('click', function () {
+            targetPackForImport = readTarget('');
+            closeSheet();
+            docxInput.click();
           });
 
           body.querySelector('#ctmeDoImportJson').addEventListener('click', function () {
@@ -1288,6 +1381,151 @@
       showToast('已导入 ' + files.length + ' 张表情到「' + pack.name + '」');
       renderTopPage();
     });
+  }
+
+  function importStickerDocxFile(file, target) {
+    showToast('正在解析 Word 文档...');
+    var docTitle = (file.name || 'Word表情包').replace(/\.docx$/i, '').trim() || 'Word表情包';
+    var reader = new FileReader();
+    reader.onerror = function () { showToast('Word 文件读取失败'); };
+    reader.onload = function () {
+      unzipDocxEntries(reader.result).then(function (entries) {
+        var dec = new TextDecoder('utf-8');
+        var relsMap = {};
+        if (entries['word/_rels/document.xml.rels']) {
+          var relsXml = new DOMParser().parseFromString(dec.decode(entries['word/_rels/document.xml.rels']), 'application/xml');
+          relsXml.querySelectorAll('Relationship').forEach(function (rel) {
+            var id = rel.getAttribute('Id');
+            var tgt = rel.getAttribute('Target') || '';
+            if (id && tgt) {
+              var fullPath = tgt.startsWith('/') ? tgt.slice(1) : ('word/' + tgt.replace(/^\.\//, ''));
+              relsMap[id] = { path: fullPath, target: tgt };
+            }
+          });
+        }
+
+        var collected = []; // { name, dataUrl, mediaPath }
+        var seenMedia = {};
+
+        if (entries['word/document.xml']) {
+          var docXml = new DOMParser().parseFromString(dec.decode(entries['word/document.xml']), 'application/xml');
+          var paragraphs = Array.prototype.slice.call(docXml.getElementsByTagNameNS('*', 'p'));
+
+          function getParaText(pEl) {
+            var texts = [];
+            var ts = pEl.getElementsByTagNameNS('*', 't');
+            for (var i = 0; i < ts.length; i++) texts.push(ts[i].textContent || '');
+            return texts.join('').trim();
+          }
+
+          function getParaRids(pEl) {
+            var rids = [];
+            var blips = pEl.getElementsByTagNameNS('*', 'blip');
+            for (var i = 0; i < blips.length; i++) {
+              var emb = blips[i].getAttribute('r:embed') || blips[i].getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'embed');
+              if (emb) rids.push(emb);
+            }
+            var imgDatas = pEl.getElementsByTagNameNS('*', 'imagedata');
+            for (var j = 0; j < imgDatas.length; j++) {
+              var rid = imgDatas[j].getAttribute('r:id') || imgDatas[j].getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
+              if (rid) rids.push(rid);
+            }
+            return rids;
+          }
+
+          for (var pi = 0; pi < paragraphs.length; pi++) {
+            var p = paragraphs[pi];
+            var pText = getParaText(p);
+            var rids = getParaRids(p);
+
+            if (rids.length) {
+              var nextText = (!pText && paragraphs[pi + 1] && !getParaRids(paragraphs[pi + 1]).length)
+                ? getParaText(paragraphs[pi + 1])
+                : '';
+              var label = pText || (nextText && nextText.length <= 24 ? nextText : '');
+              rids.forEach(function (rid) {
+                var relInfo = relsMap[rid];
+                if (relInfo && entries[relInfo.path] && !seenMedia[relInfo.path]) {
+                  seenMedia[relInfo.path] = true;
+                  collected.push({ name: label, bytes: entries[relInfo.path], path: relInfo.path });
+                }
+              });
+            }
+
+            // 兼容文本里的图片链接（如「表情名：https://...」）
+            if (pText && /https?:\/\/\S+/i.test(pText)) {
+              var mUrl = pText.match(/(https?:\/\/[^\s"'<>]+\.(?:png|jpe?g|gif|webp)(?:\?[^\s"'<>]*)?)/i);
+              if (mUrl) {
+                var urlStr = mUrl[1];
+                var urlLabel = pText.replace(urlStr, '').replace(/[:：\-\s]+$/g, '').replace(/^[:：\-\s]+/g, '').trim();
+                collected.push({ name: urlLabel || '表情', dataUrl: urlStr });
+              }
+            }
+          }
+        }
+
+        // 兜底：补充 word/media/ 下未被正文引用的图片
+        Object.keys(entries).forEach(function (k) {
+          if (/^word\/media\/.+\.(png|jpe?g|gif|webp)$/i.test(k) && !seenMedia[k]) {
+            seenMedia[k] = true;
+            var fn = k.split('/').pop().replace(/\.[^.]+$/, '');
+            collected.push({ name: fn, bytes: entries[k], path: k });
+          }
+        });
+
+        if (!collected.length) {
+          showToast('Word 中未找到图片或表情链接');
+          return;
+        }
+
+        var packs = getStickerPacks();
+        var pack = null;
+        if (target && !target.createNew && target.packId) {
+          pack = packs.find(function (p) { return p.id === target.packId; });
+        }
+        if (!pack) {
+          pack = {
+            id: genId('pack'),
+            name: (target && target.name) || docTitle,
+            createdAt: Date.now(),
+            items: []
+          };
+          packs.unshift(pack);
+        }
+        if (!Array.isArray(pack.items)) pack.items = [];
+
+        var saveTasks = collected.map(function (item, idx) {
+          var prep = item.dataUrl
+            ? Promise.resolve(item.dataUrl)
+            : bytesToDataUrl(item.bytes, guessImageMime(item.path));
+          return prep.then(function (src) {
+            if (!src) return;
+            var sid = genId('stk');
+            var dbKey = 'chat_sticker_img_' + sid;
+            var nm = (item.name || ('表情' + (idx + 1))).slice(0, 24);
+            stickerImgCache[dbKey] = src;
+            return dbSet(dbKey, src).then(function () {
+              pack.items.push({
+                id: sid,
+                name: nm,
+                tag: nm,
+                dbKey: dbKey,
+                createdAt: Date.now()
+              });
+            });
+          });
+        });
+
+        Promise.all(saveTasks).then(function () {
+          saveStickerPacks(packs);
+          showToast('已从 Word 导入 ' + collected.length + ' 张表情到「' + pack.name + '」');
+          renderTopPage();
+        });
+      }).catch(function () {
+        showToast('仅支持标准 .docx 格式的 Word 文档');
+      });
+    };
+    reader.readAsArrayBuffer(file);
   }
 
   function importStickerJsonFile(file) {
@@ -1691,7 +1929,7 @@
     });
   }
 
-  /* ---------------- 切换账号子页（主号 / 小号[可绑不同面具] / 硬核带锁 Char 账号） ---------------- */
+  /* ---------------- 切换账号子页 ---------------- */
   function openCharPasswordSheet(ch) {
     getCharPasscode(ch.id, ch.name);
     var lastMode = getCharLoginMode(ch.id);
