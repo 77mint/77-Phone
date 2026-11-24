@@ -5,15 +5,17 @@
    - 修复气泡居中与尖角对齐 + 1:1 微信蓝底星点礼物卡
    - 气泡头顶 CoT 思维链胶囊 + 顺滑展开卡片
    - 顶部备注位「对方正在输入中…」（纯黑不闪烁，停字恢复备注）
-   - 跟随真实手机系统深浅色自动切换日夜模式
+   - 跟随真实手机系统深浅色与系统字体粗细自动适配
    - 全文字跟随「外观」--app-font-size 全局缩放
    ========================================================= */
 
 #app-chat {
     background: #ffffff;
     color: #111111;
-    font-family: var(--app-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif);
+    font-family: var(--app-font, -apple-system, system-ui, BlinkMacSystemFont, "PingFang SC", sans-serif);
     font-size: var(--app-font-size, 15px);
+    font-weight: normal;
+    -webkit-font-smoothing: auto;
 }
 
 .ct-app {
@@ -59,6 +61,7 @@
     justify-content: center;
     cursor: pointer;
     flex-shrink: 0;
+    font-family: inherit;
     -webkit-tap-highlight-color: transparent;
     transition: opacity 0.16s ease, transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
 }
@@ -372,6 +375,7 @@
     background: transparent;
     padding: 9px 0;
     border-radius: 999px;
+    font-family: inherit;
     font-size: calc(var(--app-font-size, 15px) - 2px);
     font-weight: 500;
     color: #666666;
@@ -587,7 +591,7 @@
     display: block;
 }
 
-/* 修复后的微信标准气泡：短字居中不偏左、垂直齐平头像中线、精准侧边尖角 */
+/* 微信标准气泡：双边严格统一字体与系统默认字重，确保跟随 iPhone 粗/细体设置 */
 .ct-msg-bubble {
     position: relative;
     display: inline-flex;
@@ -598,7 +602,9 @@
     padding: 9px 12px;
     box-sizing: border-box;
     border-radius: 5px;
+    font-family: var(--app-font, -apple-system, system-ui, BlinkMacSystemFont, "PingFang SC", sans-serif) !important;
     font-size: var(--app-font-size, 15px);
+    font-weight: normal !important;
     line-height: 1.45;
     background: #ffffff;
     color: #111111;
@@ -624,6 +630,8 @@
 .ct-msg-row.me .ct-msg-bubble {
     background: #95ec69;
     color: #111111;
+    font-family: var(--app-font, -apple-system, system-ui, BlinkMacSystemFont, "PingFang SC", sans-serif) !important;
+    font-weight: normal !important;
 }
 
 .ct-msg-row.me .ct-msg-bubble::before {
@@ -785,7 +793,7 @@
 
 .ct-voice-sec {
     font-size: calc(var(--app-font-size, 15px) - 1px);
-    font-weight: 400;
+    font-weight: normal;
     color: #111111;
 }
 
@@ -904,6 +912,7 @@
     cursor: pointer;
     flex-shrink: 0;
     padding: 0;
+    font-family: inherit;
     -webkit-tap-highlight-color: transparent;
     transition: opacity 0.15s ease, transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
 }
@@ -1007,6 +1016,7 @@
     border: none;
     background: #b5b5b5;
     color: #ffffff;
+    font-family: inherit;
     font-size: calc(var(--app-font-size, 15px) - 3px);
     line-height: 1;
     display: flex;
@@ -1226,6 +1236,7 @@
     border: none;
     background: #f2f2f7;
     color: #111111;
+    font-family: inherit;
     font-size: calc(var(--app-font-size, 15px) + 1px);
     cursor: pointer;
     transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1);
@@ -1287,6 +1298,7 @@
     color: #ffffff;
     border-radius: 999px;
     padding: 6px 14px;
+    font-family: inherit;
     font-size: calc(var(--app-font-size, 15px) - 3px);
     font-weight: 600;
     cursor: pointer;
@@ -1332,6 +1344,7 @@
     color: #ffffff;
     border-radius: 16px;
     padding: 13px;
+    font-family: inherit;
     font-size: var(--app-font-size, 15px);
     font-weight: 700;
     cursor: pointer;
