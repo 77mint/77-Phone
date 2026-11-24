@@ -2,10 +2,10 @@
    Chat 基础 AI 对话引擎 (apps/chat-ai.js)
    - 对接 PhoneAPI（支持 OpenAI / Google / Anthropic / 自定义兼容 + 副 API 重试 + 日志）
    - 读取 PhoneArchive（Char 人设）+ PhoneChatMe / PhoneMask（当前账号与面具）
-   - 双保险触发：同时监听 phone:chat-user-sent 与聊天区新增我方气泡
-   - 支持 1.2s 防抖、顶部「对方正在输入中…」联动、按人设自然分段连发
-   - 透传原生 CoT（<think> / reasoning_content）至气泡头顶胶囊
-   - 支持人设自主改备注（chat_char_user_remarks_v1）与改密码（setCharPasscode）
+   - 读取 PhoneChatDetails（显示思维链开关 / 自定义思维链 / 上下文条数）
+   - 支持 1.2s 防抖、顶部纯黑「对方正在输入中…」与停字恢复备注
+   - 支持 AI 临场自主决定的「打字又删除」欲言又止节奏（[RETYPE] / [GIVEUP]，非固定）
+   - 支持每轮回复首气泡挂 CoT 胶囊 + 按人设自然分段连发 + 自主改备注与改密码
    ========================================================= */
 
 (function () {
@@ -13,7 +13,7 @@
     const STORAGE_MSGS_PREFIX = 'chat_msgs_v1_';
     const STORAGE_CHAR_REMARKS = 'chat_char_user_remarks_v1';
     const DEBOUNCE_MS = 1200;
-    const MAX_HISTORY = 24;
+    const DEFAULT_MAX_HISTORY = 24;
 
     const debounceTimers = {};
     const activeRuns = {};
@@ -62,6 +62,15 @@
                 titleEl.textContent = titleEl.dataset.prevTitle;
             }
         }
+    }
+
+    function getThreadDetails(threadId) {
+        try {
+            if (threadId && window.PhoneChatDetails && typeof window.PhoneChatDetails.getSettings === 'function') {
+                return window.PhoneChatDetails.getSettings(threadId) || {};
+            }
+        } catch (e) {}
+        return {};
     }
 
     function getArchiveChar(charId) {
@@ -127,11 +136,13 @@
         saveJSON(STORAGE_CHAR_REMARKS, map);
     }
 
-    function buildSystemPrompt(charObj, userCtx) {
+    function buildSystemPrompt(charObj, userCtx, details) {
         const charName = (charObj && (charObj.name || charObj.nickname)) || '对方';
         const charPersona = (charObj && (charObj.persona || charObj.bio || charObj.setting)) || '性格自然真实、有自己生活节奏的普通人';
         const currentRemark = charObj ? getCurrentRemark(charObj.id) : '';
         const canChangePwd = isCharPasscodeChangeAllowed();
+        const showCot = !!(details && details.cotShow);
+        const customCot = (details && details.cotCustom) ? String(details.cotCustom).trim() : '';
 
         let prompt =
             `你正在手机微信里和对方聊天。请完全以「${charName}」的身份自然回复，绝对不要跳出角色或用 AI 助手腔调说话。\n\n` +
@@ -143,18 +154,27 @@
             `1. 用真实微信聊天的口吻打字，不要写小说旁白或 *动作描写*。\n` +
             `2. 根据你的人设和当下情绪决定一次发几条消息：话多、激动或碎碎念时可以连发多条短句，高冷或简短时发 1~2 条即可。多条消息之间请严格用 ||| 分隔（不要加编号）。\n` +
             `3. 如果你的台词主要是外语，请在该条消息末尾紧接 [TRANS:对应的自然中文翻译]，没有外语则不要加。\n` +
-            `4. 如果你根据人设和两人当下关系变化，想悄悄修改你微信里对对方的备注，可在整段回复最后附带一行 [REMARK:新备注]。\n`;
+            `4. 如果你根据人设和两人当下关系变化，想悄悄修改你微信里对对方的备注，可在整段回复最后附带一行 [REMARK:新备注]。\n` +
+            `5. 真实打字犹豫（完全随人设与当下心境，平时正常聊天不要使用）：只有在你当下真的欲言又止、打了一半又删掉重打时，才在回复正文前加一个 [RETYPE]（若反复犹豫两次可写 [RETYPE:2]）；如果打完又全部删掉决定什么都不发，则只输出 [GIVEUP]。平时直接正常回复即可，切勿每次都刻意触发。\n`;
 
         if (canChangePwd) {
-            prompt += `5. 你的微信锁屏密码平时保持稳定；只有当你的人设性格或当前情绪/关系真的促使你想换密码时，才在最后附带一行 [PASSCODE:6到16位字母或数字]，平时不要随便乱改。\n`;
+            prompt += `6. 你的微信锁屏密码平时保持稳定；只有当你的人设性格或当前情绪/关系真的促使你想换密码时，才在最后附带一行 [PASSCODE:6到16位字母或数字]，平时不要随便乱改。\n`;
         }
+
+        if (showCot) {
+            prompt += customCot
+                ? `\n【思考过程要求】\n每次回复的最开头，请先用 <think>...</think> 包裹你的内心思考，再输出微信回复正文。要求：${customCot}\n`
+                : `\n【思考过程要求】\n每次回复的最开头，请先用 <think>...</think> 写一段简短真实的角色内心想法（如情绪、斟酌措辞、删掉没发出去的话等），再在标签外输出微信回复正文。\n`;
+        }
+
         return prompt;
     }
 
-    function buildHistoryMessages(threadId) {
+    function buildHistoryMessages(threadId, details) {
         const raw = loadJSON(STORAGE_MSGS_PREFIX + threadId, []);
         if (!Array.isArray(raw)) return [];
-        const recent = raw.slice(-MAX_HISTORY);
+        const limit = Math.max(8, Number((details && details.memoryContextLimit) || DEFAULT_MAX_HISTORY));
+        const recent = raw.slice(-limit);
         const out = [];
         recent.forEach(m => {
             if (!m) return;
@@ -340,18 +360,34 @@
     function parseReplyPayload(rawText, initialCot, charId) {
         let text = String(rawText || '').trim();
         let cot = String(initialCot || '').trim();
+        let retypeCount = 0;
+        let giveUp = false;
 
+        // 提取 <think>...</think>
         text = text.replace(/<think>([\s\S]*?)<\/think>/gi, (_, inner) => {
             const clean = String(inner || '').trim();
             if (clean) cot = cot ? (cot + '\n' + clean) : clean;
             return '';
         }).trim();
 
+        // 提取 AI 临场决定的打字又删除标记
+        text = text.replace(/\[RETYPE(?::(\d+))?\]/gi, (_, n) => {
+            const add = n ? Math.min(3, Math.max(1, parseInt(n, 10) || 1)) : 1;
+            retypeCount = Math.min(3, retypeCount + add);
+            return '';
+        });
+        if (/\[GIVEUP\]/i.test(text)) {
+            giveUp = true;
+            text = text.replace(/\[GIVEUP\]/gi, '');
+        }
+
+        // 提取 [REMARK:...]
         text = text.replace(/\[REMARK:([^\]]+)\]/gi, (_, val) => {
             if (charId && val) setCharRemark(charId, val.trim());
             return '';
         });
 
+        // 提取 [PASSCODE:...]
         text = text.replace(/\[PASSCODE:([^\]]+)\]/gi, (_, val) => {
             const pwd = String(val || '').trim();
             if (charId && pwd && isCharPasscodeChangeAllowed() && window.PhoneChatMe && typeof window.PhoneChatMe.setCharPasscode === 'function') {
@@ -370,7 +406,7 @@
             return { text: cleanText, translation };
         }).filter(b => b.text);
 
-        return { cot, bubbles };
+        return { cot, bubbles, retypeCount, giveUp };
     }
 
     function appendCharBubble(threadId, charId, bubble, cotText) {
@@ -408,6 +444,10 @@
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
+    function randRange(min, max) {
+        return Math.round(min + Math.random() * (max - min));
+    }
+
     async function runReplyForThread(threadId) {
         if (!threadId) return;
 
@@ -441,10 +481,11 @@
         const runToken = Date.now() + '_' + Math.random();
         activeRuns[threadId] = runToken;
 
+        const details = getThreadDetails(threadId);
         const charObj = getArchiveChar(charId);
         const userCtx = getUserContext();
-        const systemPrompt = buildSystemPrompt(charObj, userCtx);
-        const history = buildHistoryMessages(threadId);
+        const systemPrompt = buildSystemPrompt(charObj, userCtx, details);
+        const history = buildHistoryMessages(threadId, details);
         if (!history.length) return;
 
         setRoomTyping(threadId, true);
@@ -454,12 +495,29 @@
             if (activeRuns[threadId] !== runToken) return;
 
             const parsed = parseReplyPayload(result.text, result.cot, charId);
+
+            // 若 AI 临场决定「打了又删」：演一遍 停止输入（变回备注）→ 停顿 → 重新输入
+            for (let r = 0; r < parsed.retypeCount; r++) {
+                if (activeRuns[threadId] !== runToken) return;
+                setRoomTyping(threadId, false);
+                await waitMs(randRange(1100, 2300));
+                if (activeRuns[threadId] !== runToken) return;
+                setRoomTyping(threadId, true);
+                await waitMs(randRange(950, 1950));
+            }
+
+            // 若 AI 决定全部删光不发
+            if (parsed.giveUp && !parsed.bubbles.length) {
+                setRoomTyping(threadId, false);
+                return;
+            }
+
             if (!parsed.bubbles.length) return;
 
             for (let i = 0; i < parsed.bubbles.length; i++) {
                 if (activeRuns[threadId] !== runToken) break;
                 if (i > 0) {
-                    const pause = Math.min(1100, 420 + parsed.bubbles[i].text.length * 24);
+                    const pause = Math.min(1300, randRange(420, 680) + parsed.bubbles[i].text.length * 22);
                     await waitMs(pause);
                     if (activeRuns[threadId] !== runToken) break;
                 }
