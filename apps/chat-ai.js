@@ -4,7 +4,7 @@
    - 读取 PhoneArchive（Char 人设）+ PhoneChatMe / PhoneMask（当前账号与面具）
    - 读取 PhoneChatDetails（显示思维链开关 / 自定义思维链 / 上下文条数）
    - 仅在空输入框点 ↑（phone:chat-request-reply）时触发，支持对方继续接着说
-   - 上下文保留 <think> 历史格式，保证每轮回复稳定输出思考过程
+   - 全兼容 <think> / <thinking> / <thought> / <cot> 与原生 reasoning/thinking 字段
    - 支持顶部纯黑「对方正在输入中…」与 AI 临场决定的「打字又删除」（[RETYPE] / [GIVEUP]）
    ========================================================= */
 
@@ -160,9 +160,12 @@
         }
 
         if (showCot) {
-            prompt += customCot
-                ? `\n【思考过程要求（每一轮必须输出）】\n每一轮回复的最开头，都必须先用 <think>...</think> 包裹你的内心思考，再输出微信回复正文，不得省略。要求：${customCot}\n`
-                : `\n【思考过程要求（每一轮必须输出）】\n每一轮回复的最开头，都必须先用 <think>...</think> 写一段简短真实的角色内心想法（如当下情绪、斟酌措辞、删掉没发出去的话等），再在标签外输出微信回复正文，每一轮都不能省略。\n`;
+            prompt +=
+                `\n【强制输出格式：思考过程（每一轮都必须严格遵守，绝对不能省略）】\n` +
+                (customCot
+                    ? `每次回复的最开头必须先输出 <think>...</think>，内容要求：${customCot}\n`
+                    : `每次回复的最开头必须先输出 <think>...</think>，里面用第一人称简短写下你此刻真实的内心想法、情绪波动或斟酌措辞的过程。\n`) +
+                `严格按以下格式输出：\n<think>这里写内心想法</think>\n这里写第一条回复|||这里写第二条回复`;
         }
 
         return prompt;
@@ -188,7 +191,6 @@
             }
 
             const role = m.sender === 'me' ? 'user' : 'assistant';
-            // 保留上一轮思考过程格式进上下文，防止模型从第二轮起偷懒省掉 <think>
             if (role === 'assistant' && showCot && m.cot) {
                 text = `<think>${String(m.cot).trim()}</think>\n${text}`;
             }
@@ -200,7 +202,6 @@
             }
         });
 
-        // 若历史为空或最后一条已是 Char 的消息，补一条隐藏引导让 Char 顺着继续说（不写入本地记录）
         if (!out.length) {
             out.push({ role: 'user', content: '（对方点开了聊天窗口，请你自然主动发一句开场白）' });
         } else if (out[out.length - 1].role === 'assistant') {
@@ -253,7 +254,8 @@
             let text = '';
             let cot = '';
             parts.forEach(p => {
-                if (p.thought) cot += (p.text || '');
+                if (p.thought === true) cot += (p.text || '');
+                else if (typeof p.thought === 'string') cot += p.thought;
                 else text += (p.text || '');
             });
             return { text: text.trim(), cot: cot.trim() };
@@ -283,7 +285,7 @@
             let text = '';
             let cot = '';
             blocks.forEach(b => {
-                if (b.type === 'thinking') cot += (b.thinking || b.text || '');
+                if (b.type === 'thinking' || b.type === 'reasoning') cot += (b.thinking || b.reasoning || b.text || '');
                 else if (b.type === 'text') text += (b.text || '');
             });
             return { text: text.trim(), cot: cot.trim() };
@@ -307,10 +309,26 @@
         });
         if (!res.ok) throw new Error(await readHttpError(res));
         const data = await res.json();
-        const msg = (data.choices && data.choices[0] && data.choices[0].message) || {};
-        const text = String(msg.content || '').trim();
-        const cot = String(msg.reasoning_content || msg.reasoning || '').trim();
-        return { text, cot };
+        const choice = (data.choices && data.choices[0]) || {};
+        const msg = choice.message || {};
+
+        let text = '';
+        let cot = String(msg.reasoning_content || msg.reasoning || msg.thinking || msg.thought || choice.reasoning_content || '').trim();
+
+        if (Array.isArray(msg.content)) {
+            msg.content.forEach(block => {
+                if (!block) return;
+                if (block.type === 'thinking' || block.type === 'reasoning') {
+                    cot += (cot ? '\n' : '') + String(block.thinking || block.reasoning || block.text || '').trim();
+                } else if (block.type === 'text' || typeof block.text === 'string') {
+                    text += block.text || '';
+                }
+            });
+        } else {
+            text = String(msg.content || '');
+        }
+
+        return { text: text.trim(), cot: cot.trim() };
     }
 
     async function requestLLM(systemPrompt, history) {
@@ -331,26 +349,14 @@
 
         try {
             const out = await callSingleSlot(cfg.primary, temp, systemPrompt, history);
-            window.PhoneAPI.addLog({
-                module: 'LLM',
-                source: 'Chat 对话回复',
-                ok: true,
-                rawError: `模型 ${cfg.primary.model} 回复成功`
-            });
-            return out;
+            return { out, model: cfg.primary.model, retried: false };
         } catch (err) {
             const hasBackup = cfg.backupEnabled && cfg.backup && cfg.backup.url && cfg.backup.key;
             if (cfg.autoRetry) {
                 const retrySlot = hasBackup ? cfg.backup : cfg.primary;
                 try {
                     const out2 = await callSingleSlot(retrySlot, temp, systemPrompt, history);
-                    window.PhoneAPI.addLog({
-                        module: 'LLM',
-                        source: hasBackup ? 'Chat 对话（副 API 重试）' : 'Chat 对话（自动重试）',
-                        ok: true,
-                        rawError: `重试成功 · ${retrySlot.model}`
-                    });
-                    return out2;
+                    return { out: out2, model: retrySlot.model, retried: true, usedBackup: hasBackup };
                 } catch (err2) {
                     window.PhoneAPI.addLog({
                         module: 'LLM',
@@ -377,8 +383,8 @@
         let retypeCount = 0;
         let giveUp = false;
 
-        // 提取 <think>...</think>
-        text = text.replace(/<think>([\s\S]*?)<\/think>/gi, (_, inner) => {
+        // 兼容提取 <think> / <thinking> / <thought> / <cot>
+        text = text.replace(/<(think|thinking|thought|cot)>([\s\S]*?)<\/\1>/gi, (_, _tag, inner) => {
             const clean = String(inner || '').trim();
             if (clean) cot = cot ? (cot + '\n' + clean) : clean;
             return '';
@@ -502,10 +508,22 @@
         setRoomTyping(threadId, true);
 
         try {
-            const result = await requestLLM(systemPrompt, history);
+            const req = await requestLLM(systemPrompt, history);
             if (activeRuns[threadId] !== runToken) return;
 
-            const parsed = parseReplyPayload(result.text, result.cot, charId);
+            const parsed = parseReplyPayload(req.out.text, req.out.cot, charId);
+
+            if (window.PhoneAPI && typeof window.PhoneAPI.addLog === 'function') {
+                const cotTag = details.cotShow
+                    ? (parsed.cot ? ' · 已提取思维链' : ' · 模型未返回思维链')
+                    : ' · 思维链开关未开';
+                window.PhoneAPI.addLog({
+                    module: 'LLM',
+                    source: req.retried ? (req.usedBackup ? 'Chat 对话（副 API 重试）' : 'Chat 对话（自动重试）') : 'Chat 对话回复',
+                    ok: true,
+                    rawError: `模型 ${req.model} 回复成功${cotTag}`
+                });
+            }
 
             // 若 AI 临场决定「打了又删」：演一遍 停止输入（变回备注）→ 停顿 → 重新输入
             for (let r = 0; r < parsed.retypeCount; r++) {
