@@ -290,10 +290,10 @@
 }
 
 .cto-flash.is-red {
-  opacity: 0.32;
+  opacity: 0.3;
 }
 
-/* 右上角极弱预览关闭（不抢视觉） */
+/* 右上角极弱预览关闭 */
 .cto-preview-x {
   position: absolute;
   top: calc(env(safe-area-inset-top, 0px) + 12px);
@@ -303,7 +303,7 @@
   height: 30px;
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.34);
+  color: rgba(255, 255, 255, 0.42);
   font-family: var(--app-font, -apple-system, system-ui, sans-serif);
   font-size: calc(var(--app-font-size, 15px) + 5px);
   line-height: 1;
@@ -318,10 +318,10 @@
 .cto-preview-x:active,
 .cto-preview-x.is-pressed {
   transform: scale(0.84);
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.88);
 }
 
-/* 底部极简真 iPhone 风格上滑提示横条 */
+/* 底部真 iPhone 风格上滑横条 */
 .cto-home-area {
   position: absolute;
   left: 0;
@@ -329,7 +329,7 @@
   bottom: 0;
   z-index: 55;
   padding-bottom: max(10px, calc(env(safe-area-inset-bottom, 0px) * 0.45 + 6px));
-  padding-top: 26px;
+  padding-top: 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -358,71 +358,62 @@
 }
 
 /* =========================================================
-   风格 P1：魔怔眩晕密字墙（对标 IMG_2486，摇晃眩晕感）
+   风格 P1：清晰锐利 + 摇晃眩晕密字墙（对标 P1）
    ========================================================= */
 .cto-p1-wrap {
   position: absolute;
-  inset: -8%;
+  inset: -6%;
+  background: #000000;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  gap: 2px;
   overflow: hidden;
-  animation: ctoP1Dizzy 3.6s ease-in-out infinite;
+  animation: ctoP1Dizzy 3.8s ease-in-out infinite;
 }
 
 .cto-p1-wrap.is-intense {
-  animation-duration: 1.9s;
+  animation-duration: 2.1s;
 }
 
 @keyframes ctoP1Dizzy {
-  0%   { transform: translate3d(0px, 0px, 0) rotate(0deg) scale(1); filter: blur(0px); }
-  20%  { transform: translate3d(-4px, 3px, 0) rotate(-0.8deg) scale(1.025); filter: blur(0.35px); }
-  45%  { transform: translate3d(5px, -4px, 0) rotate(0.9deg) scale(0.99); filter: blur(0px); }
-  70%  { transform: translate3d(-3px, -3px, 0) rotate(-0.6deg) scale(1.03); filter: blur(0.45px); }
-  100% { transform: translate3d(0px, 0px, 0) rotate(0deg) scale(1); filter: blur(0px); }
+  0%   { transform: translate3d(0px, 0px, 0) rotate(0deg) scale(1); }
+  20%  { transform: translate3d(-5px, 3px, 0) rotate(-0.9deg) scale(1.022); }
+  45%  { transform: translate3d(6px, -4px, 0) rotate(1deg) scale(0.992); }
+  70%  { transform: translate3d(-4px, -3px, 0) rotate(-0.7deg) scale(1.026); }
+  100% { transform: translate3d(0px, 0px, 0) rotate(0deg) scale(1); }
 }
 
 .cto-p1-row {
   position: relative;
   white-space: nowrap;
-  font-family: var(--cto-serif);
-  font-size: calc(var(--app-font-size, 15px) + 7px);
-  font-weight: 700;
-  line-height: 1.08;
-  letter-spacing: -0.02em;
-  color: #ffe8ea;
+  font-family: var(--app-font, -apple-system, system-ui, BlinkMacSystemFont, "PingFang SC", sans-serif);
+  font-size: calc(var(--app-font-size, 15px) + 3px);
+  font-weight: 600;
+  line-height: 1.24;
+  letter-spacing: 0.02em;
+  color: #ffe9ec;
   text-shadow:
-    0 0 9px rgba(255, 20, 42, 0.94),
-    -2px 0 1px rgba(255, 0, 32, 0.88),
-    2px 0 1px rgba(170, 0, 22, 0.85);
-  animation: ctoP1RowDrift 2.8s ease-in-out infinite;
+    -1.5px 0 0 rgba(255, 24, 48, 0.85),
+    1.5px 0 0 rgba(160, 0, 22, 0.8),
+    0 0 3px rgba(255, 20, 44, 0.55);
+  animation: ctoP1RowDrift 3.2s ease-in-out infinite;
   animation-delay: var(--cto-d, 0s);
-}
-
-.cto-p1-row::after {
-  content: attr(data-txt);
-  position: absolute;
-  left: 0;
-  top: 0;
-  color: rgba(255, 24, 48, 0.42);
-  transform: translate3d(3px, 1px, 0);
-  filter: blur(0.6px);
-  pointer-events: none;
 }
 
 @keyframes ctoP1RowDrift {
   0%, 100% { transform: translate3d(var(--cto-x, 0px), 0, 0) skewX(0deg); }
-  50% { transform: translate3d(calc(var(--cto-x, 0px) + var(--cto-dx, 8px)), 0, 0) skewX(var(--cto-sk, -2deg)); }
+  50% { transform: translate3d(calc(var(--cto-x, 0px) + var(--cto-dx, 6px)), 0, 0) skewX(var(--cto-sk, -2deg)); }
 }
 
 /* =========================================================
-   风格 P2：红字叠红字 · 层层淹没（对标 IMG_2485）
+   风格 P2：红字叠红字 · 密密麻麻铺满整屏（对标 P2）
    ========================================================= */
 .cto-p2-wrap {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: radial-gradient(circle at 50% 42%, rgba(88, 6, 12, 0.36) 0%, rgba(16, 2, 4, 0.88) 46%, #000000 84%);
+  background: radial-gradient(circle at 50% 45%, rgba(92, 6, 12, 0.42) 0%, rgba(18, 2, 4, 0.92) 52%, #000000 92%);
 }
 
 .cto-p2-item {
@@ -431,45 +422,45 @@
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
-  transform: translate3d(-50%, -50%, 0) scale(1.08);
-  transition: opacity 0.28s ease, transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translate3d(-50%, -50%, 0) scale(1.06);
+  transition: opacity 0.24s ease, transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .cto-p2-item.show {
-  opacity: var(--cto-op, 0.9);
+  opacity: var(--cto-op, 0.92);
   transform: translate3d(-50%, -50%, 0) scale(1);
 }
 
 .cto-p2-item.lv-bg {
   font-size: calc(var(--app-font-size, 15px) - 2px);
   font-weight: 500;
-  color: rgba(140, 12, 24, 0.62);
-  text-shadow: 0 0 6px rgba(150, 0, 18, 0.45);
+  color: rgba(155, 14, 26, 0.58);
+  text-shadow: 0 0 4px rgba(150, 0, 18, 0.4);
   z-index: 2;
 }
 
 .cto-p2-item.lv-mid {
-  font-size: calc(var(--app-font-size, 15px) + 5px);
+  font-size: calc(var(--app-font-size, 15px) + 4px);
   font-weight: 700;
-  color: rgba(210, 20, 36, 0.88);
-  text-shadow: 0 0 12px rgba(255, 14, 34, 0.65), 0 2px 8px rgba(0, 0, 0, 0.9);
+  color: rgba(212, 20, 36, 0.88);
+  text-shadow: 0 0 8px rgba(255, 14, 34, 0.55), 0 1px 6px rgba(0, 0, 0, 0.92);
   z-index: 5;
 }
 
 .cto-p2-item.lv-top {
-  font-size: calc(var(--app-font-size, 15px) + 13px);
+  font-size: calc(var(--app-font-size, 15px) + 12px);
   font-weight: 800;
   color: #ff1e35;
-  text-shadow: 0 0 18px rgba(255, 20, 44, 0.85), 0 3px 12px rgba(0, 0, 0, 0.96);
+  text-shadow: 0 0 12px rgba(255, 20, 44, 0.72), 0 2px 10px rgba(0, 0, 0, 0.96);
   z-index: 9;
 }
 
 .cto-p2-item.lv-huge {
-  font-size: calc(var(--app-font-size, 15px) + 23px);
+  font-size: calc(var(--app-font-size, 15px) + 22px);
   font-weight: 800;
-  color: #e60c22;
+  color: #ea0f24;
   letter-spacing: 0.04em;
-  text-shadow: 0 0 24px rgba(255, 16, 40, 0.9), 0 4px 16px rgba(0, 0, 0, 0.98);
+  text-shadow: 0 0 16px rgba(255, 16, 40, 0.78), 0 3px 14px rgba(0, 0, 0, 0.98);
   z-index: 12;
 }
 
@@ -484,7 +475,7 @@
 }
 
 /* =========================================================
-   风格 P3：阴湿宋体艺术排版（对标 IMG_2487）
+   风格 P3：阴湿宋体艺术排版（对标 P3）
    ========================================================= */
 .cto-p3-wrap {
   position: absolute;
