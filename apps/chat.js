@@ -7,6 +7,7 @@
    - 支持 Char 视角切换（气泡左右互换、隐藏右上角复杂按钮、自动隐藏 CoT、预留关系备注接口）
    - 支持气泡头顶 CoT 思维链胶囊（每次回复首气泡均展示、点按顺滑展开）
    - 支持顶部备注位「对方正在输入中…」（停字立刻恢复备注名并保留免打扰铃铛）
+   - 发送逻辑：回车 / 有字点 ↑ 仅上屏；空输入框再点 ↑ 才触发 AI 回复
    ========================================================= */
 
 (function () {
@@ -998,7 +999,8 @@
 
         const roomInput = document.getElementById('ctRoomInput');
         document.getElementById('ctRoomMoreBtn').addEventListener('click', () => showToast('聊天详情待接入'));
-        document.getElementById('ctRoomSendBtn').addEventListener('click', sendRoomMessage);
+        // 发送键：有字则仅上屏；空输入框再点才触发 AI 回复
+        document.getElementById('ctRoomSendBtn').addEventListener('click', handleSendButtonClick);
         document.getElementById('ctRoomPlusBtn').addEventListener('click', () => showToast('更多功能待接入'));
         document.getElementById('ctRoomEmojiBtn').addEventListener('click', () => showToast('表情面板待接入'));
         document.getElementById('ctRoomVoiceBtn').addEventListener('click', () => setVoiceMode(!isVoiceMode));
@@ -1007,8 +1009,12 @@
             renderQuoteBar();
         });
 
+        // 键盘回车：仅把字发上屏，绝不触发 AI 回复
         roomInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') sendRoomMessage();
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendRoomMessageOnly();
+            }
         });
 
         roomInput.addEventListener('focus', () => {
@@ -1284,7 +1290,6 @@
         let lastShownTime = '';
 
         box.innerHTML = msgs.map((m) => {
-            // 在 Char 视角下：Char 发的消息在右边(me)，User 发的消息在左边(对方)
             const isCharSender = m.sender === 'char' || (m.sender !== 'me' && !!m.charId);
             const isMe = pov.isChar ? (isCharSender && (!m.charId || m.charId === pov.charId)) : (m.sender === 'me');
 
@@ -1526,12 +1531,6 @@
         }
 
         renderRoomMessages();
-
-        if (!pov.isChar) {
-            window.dispatchEvent(new CustomEvent('phone:chat-user-sent', {
-                detail: { threadId: currentThreadId, msg: msgObj }
-            }));
-        }
     }
 
     function sendVoiceMessage(duration, audioData, transcript) {
@@ -1567,21 +1566,32 @@
         }
 
         renderRoomMessages();
-
-        if (!pov.isChar) {
-            window.dispatchEvent(new CustomEvent('phone:chat-user-sent', {
-                detail: { threadId: currentThreadId, msg: msgObj }
-            }));
-        }
     }
 
-    function sendRoomMessage() {
+    function sendRoomMessageOnly() {
         const inp = document.getElementById('ctRoomInput');
         if (!inp) return;
         const text = inp.value.trim();
         if (!text) return;
         inp.value = '';
         sendTextMessage(text);
+    }
+
+    // 点右下角 ↑：有字就只发上屏；输入框为空才触发 AI 回复
+    function handleSendButtonClick() {
+        const inp = document.getElementById('ctRoomInput');
+        const text = inp ? inp.value.trim() : '';
+        if (text) {
+            inp.value = '';
+            sendTextMessage(text);
+            return;
+        }
+        if (!currentThreadId) return;
+        const pov = getActivePov();
+        if (pov.isChar) return;
+        window.dispatchEvent(new CustomEvent('phone:chat-request-reply', {
+            detail: { threadId: currentThreadId }
+        }));
     }
 
     function renderContactsTab() {
