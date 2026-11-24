@@ -1,596 +1,633 @@
 /* =========================================================
-   Chat 基础 AI 对话引擎 (apps/chat-ai.js)
-   - 对接 PhoneAPI（支持 OpenAI / Google / Anthropic / 自定义兼容 + 副 API 重试 + 日志）
-   - 读取 PhoneArchive（Char 人设）+ PhoneChatMe / PhoneMask（当前账号与面具）
-   - 读取 PhoneChatDetails（显示思维链开关 / 自定义思维链 / 上下文条数）
-   - 仅在空输入框点 ↑（phone:chat-request-reply）时触发，支持对方继续接着说
-   - 全模型通用思维链（[COT]...[/COT] + 原生 reasoning/thinking/<think> 全兼容）
-   - 支持顶部纯黑「对方正在输入中…」与 AI 临场决定的「打字又删除」（[RETYPE] / [GIVEUP]）
+   反向互动 · 顶号实时抢夺模块 (reverse/takeover.js)
+   - 暴露 window.PhoneChatTakeover（preview / trigger / close）
+   - 实时拔河抢夺（点按钮 / 戳碎红字墙 / 对方实时反扑与劫持按钮）
+   - 双结局：硬抢夺回 / 抢输或放弃被接管（纯黑宋体 + 竖排低语 + 猩红关键字）
+   - 当前为外观页演示预览，正式接入 AI 后由 AI 按 Char 人设与当下动态关系生成文本
    ========================================================= */
 
 (function () {
-    const STORAGE_THREADS_KEY = 'chat_threads_v1';
-    const STORAGE_MSGS_PREFIX = 'chat_msgs_v1_';
-    const STORAGE_CHAR_REMARKS = 'chat_char_user_remarks_v1';
-    const DEFAULT_MAX_HISTORY = 24;
+  const MOOD_STORAGE_KEY = 'phone_takeover_preview_mood_v1';
 
-    const activeRuns = {};
-    const runningThreads = new Set();
-
-    function loadJSON(key, fallback) {
-        try {
-            const raw = localStorage.getItem(key);
-            return raw ? JSON.parse(raw) : fallback;
-        } catch (e) {
-            return fallback;
-        }
+  const DEMO_PACKS = {
+    crimson: {
+      deviceText: '另一台设备',
+      wallPhrases: [
+        '你只能是我的',
+        '别急着把我顶下去',
+        '你在看谁的聊天记录',
+        '不准退出来',
+        '看着我',
+        '我话还没说完'
+      ],
+      hijackTexts: ['不准退', '留下来', '别点了'],
+      typo: {
+        lines: [
+          { text: '把号顶回去之前，', offset: -14 },
+          { text: '先看着', kw: '我', after: '。', big: true, offset: 12 },
+          { text: '你刚才到底在', kw: '躲', after: '什么？', sub: true, offset: -6 }
+        ],
+        whispers: ['别把门关上', '我都看见了', '再跑一次试试']
+      },
+      winTypo: {
+        lines: [
+          { text: '已切断对方连接。', offset: 0 },
+          { text: '下一次，不会这么轻易松手。', sub: true, offset: 0 }
+        ],
+        whispers: ['强制下线完成', '已重新接管']
+      }
+    },
+    obsidian: {
+      deviceText: '未知设备',
+      wallPhrases: [
+        '这么急着把我踢出去吗',
+        '怕我看到什么',
+        '先别关',
+        '我在看你',
+        '手在抖什么'
+      ],
+      hijackTexts: ['别躲', '再留一会儿', '看着屏幕'],
+      typo: {
+        lines: [
+          { text: '说', kw: '不在意', after: '的时候，', offset: -10 },
+          { text: '你自己信吗？', big: true, offset: 14 },
+          { text: '账号我先替你', kw: '收着', after: '了。', sub: true, offset: -4 }
+        ],
+        whispers: ['何必这么紧张', '只是看一眼而已', '你逃不掉的']
+      },
+      winTypo: {
+        lines: [
+          { text: '对方已被顶下线。', offset: 0 },
+          { text: '刚才的痕迹，已经留在这里了。', sub: true, offset: 0 }
+        ],
+        whispers: ['会话已收回', '当前设备在线']
+      }
+    },
+    scarlet: {
+      deviceText: '另一台移动设备',
+      wallPhrases: [
+        '别踢我',
+        '为什么不回我消息',
+        '听我说完行不行',
+        '我不退',
+        '看着我啊'
+      ],
+      hijackTexts: ['不许踢我', '别走', '回我一句'],
+      typo: {
+        lines: [
+          { text: '每次都是这样，', offset: -12 },
+          { text: '一句话不说就想', kw: '逃', after: '。', big: true, offset: 10 },
+          { text: '这一次，', kw: '不准', after: '走。', sub: true, offset: -8 }
+        ],
+        whispers: ['你到底在哪', '别把我丢在外面', '求你别关掉']
+      },
+      winTypo: {
+        lines: [
+          { text: '你把对方顶下线了。', offset: 0 },
+          { text: '聊天框里，对方正在重新输入。', sub: true, offset: 0 }
+        ],
+        whispers: ['连接已强行断开', '设备已恢复']
+      }
     }
+  };
 
-    function saveJSON(key, val) {
-        try {
-            localStorage.setItem(key, JSON.stringify(val));
-        } catch (e) {}
+  let activeTimers = [];
+  let tugInterval = null;
+  let activeStageEl = null;
+  let activeSysMaskEl = null;
+
+  function bindPressed(el) {
+    if (!el || el.dataset.ctoPressedBound) return;
+    el.dataset.ctoPressedBound = '1';
+    el.addEventListener('touchstart', () => el.classList.add('is-pressed'), { passive: true });
+    el.addEventListener('touchmove', () => el.classList.remove('is-pressed'), { passive: true });
+    el.addEventListener('touchend', () => el.classList.remove('is-pressed'), { passive: true });
+    el.addEventListener('touchcancel', () => el.classList.remove('is-pressed'), { passive: true });
+  }
+
+  function clearAllLoops() {
+    activeTimers.forEach(id => clearTimeout(id));
+    activeTimers = [];
+    if (tugInterval) {
+      clearInterval(tugInterval);
+      tugInterval = null;
     }
+  }
 
-    function showAiToast(msg) {
-        const el = document.getElementById('ctToast');
-        if (!el || !msg) return;
-        el.textContent = msg;
-        el.classList.add('show');
-        clearTimeout(showAiToast._timer);
-        showAiToast._timer = setTimeout(() => el.classList.remove('show'), 2400);
+  function addTimer(fn, ms) {
+    const id = setTimeout(fn, ms);
+    activeTimers.push(id);
+    return id;
+  }
+
+  function nowHHMM() {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }
+
+  function vibrate(pattern) {
+    try {
+      if (navigator.vibrate) navigator.vibrate(pattern || 16);
+    } catch (e) {}
+  }
+
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function cleanupAll() {
+    clearAllLoops();
+    if (activeSysMaskEl) {
+      activeSysMaskEl.remove();
+      activeSysMaskEl = null;
     }
+    if (activeStageEl) {
+      activeStageEl.remove();
+      activeStageEl = null;
+    }
+  }
 
-    function setRoomTyping(threadId, isTyping) {
-        if (window.PhoneChat && typeof window.PhoneChat.setTyping === 'function') {
-            window.PhoneChat.setTyping(threadId, isTyping);
-            return;
-        }
-        const titleEl = document.getElementById('ctRoomTitle');
-        if (!titleEl) return;
-        if (isTyping) {
-            if (!titleEl.classList.contains('is-typing')) {
-                titleEl.dataset.prevTitle = titleEl.textContent || '';
+  /* ---------------- 阶段 0：仿系统下线弹窗 ---------------- */
+  function showSystemKickModal(opts, onRelogin, onCancel) {
+    cleanupAll();
+    const mask = document.createElement('div');
+    mask.className = 'cto-sys-mask';
+    const timeStr = nowHHMM();
+    const device = opts.deviceText || '另一台设备';
+
+    mask.innerHTML = `
+      <div class="cto-sys-dialog">
+        <div class="cto-sys-body">
+          <div class="cto-sys-title">下线通知</div>
+          <div class="cto-sys-desc">你的账号于 ${timeStr} 在${device}登录。如非本人操作，则密码可能已泄露，建议尽快修改密码。</div>
+        </div>
+        <div class="cto-sys-actions">
+          <button type="button" class="cto-sys-btn" data-act="exit">退出</button>
+          <button type="button" class="cto-sys-btn" data-act="relogin">重新登录</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(mask);
+    activeSysMaskEl = mask;
+    mask.querySelectorAll('.cto-sys-btn').forEach(bindPressed);
+    requestAnimationFrame(() => mask.classList.add('open'));
+
+    mask.addEventListener('click', (e) => {
+      const btn = e.target.closest('.cto-sys-btn');
+      if (!btn) return;
+      if (btn.dataset.act === 'exit') {
+        mask.classList.remove('open');
+        addTimer(() => {
+          cleanupAll();
+          if (typeof onCancel === 'function') onCancel();
+        }, 200);
+        return;
+      }
+      if (btn.dataset.act === 'relogin') {
+        btn.textContent = '登录中…';
+        btn.disabled = true;
+        vibrate(18);
+        addTimer(() => {
+          mask.classList.remove('open');
+          addTimer(() => {
+            if (activeSysMaskEl) {
+              activeSysMaskEl.remove();
+              activeSysMaskEl = null;
             }
-            titleEl.classList.add('is-typing');
-            titleEl.textContent = '对方正在输入中…';
+            if (typeof onRelogin === 'function') onRelogin();
+          }, 150);
+        }, 300);
+      }
+    });
+  }
+
+  /* ---------------- 构建阴湿宋体错落排版 HTML ---------------- */
+  function buildTypoHtml(typoData) {
+    const lines = (typoData && Array.isArray(typoData.lines)) ? typoData.lines : [];
+    const whispers = (typoData && Array.isArray(typoData.whispers)) ? typoData.whispers : [];
+
+    const vColsHtml = [
+      whispers[0] ? `<div class="cto-vcol left">${escapeHtml(whispers[0])}</div>` : '',
+      whispers[1] ? `<div class="cto-vcol right">${escapeHtml(whispers[1])}</div>` : '',
+      whispers[2] ? `<div class="cto-vcol mid">${escapeHtml(whispers[2])}</div>` : ''
+    ].join('');
+
+    const linesHtml = lines.map((item) => {
+      const cls = ['cto-tline'];
+      if (item.big) cls.push('is-big');
+      if (item.sub) cls.push('is-sub');
+      const tx = typeof item.offset === 'number' ? item.offset : 0;
+      const body = item.kw
+        ? `${escapeHtml(item.text || '')}<span class="cto-kw">${escapeHtml(item.kw)}</span>${escapeHtml(item.after || '')}`
+        : escapeHtml(item.text || '');
+      return `<div class="${cls.join(' ')}" style="--cto-tx:${tx}px;">${body}</div>`;
+    }).join('');
+
+    return `<div class="cto-typo-box">${vColsHtml}${linesHtml}</div>`;
+  }
+
+  /* ---------------- 阶段 1：实时抢夺全屏舞台 ---------------- */
+  function launchRealtimeStage(opts) {
+    const mood = opts.mood || 'crimson';
+    const pack = DEMO_PACKS[mood] || DEMO_PACKS.crimson;
+    const isPreview = Boolean(opts.isPreview);
+    const wallPhrases = (Array.isArray(opts.wallPhrases) && opts.wallPhrases.length) ? opts.wallPhrases : pack.wallPhrases;
+    const hijackTexts = (Array.isArray(opts.hijackTexts) && opts.hijackTexts.length) ? opts.hijackTexts : pack.hijackTexts;
+    const loseTypo = opts.typo || pack.typo;
+    const winTypo = opts.winTypo || pack.winTypo;
+
+    const stage = document.createElement('div');
+    stage.className = `cto-stage mood-${mood}`;
+    stage.innerHTML = `
+      <div class="cto-tug-track"><div class="cto-tug-enemy" id="ctoTugEnemy"></div></div>
+      ${isPreview ? `<button type="button" class="cto-preview-x" id="ctoPreviewClose" aria-label="退出预览">×</button>` : ''}
+      <div class="cto-flash" id="ctoFlash"></div>
+      <div class="cto-wall" id="ctoWall"></div>
+      <div class="cto-typo" id="ctoTypo"></div>
+      <div class="cto-bottom" id="ctoBottom">
+        <div class="cto-whisper" id="ctoWhisper">连点「夺回」或直接戳碎红字</div>
+        <button type="button" class="cto-fight-btn" id="ctoFightBtn">夺 回 账 号</button>
+        <button type="button" class="cto-yield-btn" id="ctoYieldBtn">算了，不抢了</button>
+        <div class="cto-end-actions" id="ctoEndActions">
+          <button type="button" class="cto-end-btn" id="ctoEndCloseBtn">返回</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(stage);
+    activeStageEl = stage;
+
+    const tugEnemyEl = stage.querySelector('#ctoTugEnemy');
+    const flashEl = stage.querySelector('#ctoFlash');
+    const wallEl = stage.querySelector('#ctoWall');
+    const typoEl = stage.querySelector('#ctoTypo');
+    const whisperEl = stage.querySelector('#ctoWhisper');
+    const fightBtn = stage.querySelector('#ctoFightBtn');
+    const yieldBtn = stage.querySelector('#ctoYieldBtn');
+    const endActions = stage.querySelector('#ctoEndActions');
+    const endCloseBtn = stage.querySelector('#ctoEndCloseBtn');
+    const previewCloseBtn = stage.querySelector('#ctoPreviewClose');
+
+    bindPressed(fightBtn);
+    bindPressed(yieldBtn);
+    bindPressed(endCloseBtn);
+    if (previewCloseBtn) bindPressed(previewCloseBtn);
+
+    /* 构建铺满屏幕的密字墙行（约 22 行，铺满整屏无留白） */
+    const TOTAL_ROWS = 22;
+    const rowEls = [];
+    for (let i = 0; i < TOTAL_ROWS; i++) {
+      const row = document.createElement('div');
+      row.className = 'cto-wall-row';
+      const phrase = wallPhrases[i % wallPhrases.length];
+      const sep = ' ';
+      row.textContent = Array(7).fill(phrase).join(sep);
+      const shift = Math.round((Math.random() - 0.5) * 44);
+      row.style.setProperty('--cto-shift', shift + 'px');
+      wallEl.appendChild(row);
+      rowEls.push(row);
+    }
+
+    let userControl = 36; // 0 = 对方完全接管, 100 = 你彻底抢回
+    let ended = false;
+    let hijacked = false;
+    let hijackUsed = false;
+    let flashTypoShown = false;
+
+    function triggerShake(flashType) {
+      stage.classList.remove('is-shaking');
+      void stage.offsetWidth;
+      stage.classList.add('is-shaking');
+      if (flashType) {
+        flashEl.classList.remove('is-red', 'is-white');
+        flashEl.classList.add(flashType === 'white' ? 'is-white' : 'is-red');
+        addTimer(() => flashEl.classList.remove('is-red', 'is-white'), 150);
+      }
+      addTimer(() => stage.classList.remove('is-shaking'), 300);
+    }
+
+    function syncVisualByControl() {
+      const enemyPct = Math.max(0, Math.min(100, 100 - userControl));
+      tugEnemyEl.style.width = enemyPct.toFixed(1) + '%';
+
+      const visibleCount = Math.round((enemyPct / 100) * TOTAL_ROWS);
+      rowEls.forEach((row, idx) => {
+        if (idx < visibleCount) {
+          row.classList.remove('is-cracked');
+          row.classList.add('show');
+          row.classList.toggle('is-dim', idx % 3 === 2 && userControl > 45);
         } else {
-            titleEl.classList.remove('is-typing');
-            if (titleEl.dataset.prevTitle) {
-                titleEl.textContent = titleEl.dataset.prevTitle;
-            }
+          row.classList.add('is-cracked');
         }
+      });
     }
 
-    function getThreadDetails(threadId) {
-        try {
-            if (threadId && window.PhoneChatDetails && typeof window.PhoneChatDetails.getSettings === 'function') {
-                return window.PhoneChatDetails.getSettings(threadId) || {};
-            }
-        } catch (e) {}
-        return {};
-    }
-
-    function getArchiveChar(charId) {
-        try {
-            if (window.PhoneArchive && typeof window.PhoneArchive.getChars === 'function') {
-                const list = window.PhoneArchive.getChars() || [];
-                return list.find(c => c.id === charId) || null;
-            }
-        } catch (e) {}
-        return null;
-    }
-
-    function getUserContext() {
-        let name = '我';
-        let persona = '';
-        try {
-            if (window.PhoneChatMe && typeof window.PhoneChatMe.getActiveAccount === 'function') {
-                const acc = window.PhoneChatMe.getActiveAccount();
-                if (acc) {
-                    name = acc.name || name;
-                    if (acc.signature) persona = acc.signature;
-                    if (acc.maskId && window.PhoneMask) {
-                        let mask = null;
-                        if (typeof window.PhoneMask.getMaskById === 'function') {
-                            mask = window.PhoneMask.getMaskById(acc.maskId);
-                        } else if (typeof window.PhoneMask.getMasks === 'function') {
-                            const masks = window.PhoneMask.getMasks() || [];
-                            mask = masks.find(m => m.id === acc.maskId) || null;
-                        }
-                        if (mask) {
-                            if (mask.name) name = mask.name;
-                            const mDesc = mask.persona || mask.bio || mask.setting || mask.desc || '';
-                            if (mDesc) persona = mDesc;
-                        }
-                    }
-                }
-            }
-        } catch (e) {}
-        return { name, persona };
-    }
-
-    function isCharPasscodeChangeAllowed() {
-        try {
-            if (window.PhoneChatMe && typeof window.PhoneChatMe.getPrefs === 'function') {
-                const prefs = window.PhoneChatMe.getPrefs() || {};
-                if (typeof prefs.allowCharChangePasscode === 'boolean') {
-                    return prefs.allowCharChangePasscode;
-                }
-            }
-        } catch (e) {}
-        return false;
-    }
-
-    function getCurrentRemark(charId) {
-        const map = loadJSON(STORAGE_CHAR_REMARKS, {});
-        return (map && map[charId]) || '';
-    }
-
-    function setCharRemark(charId, newRemark) {
-        if (!charId || !newRemark) return;
-        const map = loadJSON(STORAGE_CHAR_REMARKS, {});
-        map[charId] = String(newRemark).trim().slice(0, 24);
-        saveJSON(STORAGE_CHAR_REMARKS, map);
-    }
-
-    function buildSystemPrompt(charObj, userCtx, details) {
-        const charName = (charObj && (charObj.name || charObj.nickname)) || '对方';
-        const charPersona = (charObj && (charObj.persona || charObj.bio || charObj.setting)) || '性格自然真实、有自己生活节奏的普通人';
-        const currentRemark = charObj ? getCurrentRemark(charObj.id) : '';
-        const canChangePwd = isCharPasscodeChangeAllowed();
-        const showCot = !!(details && details.cotShow);
-        const customCot = (details && details.cotCustom) ? String(details.cotCustom).trim() : '';
-
-        let prompt =
-            `你正在手机微信里和对方聊天。请完全以「${charName}」的身份自然回复，绝对不要跳出角色或用 AI 助手腔调说话。\n\n` +
-            `【你的设定】\n姓名：${charName}\n人设：${charPersona}\n\n` +
-            `【对方（User）信息】\n网名：${userCtx.name}` +
-            (userCtx.persona ? `\n对方人设/身份：${userCtx.persona}` : '') +
-            (currentRemark ? `\n你目前在微信里给对方的备注是：${currentRemark}` : '') +
-            `\n\n【聊天规则（务必遵守）】\n` +
-            `1. 用真实微信聊天的口吻打字，不要写小说旁白或 *动作描写*。\n` +
-            `2. 根据你的人设和当下情绪决定一次发几条消息：话多、激动或碎碎念时可以连发多条短句，高冷或简短时发 1~2 条即可。多条消息之间请严格用 ||| 分隔（不要加编号）。\n` +
-            `3. 如果你的台词主要是外语，请在该条消息末尾紧接 [TRANS:对应的自然中文翻译]，没有外语则不要加。\n` +
-            `4. 如果你根据人设和两人当下关系变化，想悄悄修改你微信里对对方的备注，可在整段回复最后附带一行 [REMARK:新备注]。\n` +
-            `5. 真实打字犹豫（完全随人设与当下心境，平时正常聊天不要使用）：只有在你当下真的欲言又止、打了一半又删掉重打时，才在回复正文前加一个 [RETYPE]（若反复犹豫两次可写 [RETYPE:2]）；如果打完又全部删掉决定什么都不发，则只输出 [GIVEUP]。平时直接正常回复即可，切勿每次都刻意触发。\n`;
-
-        if (canChangePwd) {
-            prompt += `6. 你的微信锁屏密码平时保持稳定；只有当你的人设性格或当前情绪/关系真的促使你想换密码时，才在最后附带一行 [PASSCODE:6到16位字母或数字]，平时不要随便乱改。\n`;
-        }
-
-        if (showCot) {
-            prompt +=
-                `\n【通用思考过程格式（每一轮必须输出，不可省略）】\n` +
-                (customCot
-                    ? `回复的最开头必须先用 [COT]...[/COT] 写出你的内心思考，要求：${customCot}\n`
-                    : `回复的最开头必须先用 [COT]...[/COT] 写一段简短真实的第一人称内心想法（情绪、斟酌措辞、没说出口的话等）。\n`) +
-                `示例：\n[COT]她怎么突然这么问，有点开心又不想表现得太明显。[/COT]\n怎么啦|||突然问这个干嘛`;
-        }
-
-        return prompt;
-    }
-
-    function buildHistoryMessages(threadId, details) {
-        const raw = loadJSON(STORAGE_MSGS_PREFIX + threadId, []);
-        if (!Array.isArray(raw)) return [];
-        const limit = Math.max(8, Number((details && details.memoryContextLimit) || DEFAULT_MAX_HISTORY));
-        const showCot = !!(details && details.cotShow);
-        const recent = raw.slice(-limit);
-        const out = [];
-
-        recent.forEach(m => {
-            if (!m) return;
-            let text = m.type === 'voice'
-                ? (m.transcript ? `[语音] ${m.transcript}` : `[语音 ${m.duration || 1}秒]`)
-                : (m.text || '');
-            text = String(text).trim();
-            if (!text) return;
-            if (m.quote && m.quote.text) {
-                text = `[引用 ${m.quote.senderName || ''}：${m.quote.text}]\n${text}`;
-            }
-
-            const role = m.sender === 'me' ? 'user' : 'assistant';
-            if (role === 'assistant' && showCot && m.cot) {
-                text = `[COT]${String(m.cot).trim()}[/COT]\n${text}`;
-            }
-
-            if (out.length && out[out.length - 1].role === role) {
-                out[out.length - 1].content += (role === 'assistant' ? '\n|||\n' : '\n') + text;
-            } else {
-                out.push({ role, content: text });
-            }
+    function showTypoSequence(typoData) {
+      typoEl.innerHTML = buildTypoHtml(typoData);
+      requestAnimationFrame(() => {
+        typoEl.classList.add('show');
+        const lines = typoEl.querySelectorAll('.cto-tline');
+        lines.forEach((ln, i) => {
+          addTimer(() => ln.classList.add('show'), 140 + i * 240);
         });
-
-        if (!out.length) {
-            out.push({ role: 'user', content: '（对方点开了聊天窗口，请你自然主动发一句开场白）' });
-        } else if (out[out.length - 1].role === 'assistant') {
-            out.push({ role: 'user', content: '（对方还没回消息，你可以顺着刚才的话题自然再继续说一两句）' });
-        }
-
-        // 在发送给 API 的最后一条 user 消息尾部附带隐藏格式提醒，确保所有模型每轮都稳定输出 [COT]...[/COT]
-        if (showCot && out.length && out[out.length - 1].role === 'user') {
-            out[out.length - 1].content += '\n\n(系统提醒：请务必在回复最开头先用 [COT]...[/COT] 写简短内心思考，再换行写微信回复正文)';
-        }
-
-        return out;
+      });
     }
 
-    function normalizeBaseUrl(raw, type) {
-        let u = String(raw || '').trim().replace(/\/+$/, '');
-        if (!u) return '';
-        if ((type === 'openai' || type === 'custom') && !/\/v\d+$/i.test(u) && u.indexOf('/v1/') === -1) {
-            u += '/v1';
-        }
-        return u;
+    function finishFight(outcome) {
+      if (ended) return;
+      ended = true;
+      clearAllLoops();
+      stage.classList.add('is-ended');
+      fightBtn.style.display = 'none';
+      yieldBtn.style.display = 'none';
+      fightBtn.style.transform = '';
+
+      if (outcome === 'reclaimed') {
+        vibrate([20, 30, 45]);
+        triggerShake('white');
+        whisperEl.classList.remove('is-danger');
+        whisperEl.textContent = '已重新夺回当前设备';
+        showTypoSequence(winTypo);
+      } else {
+        vibrate([45, 35, 65]);
+        triggerShake('red');
+        whisperEl.classList.add('is-danger');
+        whisperEl.textContent = '账号已被对方接管';
+        showTypoSequence(loseTypo);
+      }
+
+      addTimer(() => {
+        endActions.classList.add('show');
+      }, 650);
+
+      endCloseBtn.onclick = () => {
+        stage.classList.remove('open');
+        addTimer(() => {
+          cleanupAll();
+          if (typeof opts.onComplete === 'function') {
+            opts.onComplete({ outcome, mood });
+          }
+        }, 220);
+      };
     }
 
-    function readHttpError(r) {
-        return r.text().then(txt => {
-            const snippet = String(txt || '').replace(/\s+/g, ' ').trim().slice(0, 180);
-            return `HTTP ${r.status}${snippet ? ' - ' + snippet : ''}`;
-        }).catch(() => `HTTP ${r.status}`);
+    function triggerHijackSabotage() {
+      if (hijackUsed || ended) return;
+      hijackUsed = true;
+      hijacked = true;
+      vibrate([30, 25, 35]);
+      triggerShake('red');
+      userControl = Math.max(24, userControl - 20);
+      syncVisualByControl();
+
+      const word = hijackTexts[Math.floor(Math.random() * hijackTexts.length)] || '不准退';
+      fightBtn.classList.add('is-hijacked');
+      fightBtn.textContent = word;
+      const dodgeX = (Math.random() > 0.5 ? 1 : -1) * 18;
+      fightBtn.style.transform = `translateX(${dodgeX}px)`;
+      whisperEl.classList.add('is-danger');
+      whisperEl.textContent = '对方拦住了你的操作';
+
+      addTimer(() => {
+        if (ended) return;
+        hijacked = false;
+        fightBtn.classList.remove('is-hijacked');
+        fightBtn.textContent = '夺 回 账 号';
+        fightBtn.style.transform = '';
+        whisperEl.classList.remove('is-danger');
+        whisperEl.textContent = '继续顶回去！';
+      }, 1050);
     }
 
-    async function callSingleSlot(slot, temperature, systemPrompt, history) {
-        const base = normalizeBaseUrl(slot.url, slot.type);
-        if (!base || !slot.key) throw new Error('尚未在「API配置」填写语言模型地址或 Key');
-        if (!slot.model) throw new Error('尚未在「API配置」填写语言模型名称');
-
-        if (slot.type === 'google') {
-            const url = `${base.replace(/\/+$/, '')}/v1beta/models/${encodeURIComponent(slot.model)}:generateContent?key=${encodeURIComponent(slot.key)}`;
-            const contents = history.map(h => ({
-                role: h.role === 'assistant' ? 'model' : 'user',
-                parts: [{ text: h.content }]
-            }));
-            const body = {
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                contents,
-                generationConfig: { temperature }
-            };
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-            if (!res.ok) throw new Error(await readHttpError(res));
-            const data = await res.json();
-            const parts = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
-            let text = '';
-            let cot = '';
-            parts.forEach(p => {
-                if (p.thought === true) cot += (p.text || '');
-                else if (typeof p.thought === 'string') cot += p.thought;
-                else text += (p.text || '');
-            });
-            return { text: text.trim(), cot: cot.trim() };
-        }
-
-        if (slot.type === 'anthropic') {
-            const url = `${base.replace(/\/+$/, '')}/v1/messages`;
-            const body = {
-                model: slot.model,
-                max_tokens: 1536,
-                temperature,
-                system: systemPrompt,
-                messages: history
-            };
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-api-key': slot.key,
-                    'anthropic-version': '2023-06-01'
-                },
-                body: JSON.stringify(body)
-            });
-            if (!res.ok) throw new Error(await readHttpError(res));
-            const data = await res.json();
-            const blocks = Array.isArray(data.content) ? data.content : [];
-            let text = '';
-            let cot = '';
-            blocks.forEach(b => {
-                if (b.type === 'thinking' || b.type === 'reasoning') cot += (b.thinking || b.reasoning || b.text || '');
-                else if (b.type === 'text') text += (b.text || '');
-            });
-            return { text: text.trim(), cot: cot.trim() };
-        }
-
-        // OpenAI / 自定义兼容
-        const url = `${base}/chat/completions`;
-        const messages = [{ role: 'system', content: systemPrompt }].concat(history);
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${slot.key}`
-            },
-            body: JSON.stringify({
-                model: slot.model,
-                messages,
-                temperature,
-                stream: false
-            })
-        });
-        if (!res.ok) throw new Error(await readHttpError(res));
-        const data = await res.json();
-        const choice = (data.choices && data.choices[0]) || {};
-        const msg = choice.message || {};
-
-        let text = '';
-        let cot = String(msg.reasoning_content || msg.reasoning || msg.thinking || msg.thought || choice.reasoning_content || '').trim();
-
-        if (Array.isArray(msg.content)) {
-            msg.content.forEach(block => {
-                if (!block) return;
-                if (block.type === 'thinking' || block.type === 'reasoning') {
-                    cot += (cot ? '\n' : '') + String(block.thinking || block.reasoning || block.text || '').trim();
-                } else if (block.type === 'text' || typeof block.text === 'string') {
-                    text += block.text || '';
-                }
-            });
-        } else {
-            text = String(msg.content || '');
-        }
-
-        return { text: text.trim(), cot: cot.trim() };
+    function pulseFlashTypo() {
+      if (flashTypoShown || ended) return;
+      flashTypoShown = true;
+      stage.classList.add('is-typo-focus');
+      showTypoSequence(loseTypo);
+      addTimer(() => {
+        if (ended) return;
+        typoEl.classList.remove('show');
+        stage.classList.remove('is-typo-focus');
+      }, 1350);
     }
 
-    async function requestLLM(systemPrompt, history) {
-        if (!window.PhoneAPI || typeof window.PhoneAPI.getConfig !== 'function') {
-            throw new Error('PhoneAPI 未就绪');
-        }
-        const cfg = window.PhoneAPI.getConfig('llm');
-        if (!cfg || !cfg.primary) {
-            window.PhoneAPI.addLog({
-                module: 'LLM',
-                source: 'Chat 对话回复',
-                ok: false,
-                rawError: '未找到语言模型配置'
-            });
-            throw new Error('未找到语言模型配置');
-        }
-        const temp = typeof cfg.temperature === 'number' ? cfg.temperature : 0.8;
-
-        try {
-            const out = await callSingleSlot(cfg.primary, temp, systemPrompt, history);
-            return { out, model: cfg.primary.model, retried: false };
-        } catch (err) {
-            const hasBackup = cfg.backupEnabled && cfg.backup && cfg.backup.url && cfg.backup.key;
-            if (cfg.autoRetry) {
-                const retrySlot = hasBackup ? cfg.backup : cfg.primary;
-                try {
-                    const out2 = await callSingleSlot(retrySlot, temp, systemPrompt, history);
-                    return { out: out2, model: retrySlot.model, retried: true, usedBackup: hasBackup };
-                } catch (err2) {
-                    window.PhoneAPI.addLog({
-                        module: 'LLM',
-                        source: 'Chat 对话回复',
-                        ok: false,
-                        rawError: err2.message || String(err2)
-                    });
-                    throw err2;
-                }
-            }
-            window.PhoneAPI.addLog({
-                module: 'LLM',
-                source: 'Chat 对话回复',
-                ok: false,
-                rawError: err.message || String(err)
-            });
-            throw err;
-        }
-    }
-
-    function parseReplyPayload(rawText, initialCot, charId) {
-        let text = String(rawText || '').trim();
-        let cot = String(initialCot || '').trim();
-        let retypeCount = 0;
-        let giveUp = false;
-
-        // 1. 通用提取 [COT]...[/COT] 和 【COT】...【/COT】
-        text = text.replace(/[\[【]COT[\]】]([\s\S]*?)[\[【]\/COT[\]】]/gi, (_, inner) => {
-            const clean = String(inner || '').trim();
-            if (clean) cot = cot ? (cot + '\n' + clean) : clean;
-            return '';
-        }).trim();
-
-        // 2. 兼容提取 <think> / <thinking> / <thought> / <cot>
-        text = text.replace(/<(think|thinking|thought|cot)>([\s\S]*?)<\/\1>/gi, (_, _tag, inner) => {
-            const clean = String(inner || '').trim();
-            if (clean) cot = cot ? (cot + '\n' + clean) : clean;
-            return '';
-        }).trim();
-
-        // 3. 兜底：若模型漏写闭合标签 [/COT]，按首行切分
-        if (/^[\[【]COT[\]】]/i.test(text)) {
-            const nl = text.indexOf('\n');
-            if (nl !== -1) {
-                const head = text.slice(0, nl).replace(/^[\[【]COT[\]】]/i, '').trim();
-                if (head) cot = cot ? (cot + '\n' + head) : head;
-                text = text.slice(nl + 1).trim();
-            }
-        }
-
-        // 提取 AI 临场决定的打字又删除标记
-        text = text.replace(/\[RETYPE(?::(\d+))?\]/gi, (_, n) => {
-            const add = n ? Math.min(3, Math.max(1, parseInt(n, 10) || 1)) : 1;
-            retypeCount = Math.min(3, retypeCount + add);
-            return '';
-        });
-        if (/\[GIVEUP\]/i.test(text)) {
-            giveUp = true;
-            text = text.replace(/\[GIVEUP\]/gi, '');
-        }
-
-        // 提取 [REMARK:...]
-        text = text.replace(/\[REMARK:([^\]]+)\]/gi, (_, val) => {
-            if (charId && val) setCharRemark(charId, val.trim());
-            return '';
-        });
-
-        // 提取 [PASSCODE:...]
-        text = text.replace(/\[PASSCODE:([^\]]+)\]/gi, (_, val) => {
-            const pwd = String(val || '').trim();
-            if (charId && pwd && isCharPasscodeChangeAllowed() && window.PhoneChatMe && typeof window.PhoneChatMe.setCharPasscode === 'function') {
-                window.PhoneChatMe.setCharPasscode(charId, pwd, true);
-            }
-            return '';
-        });
-
-        const parts = text.split('|||').map(s => s.trim()).filter(Boolean);
-        const bubbles = (parts.length ? parts : [text.trim()]).filter(Boolean).map(seg => {
-            let translation = '';
-            const cleanText = seg.replace(/\[TRANS:([^\]]+)\]/gi, (_, tr) => {
-                translation = String(tr || '').trim();
-                return '';
-            }).trim();
-            return { text: cleanText, translation };
-        }).filter(b => b.text);
-
-        return { cot, bubbles, retypeCount, giveUp };
-    }
-
-    function appendCharBubble(threadId, charId, bubble, cotText) {
-        const msgs = loadJSON(STORAGE_MSGS_PREFIX + threadId, []);
-        const nowTime = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-        const msgObj = {
-            id: 'm-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-            sender: 'char',
-            charId: charId,
-            text: bubble.text,
-            time: nowTime
-        };
-        if (bubble.translation) msgObj.translation = bubble.translation;
-        if (cotText) msgObj.cot = cotText;
-
-        msgs.push(msgObj);
-        saveJSON(STORAGE_MSGS_PREFIX + threadId, msgs);
-
-        const threads = loadJSON(STORAGE_THREADS_KEY, []);
-        const idx = threads.findIndex(t => t.id === threadId);
-        if (idx !== -1) {
-            threads[idx].lastMsg = bubble.text;
-            threads[idx].lastTime = nowTime;
-            saveJSON(STORAGE_THREADS_KEY, threads);
-        }
-
-        if (window.PhoneChat && window.PhoneChat.getCurrentThreadId && window.PhoneChat.getCurrentThreadId() === threadId) {
-            if (typeof window.PhoneChat.refreshMessages === 'function') {
-                window.PhoneChat.refreshMessages();
-            }
-        }
-    }
-
-    function waitMs(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    function randRange(min, max) {
-        return Math.round(min + Math.random() * (max - min));
-    }
-
-    async function runReplyForThread(threadId) {
-        if (!threadId || runningThreads.has(threadId)) return;
-
-        // Char 视角下不触发自动回复
-        if (window.PhoneChatMe && typeof window.PhoneChatMe.getActiveAccount === 'function') {
-            const acc = window.PhoneChatMe.getActiveAccount();
-            if (acc && acc.type === 'char') return;
-        }
-
-        const threads = loadJSON(STORAGE_THREADS_KEY, []);
-        const t = threads.find(item => item.id === threadId);
-        let charId = '';
-        if (t) {
-            if (t.type === 'group') {
-                showAiToast('群聊暂未接入 AI 回复');
-                return;
-            }
-            charId = t.charId || '';
-        } else if (threadId.indexOf('dm-') === 0) {
-            charId = threadId.slice(3);
-        }
-
-        if (!charId) {
-            showAiToast('未识别到聊天对象');
-            return;
-        }
-
-        const runToken = Date.now() + '_' + Math.random();
-        activeRuns[threadId] = runToken;
-        runningThreads.add(threadId);
-
-        const details = getThreadDetails(threadId);
-        const charObj = getArchiveChar(charId);
-        const userCtx = getUserContext();
-        const systemPrompt = buildSystemPrompt(charObj, userCtx, details);
-        const history = buildHistoryMessages(threadId, details);
-
-        setRoomTyping(threadId, true);
-
-        try {
-            const req = await requestLLM(systemPrompt, history);
-            if (activeRuns[threadId] !== runToken) return;
-
-            const parsed = parseReplyPayload(req.out.text, req.out.cot, charId);
-
-            if (window.PhoneAPI && typeof window.PhoneAPI.addLog === 'function') {
-                const cotTag = details.cotShow
-                    ? (parsed.cot ? ' · 已提取思维链' : ' · 模型未返回思维链')
-                    : ' · 思维链开关未开';
-                window.PhoneAPI.addLog({
-                    module: 'LLM',
-                    source: req.retried ? (req.usedBackup ? 'Chat 对话（副 API 重试）' : 'Chat 对话（自动重试）') : 'Chat 对话回复',
-                    ok: true,
-                    rawError: `模型 ${req.model} 回复成功${cotTag}`
-                });
-            }
-
-            // 若 AI 临场决定「打了又删」：演一遍 停止输入（变回备注）→ 停顿 → 重新输入
-            for (let r = 0; r < parsed.retypeCount; r++) {
-                if (activeRuns[threadId] !== runToken) return;
-                setRoomTyping(threadId, false);
-                await waitMs(randRange(1100, 2300));
-                if (activeRuns[threadId] !== runToken) return;
-                setRoomTyping(threadId, true);
-                await waitMs(randRange(950, 1950));
-            }
-
-            // 若 AI 决定全部删光不发
-            if (parsed.giveUp && !parsed.bubbles.length) {
-                setRoomTyping(threadId, false);
-                return;
-            }
-
-            if (!parsed.bubbles.length) return;
-
-            for (let i = 0; i < parsed.bubbles.length; i++) {
-                if (activeRuns[threadId] !== runToken) break;
-                if (i > 0) {
-                    const pause = Math.min(1300, randRange(420, 680) + parsed.bubbles[i].text.length * 22);
-                    await waitMs(pause);
-                    if (activeRuns[threadId] !== runToken) break;
-                }
-                appendCharBubble(threadId, charId, parsed.bubbles[i], i === 0 ? parsed.cot : '');
-            }
-        } catch (err) {
-            showAiToast(err.message || 'API 回复失败');
-        } finally {
-            runningThreads.delete(threadId);
-            if (activeRuns[threadId] === runToken) {
-                setRoomTyping(threadId, false);
-            }
-        }
-    }
-
-    // 仅响应空输入框点击 ↑ 的主动触发
-    window.addEventListener('phone:chat-request-reply', (e) => {
-        const detail = (e && e.detail) || {};
-        if (detail.threadId) runReplyForThread(detail.threadId);
+    /* 交互 1：戳碎红字墙任意一行 */
+    rowEls.forEach((row) => {
+      row.addEventListener('click', () => {
+        if (ended || row.classList.contains('is-cracked')) return;
+        row.classList.add('is-cracked');
+        vibrate(12);
+        userControl = Math.min(100, userControl + 5.5);
+        syncVisualByControl();
+        if (userControl >= 100) finishFight('reclaimed');
+      });
     });
 
-    window.PhoneChatAI = {
-        triggerReply: runReplyForThread
-    };
+    /* 交互 2：连点「夺回账号」按钮 */
+    fightBtn.addEventListener('click', () => {
+      if (ended) return;
+      if (hijacked) {
+        triggerShake('red');
+        vibrate(25);
+        userControl = Math.max(10, userControl - 4);
+        syncVisualByControl();
+        return;
+      }
+
+      vibrate(14);
+      userControl = Math.min(100, userControl + 8.5);
+      syncVisualByControl();
+
+      const randRow = rowEls[Math.floor(Math.random() * rowEls.length)];
+      if (randRow && !randRow.classList.contains('is-cracked')) {
+        randRow.classList.add('is-glitch');
+        addTimer(() => randRow.classList.remove('is-glitch'), 140);
+      }
+
+      if (userControl >= 68 && !hijackUsed) {
+        triggerHijackSabotage();
+        return;
+      }
+
+      if (userControl >= 100) {
+        finishFight('reclaimed');
+      }
+    });
+
+    /* 交互 3：主动放弃 -> 进入对方接管结局 */
+    yieldBtn.addEventListener('click', () => {
+      if (ended) return;
+      userControl = 0;
+      syncVisualByControl();
+      finishFight('taken');
+    });
+
+    if (previewCloseBtn) {
+      previewCloseBtn.addEventListener('click', () => {
+        stage.classList.remove('open');
+        addTimer(() => {
+          cleanupAll();
+          if (typeof opts.onComplete === 'function') opts.onComplete({ cancelled: true });
+        }, 200);
+      });
+    }
+
+    /* 入场：密字墙快速瀑布式铺满 + 启动实时反扑循环 */
+    requestAnimationFrame(() => {
+      stage.classList.add('open');
+      triggerShake('red');
+
+      rowEls.forEach((row, idx) => {
+        addTimer(() => {
+          if (ended) return;
+          row.classList.add('show');
+          if (idx % 4 === 0) vibrate(10);
+        }, idx * 36);
+      });
+
+      addTimer(() => {
+        if (ended) return;
+        syncVisualByControl();
+
+        tugInterval = setInterval(() => {
+          if (ended) return;
+          const pull = mood === 'scarlet' ? (3.2 + Math.random() * 2.8) : (2.4 + Math.random() * 2.4);
+          userControl = Math.max(0, userControl - pull);
+          syncVisualByControl();
+
+          const activeRows = rowEls.filter(r => !r.classList.contains('is-cracked'));
+          if (activeRows.length) {
+            const pick = activeRows[Math.floor(Math.random() * activeRows.length)];
+            pick.classList.add('is-glitch');
+            addTimer(() => pick.classList.remove('is-glitch'), 130);
+          }
+
+          if (userControl <= 22 && !flashTypoShown) {
+            pulseFlashTypo();
+          }
+
+          if (userControl <= 0) {
+            finishFight('taken');
+          }
+        }, 320);
+      }, 680);
+    });
+  }
+
+  /* ---------------- 对外统一入口 ---------------- */
+  function triggerTakeover(options) {
+    const opts = Object.assign({
+      mood: 'crimson',
+      isPreview: false,
+      skipSystemModal: false,
+      deviceText: '另一台设备'
+    }, options || {});
+
+    if (opts.skipSystemModal) {
+      launchRealtimeStage(opts);
+    } else {
+      showSystemKickModal(
+        opts,
+        () => launchRealtimeStage(opts),
+        () => {
+          if (typeof opts.onComplete === 'function') opts.onComplete({ cancelled: true });
+        }
+      );
+    }
+  }
+
+  function previewTakeover(mood) {
+    const picked = mood || localStorage.getItem(MOOD_STORAGE_KEY) || 'crimson';
+    const pack = DEMO_PACKS[picked] || DEMO_PACKS.crimson;
+    triggerTakeover({
+      mood: picked,
+      isPreview: true,
+      deviceText: pack.deviceText,
+      wallPhrases: pack.wallPhrases,
+      hijackTexts: pack.hijackTexts,
+      typo: pack.typo,
+      winTypo: pack.winTypo
+    });
+  }
+
+  /* ---------------- 自动挂载预览卡片到「外观」App ---------------- */
+  function findAppearanceMountContainer() {
+    const appEl = document.getElementById('app-appearance');
+    if (!appEl) return null;
+    const known = appEl.querySelector('.ap-scroll, .ap-content, .ap-body, .ap-main, .ap-list');
+    if (known) return known;
+    const divs = appEl.querySelectorAll('div');
+    for (let i = 0; i < divs.length; i++) {
+      const style = window.getComputedStyle(divs[i]);
+      if (style.overflowY === 'auto' || style.overflowY === 'scroll') return divs[i];
+    }
+    return appEl;
+  }
+
+  function mountPreviewCardInAppearance() {
+    const container = findAppearanceMountContainer();
+    if (!container || container.querySelector('#ctoAppearancePreviewCard')) return;
+
+    const savedMood = localStorage.getItem(MOOD_STORAGE_KEY) || 'crimson';
+    const card = document.createElement('div');
+    card.id = 'ctoAppearancePreviewCard';
+    card.className = 'cto-ap-card';
+    card.innerHTML = `
+      <div class="cto-ap-head">
+        <div class="cto-ap-title">顶号实时抢夺预览</div>
+        <div class="cto-ap-sub">演示模式 · 可硬抢夺回，也可停手/放弃看被接管结局</div>
+      </div>
+      <div class="cto-ap-row">
+        <span class="cto-ap-label">预览氛围</span>
+        <select class="cto-ap-select" id="ctoPreviewMoodSelect" aria-label="选择顶号预览氛围">
+          <option value="crimson" ${savedMood === 'crimson' ? 'selected' : ''}>黑红密字</option>
+          <option value="obsidian" ${savedMood === 'obsidian' ? 'selected' : ''}>纯黑冷白</option>
+          <option value="scarlet" ${savedMood === 'scarlet' ? 'selected' : ''}>暗红失控</option>
+        </select>
+      </div>
+      <button type="button" class="cto-ap-btn" id="ctoLaunchPreviewBtn">预览顶号效果</button>
+    `;
+
+    container.appendChild(card);
+
+    const selectEl = card.querySelector('#ctoPreviewMoodSelect');
+    const btnEl = card.querySelector('#ctoLaunchPreviewBtn');
+    bindPressed(btnEl);
+
+    selectEl.addEventListener('change', () => {
+      try { localStorage.setItem(MOOD_STORAGE_KEY, selectEl.value); } catch (e) {}
+    });
+
+    btnEl.addEventListener('click', () => {
+      previewTakeover(selectEl.value);
+    });
+  }
+
+  function initAppearanceHook() {
+    const appEl = document.getElementById('app-appearance');
+    if (!appEl) return;
+    mountPreviewCardInAppearance();
+    const obs = new MutationObserver(() => {
+      if (!appEl.querySelector('#ctoAppearancePreviewCard')) {
+        mountPreviewCardInAppearance();
+      }
+    });
+    obs.observe(appEl, { childList: true, subtree: true });
+  }
+
+  window.PhoneChatTakeover = {
+    preview: previewTakeover,
+    trigger: triggerTakeover,
+    close: cleanupAll
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAppearanceHook);
+  } else {
+    initAppearanceHook();
+  }
 })();
