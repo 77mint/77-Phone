@@ -3,21 +3,19 @@
    - 对接 PhoneAPI（支持 OpenAI / Google / Anthropic / 自定义兼容 + 副 API 重试 + 日志）
    - 读取 PhoneArchive（Char 人设）+ PhoneChatMe / PhoneMask（当前账号与面具）
    - 读取 PhoneChatDetails（显示思维链开关 / 自定义思维链 / 上下文条数）
-   - 支持 1.2s 防抖、顶部纯黑「对方正在输入中…」与停字恢复备注
-   - 支持 AI 临场自主决定的「打字又删除」欲言又止节奏（[RETYPE] / [GIVEUP]，非固定）
-   - 支持每轮回复首气泡挂 CoT 胶囊 + 按人设自然分段连发 + 自主改备注与改密码
+   - 仅在空输入框点 ↑（phone:chat-request-reply）时触发，支持对方继续接着说
+   - 上下文保留 <think> 历史格式，保证每轮回复稳定输出思考过程
+   - 支持顶部纯黑「对方正在输入中…」与 AI 临场决定的「打字又删除」（[RETYPE] / [GIVEUP]）
    ========================================================= */
 
 (function () {
     const STORAGE_THREADS_KEY = 'chat_threads_v1';
     const STORAGE_MSGS_PREFIX = 'chat_msgs_v1_';
     const STORAGE_CHAR_REMARKS = 'chat_char_user_remarks_v1';
-    const DEBOUNCE_MS = 1200;
     const DEFAULT_MAX_HISTORY = 24;
 
-    const debounceTimers = {};
     const activeRuns = {};
-    let lastEventTriggerAt = 0;
+    const runningThreads = new Set();
 
     function loadJSON(key, fallback) {
         try {
@@ -163,8 +161,8 @@
 
         if (showCot) {
             prompt += customCot
-                ? `\n【思考过程要求】\n每次回复的最开头，请先用 <think>...</think> 包裹你的内心思考，再输出微信回复正文。要求：${customCot}\n`
-                : `\n【思考过程要求】\n每次回复的最开头，请先用 <think>...</think> 写一段简短真实的角色内心想法（如情绪、斟酌措辞、删掉没发出去的话等），再在标签外输出微信回复正文。\n`;
+                ? `\n【思考过程要求（每一轮必须输出）】\n每一轮回复的最开头，都必须先用 <think>...</think> 包裹你的内心思考，再输出微信回复正文，不得省略。要求：${customCot}\n`
+                : `\n【思考过程要求（每一轮必须输出）】\n每一轮回复的最开头，都必须先用 <think>...</think> 写一段简短真实的角色内心想法（如当下情绪、斟酌措辞、删掉没发出去的话等），再在标签外输出微信回复正文，每一轮都不能省略。\n`;
         }
 
         return prompt;
@@ -174,8 +172,10 @@
         const raw = loadJSON(STORAGE_MSGS_PREFIX + threadId, []);
         if (!Array.isArray(raw)) return [];
         const limit = Math.max(8, Number((details && details.memoryContextLimit) || DEFAULT_MAX_HISTORY));
+        const showCot = !!(details && details.cotShow);
         const recent = raw.slice(-limit);
         const out = [];
+
         recent.forEach(m => {
             if (!m) return;
             let text = m.type === 'voice'
@@ -186,13 +186,27 @@
             if (m.quote && m.quote.text) {
                 text = `[引用 ${m.quote.senderName || ''}：${m.quote.text}]\n${text}`;
             }
+
             const role = m.sender === 'me' ? 'user' : 'assistant';
+            // 保留上一轮思考过程格式进上下文，防止模型从第二轮起偷懒省掉 <think>
+            if (role === 'assistant' && showCot && m.cot) {
+                text = `<think>${String(m.cot).trim()}</think>\n${text}`;
+            }
+
             if (out.length && out[out.length - 1].role === role) {
-                out[out.length - 1].content += '\n' + text;
+                out[out.length - 1].content += (role === 'assistant' ? '\n|||\n' : '\n') + text;
             } else {
                 out.push({ role, content: text });
             }
         });
+
+        // 若历史为空或最后一条已是 Char 的消息，补一条隐藏引导让 Char 顺着继续说（不写入本地记录）
+        if (!out.length) {
+            out.push({ role: 'user', content: '（对方点开了聊天窗口，请你自然主动发一句开场白）' });
+        } else if (out[out.length - 1].role === 'assistant') {
+            out.push({ role: 'user', content: '（对方还没回消息，你可以顺着刚才的话题自然再继续说一两句）' });
+        }
+
         return out;
     }
 
@@ -449,15 +463,12 @@
     }
 
     async function runReplyForThread(threadId) {
-        if (!threadId) return;
+        if (!threadId || runningThreads.has(threadId)) return;
 
-        // Char 视角下不自动自言自语
+        // Char 视角下不触发自动回复
         if (window.PhoneChatMe && typeof window.PhoneChatMe.getActiveAccount === 'function') {
             const acc = window.PhoneChatMe.getActiveAccount();
-            if (acc && acc.type === 'char') {
-                showAiToast('当前处于 Char 视角，不触发自动回复');
-                return;
-            }
+            if (acc && acc.type === 'char') return;
         }
 
         const threads = loadJSON(STORAGE_THREADS_KEY, []);
@@ -480,13 +491,13 @@
 
         const runToken = Date.now() + '_' + Math.random();
         activeRuns[threadId] = runToken;
+        runningThreads.add(threadId);
 
         const details = getThreadDetails(threadId);
         const charObj = getArchiveChar(charId);
         const userCtx = getUserContext();
         const systemPrompt = buildSystemPrompt(charObj, userCtx, details);
         const history = buildHistoryMessages(threadId, details);
-        if (!history.length) return;
 
         setRoomTyping(threadId, true);
 
@@ -526,53 +537,18 @@
         } catch (err) {
             showAiToast(err.message || 'API 回复失败');
         } finally {
+            runningThreads.delete(threadId);
             if (activeRuns[threadId] === runToken) {
                 setRoomTyping(threadId, false);
             }
         }
     }
 
-    function scheduleReply(threadId) {
-        if (!threadId) return;
-        clearTimeout(debounceTimers[threadId]);
-        debounceTimers[threadId] = setTimeout(() => {
-            runReplyForThread(threadId);
-        }, DEBOUNCE_MS);
-    }
-
-    window.addEventListener('phone:chat-user-sent', (e) => {
-        lastEventTriggerAt = Date.now();
+    // 仅响应空输入框点击 ↑ 的主动触发
+    window.addEventListener('phone:chat-request-reply', (e) => {
         const detail = (e && e.detail) || {};
-        scheduleReply(detail.threadId);
+        if (detail.threadId) runReplyForThread(detail.threadId);
     });
-
-    // 双保险：若旧版 chat.js 被缓存未派发事件，监听消息列表新增我方气泡同样触发
-    function setupFallbackObserver() {
-        const box = document.getElementById('ctRoomMessages');
-        if (!box || box.dataset.aiObsBound === '1') return;
-        box.dataset.aiObsBound = '1';
-        let lastKnownMeId = '';
-
-        const obs = new MutationObserver(() => {
-            if (Date.now() - lastEventTriggerAt < 400) return;
-            const meNodes = box.querySelectorAll('.ct-msg-group.me[data-msg-id]');
-            if (!meNodes.length) return;
-            const lastNode = meNodes[meNodes.length - 1];
-            const mid = lastNode.getAttribute('data-msg-id') || '';
-            if (!mid || mid === lastKnownMeId) return;
-            lastKnownMeId = mid;
-
-            const tid = (window.PhoneChat && window.PhoneChat.getCurrentThreadId && window.PhoneChat.getCurrentThreadId()) || '';
-            if (tid) scheduleReply(tid);
-        });
-        obs.observe(box, { childList: true });
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', setupFallbackObserver);
-    } else {
-        setTimeout(setupFallbackObserver, 200);
-    }
 
     window.PhoneChatAI = {
         triggerReply: runReplyForThread
