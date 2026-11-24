@@ -11,12 +11,21 @@ body {
   height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
-  font-family: var(--app-font, -apple-system, "PingFang SC", sans-serif);
+  font-family: var(--app-font, -apple-system, system-ui, BlinkMacSystemFont, "PingFang SC", sans-serif);
   font-size: var(--app-font-size, 15px);
+  font-weight: normal;
+  -webkit-font-smoothing: auto;
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
 }
 
 .phone {
@@ -221,7 +230,7 @@ body {
 }
 
 .lock-date {
-  font-size: 18px;
+  font-size: calc(var(--app-font-size, 15px) + 3px);
   font-weight: 500;
   margin-bottom: 4px;
 }
@@ -241,7 +250,7 @@ body {
 }
 
 .lock-hint {
-  font-size: 13px;
+  font-size: calc(var(--app-font-size, 15px) - 2px);
   color: rgba(17, 17, 17, 0.7);
 }
 
