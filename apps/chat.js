@@ -7,6 +7,7 @@
    - 支持 Char 视角切换（气泡左右互换、隐藏右上角复杂按钮、自动隐藏 CoT、预留关系备注接口）
    - 支持气泡头顶 CoT 思维链胶囊（每次回复首气泡均展示、点按顺滑展开）
    - 支持顶部备注位「对方正在输入中…」（停字立刻恢复备注名并保留免打扰铃铛）
+   - 支持实时同步「我的 / 面具」的用户头像到聊天窗口我方气泡
    - 发送逻辑：回车 / 有字点 ↑ 仅上屏；空输入框再点 ↑ 才触发 AI 回复
    ========================================================= */
 
@@ -195,35 +196,56 @@
     function resolveUserAvatarAsync(cb) {
         const acc = getUserSelfAccount();
         if (!acc) { cb(''); return; }
-        const cacheKey = acc.avatarDbKey || (acc.maskId ? ('mask_' + acc.maskId) : '');
-        if (cacheKey && userAvatarCache[cacheKey]) {
+        const cacheKey = (acc.id || 'acc_default') + '|' + (acc.avatarDbKey || '') + '|' + (acc.maskId || '');
+        if (userAvatarCache[cacheKey]) {
             cb(userAvatarCache[cacheKey]);
             return;
         }
-        if (acc.avatarDbKey && window.PhoneDB && typeof window.PhoneDB.get === 'function') {
-            Promise.resolve(window.PhoneDB.get(acc.avatarDbKey)).then(url => {
-                if (url) {
-                    userAvatarCache[cacheKey] = url;
-                    cb(url);
-                } else if (acc.maskId && window.PhoneMask && typeof window.PhoneMask.getMaskAvatar === 'function') {
-                    Promise.resolve(window.PhoneMask.getMaskAvatar(acc.maskId)).then(mUrl => {
-                        if (mUrl) userAvatarCache[cacheKey] = mUrl;
-                        cb(mUrl || '');
-                    }).catch(() => cb(''));
-                } else {
-                    cb('');
+
+        const finish = (url) => {
+            if (url) userAvatarCache[cacheKey] = url;
+            cb(url || '');
+        };
+
+        const tryFallbackDbAndMask = () => {
+            if (acc.avatar) {
+                finish(acc.avatar);
+                return;
+            }
+            const dbKeys = [];
+            if (acc.avatarDbKey) dbKeys.push(acc.avatarDbKey);
+            if (acc.id) dbKeys.push('chat_me_avatar_' + acc.id);
+            if (acc.id === 'acc_default') dbKeys.push('chat_me_avatar');
+
+            const tryNextDbKey = (i) => {
+                if (i >= dbKeys.length || !window.PhoneDB || typeof window.PhoneDB.get !== 'function') {
+                    if (acc.maskId && window.PhoneMask && typeof window.PhoneMask.getMaskAvatar === 'function') {
+                        Promise.resolve(window.PhoneMask.getMaskAvatar(acc.maskId))
+                            .then(mUrl => finish(mUrl || ''))
+                            .catch(() => finish(''));
+                    } else {
+                        finish('');
+                    }
+                    return;
                 }
-            }).catch(() => cb(''));
+                Promise.resolve(window.PhoneDB.get(dbKeys[i])).then(url => {
+                    if (url) finish(url);
+                    else tryNextDbKey(i + 1);
+                }).catch(() => tryNextDbKey(i + 1));
+            };
+            tryNextDbKey(0);
+        };
+
+        const pov = getActivePov();
+        if (!pov.isChar && window.PhoneChatMe && typeof window.PhoneChatMe.getActiveAvatarDataUrl === 'function') {
+            Promise.resolve(window.PhoneChatMe.getActiveAvatarDataUrl()).then(url => {
+                if (url) finish(url);
+                else tryFallbackDbAndMask();
+            }).catch(tryFallbackDbAndMask);
             return;
         }
-        if (acc.maskId && window.PhoneMask && typeof window.PhoneMask.getMaskAvatar === 'function') {
-            Promise.resolve(window.PhoneMask.getMaskAvatar(acc.maskId)).then(mUrl => {
-                if (mUrl) userAvatarCache[cacheKey] = mUrl;
-                cb(mUrl || '');
-            }).catch(() => cb(''));
-            return;
-        }
-        cb('');
+
+        tryFallbackDbAndMask();
     }
 
     function hydrateUserAvatars(container) {
@@ -1122,6 +1144,11 @@
             renderActiveTab();
         });
 
+        window.addEventListener('phone-mask-updated', () => {
+            userAvatarCache = {};
+            if (currentThreadId) renderRoomMessages();
+        });
+
         // 外部触发输入状态（如 chat-ai.js 派发 phone:chat-typing 事件）
         window.addEventListener('phone:chat-typing', (e) => {
             const detail = (e && e.detail) || {};
@@ -1240,6 +1267,7 @@
         currentThreadId = threadId;
         pendingQuote = null;
         expandedCotIds.clear();
+        userAvatarCache = {};
         renderQuoteBar();
 
         const chars = getArchiveChars();
@@ -1286,7 +1314,9 @@
             return;
         }
 
-        const userRemark = pov.isChar ? getCharRemarkForUser(pov.charId) : '我';
+        const selfAcc = getUserSelfAccount();
+        const selfName = (selfAcc && selfAcc.name) || '我';
+        const userRemark = pov.isChar ? getCharRemarkForUser(pov.charId) : selfName;
         let lastShownTime = '';
 
         box.innerHTML = msgs.map((m) => {
@@ -1305,9 +1335,9 @@
                 }
             } else {
                 const cObj = isMe ? null : (chars.find(c => c.id === m.charId) || defaultChar);
-                senderName = isMe ? '我' : getCharDisplayName(cObj);
+                senderName = isMe ? selfName : getCharDisplayName(cObj);
                 avHtml = isMe
-                    ? '<div class="ct-msg-avatar">我</div>'
+                    ? renderUserAvatarHtml(selfName, 'ct-msg-avatar')
                     : renderAvatarHtml(cObj, false, 'ct-msg-avatar');
             }
 
