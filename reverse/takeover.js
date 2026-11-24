@@ -1,8 +1,8 @@
 /* =========================================================
    反向互动 · 顶号实时博弈模块 (reverse/takeover.js)
    - 零固定台词、无预览卡片，全屏暗红文字与弹窗回应 100% 由 AI 实时生成
-   - 暴露 window.PhoneChatTakeover（trigger / close）
-   - 结束时派发 phone:chat-takeover-ended 事件供聊天 AI 接续记忆
+   - 渐进加速铺满：由几句慢慢渗出，越来越快、越叠越多直到吞没全屏
+   - 严格对齐 PhoneAPI.getConfig('llm')（支持 OpenAI / Google / Anthropic / 副 API 重试 / 日志）
    ========================================================= */
 
 (function () {
@@ -48,29 +48,92 @@
     }
   }
 
-  function resolveActiveApiConfig() {
-    let rawCfg = null;
-    try {
-      if (window.PhoneAPI && typeof window.PhoneAPI.getConfig === 'function') {
-        rawCfg = window.PhoneAPI.getConfig('chat');
-      }
-    } catch (e) {}
+  function normalizeBaseUrl(raw, type) {
+    let u = String(raw || '').trim().replace(/\/+$/, '');
+    if (!u) return '';
+    if ((type === 'openai' || type === 'custom') && !/\/v\d+$/i.test(u) && u.indexOf('/v1/') === -1) {
+      u += '/v1';
+    }
+    return u;
+  }
 
-    if (!rawCfg) {
-      try {
-        const stored = localStorage.getItem('phone_api_config_v2');
-        if (stored) rawCfg = JSON.parse(stored);
-      } catch (e) {}
+  function readHttpError(r) {
+    return r.text().then(txt => {
+      const snippet = String(txt || '').replace(/\s+/g, ' ').trim().slice(0, 180);
+      return `HTTP ${r.status}${snippet ? ' - ' + snippet : ''}`;
+    }).catch(() => `HTTP ${r.status}`);
+  }
+
+  async function callLlmSlot(slot, temperature, systemPrompt, userPrompt) {
+    const type = slot.type || 'openai';
+    const base = normalizeBaseUrl(slot.url, type);
+    if (!base || !slot.key) throw new Error('尚未在「API配置」填写语言模型地址或 Key');
+    if (!slot.model) throw new Error('尚未在「API配置」填写语言模型名称');
+
+    if (type === 'google') {
+      const url = `${base}/v1beta/models/${encodeURIComponent(slot.model)}:generateContent?key=${encodeURIComponent(slot.key)}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+          generationConfig: { temperature }
+        })
+      });
+      if (!res.ok) throw new Error(await readHttpError(res));
+      const data = await res.json();
+      const parts = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
+      return parts.filter(p => !p.thought).map(p => p.text || '').join('').trim();
     }
 
-    if (!rawCfg) return null;
-    const node = rawCfg.active || rawCfg.primary || rawCfg;
-    const url = (node.url || node.apiUrl || node.baseUrl || '').trim();
-    const key = (node.key || node.apiKey || '').trim();
-    const model = (node.model || node.modelName || '').trim();
-    const provider = node.provider || rawCfg.provider || 'openai';
-    if (!url || !key || !model) return null;
-    return { provider, url, key, model };
+    if (type === 'anthropic') {
+      const url = `${base}/v1/messages`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': slot.key,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: slot.model,
+          max_tokens: 768,
+          temperature,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }]
+        })
+      });
+      if (!res.ok) throw new Error(await readHttpError(res));
+      const data = await res.json();
+      const blocks = Array.isArray(data.content) ? data.content : [];
+      return blocks.filter(b => b.type === 'text').map(b => b.text || '').join('').trim();
+    }
+
+    const url = `${base}/chat/completions`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${slot.key}`
+      },
+      body: JSON.stringify({
+        model: slot.model,
+        temperature,
+        stream: false,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ]
+      })
+    });
+    if (!res.ok) throw new Error(await readHttpError(res));
+    const data = await res.json();
+    const msg = (data.choices && data.choices[0] && data.choices[0].message) || {};
+    if (Array.isArray(msg.content)) {
+      return msg.content.filter(b => b && (b.type === 'text' || typeof b.text === 'string')).map(b => b.text || '').join('').trim();
+    }
+    return String(msg.content || '').trim();
   }
 
   function getCharContext(charId, threadId) {
@@ -84,7 +147,7 @@
     const charObj = chars.find(c => c.id === charId) || chars[0] || null;
     const charName = (charObj && (charObj.name || charObj.nickname)) || '对方';
     const persona = charObj
-      ? [charObj.persona, charObj.personality, charObj.background, charObj.bio, charObj.description].filter(Boolean).join('\n')
+      ? [charObj.persona, charObj.personality, charObj.background, charObj.bio, charObj.setting].filter(Boolean).join('\n')
       : '';
 
     let recentLines = [];
@@ -111,23 +174,24 @@
   }
 
   async function requestTakeoverTurn(ctx, attemptNum, clashHistory) {
-    const active = resolveActiveApiConfig();
-    if (!active) {
-      return { error: '未检测到可用的聊天 API 配置，请先在「API」中完成配置。' };
+    if (!window.PhoneAPI || typeof window.PhoneAPI.getConfig !== 'function') {
+      throw new Error('PhoneAPI 未就绪');
     }
-
+    const cfg = window.PhoneAPI.getConfig('llm');
+    if (!cfg || !cfg.primary) {
+      throw new Error('未找到语言模型配置');
+    }
+    const temp = typeof cfg.temperature === 'number' ? cfg.temperature : 0.9;
     const isInitial = attemptNum === 0;
+
     const systemPrompt = [
       `你现在正在扮演「${ctx.charName}」。`,
       ctx.persona ? `【角色人设】\n${ctx.persona}` : '',
       ctx.recentLines.length ? `【最近聊天上下文】\n${ctx.recentLines.join('\n')}` : '',
       `【当前情境】`,
       isInitial
-        ? `你刚刚登录了 User 的账号，把 User 踢下线了。现在 User 屏幕已经弹出「下线通知」。请结合你的人设、你们当下的关系以及刚才聊过的内容，现场写出 14~20 句此刻盘旋在你心头、将铺满 User 屏幕的暗红短句（lines，每句 2~12 字，完全符合你自己的口吻与情绪，不准套模板）。`
-        : `你刚刚登录了 User 的账号，User 正在第 ${attemptNum} 次点击「重新登录」试图把你顶下去。没有任何预设次数限制，完全基于你此刻的性格、感情状态和刚才聊过的内容自己决定：
-1. 此刻是继续占着账号拦住 User（allow: false），还是心软/退让/被顶下线而放行（allow: true）？
-2. 弹窗提示语（modalText，25字以内，贴合你此刻对 User 说的话）。
-3. 若不放行，给出 12~18 句新铺上屏幕的短句（lines，每句 2~12 字）。`,
+        ? `你刚刚登录了 User 的账号，把 User 踢下线了。现在 User 屏幕已经弹出「下线通知」。请结合你的人设、你们当下的关系以及刚才聊过的内容，现场写出 14~20 句此刻盘旋在你心头、将铺满 User 屏幕的暗红短句（lines，每句 2~12 字，完全符合你自己的口吻与情绪）。`
+        : `你刚刚登录了 User 的账号，User 正在第 ${attemptNum} 次点击「重新登录」试图把你顶下去。没有任何预设次数限制，完全基于你此刻的性格、感情状态和刚才聊过的内容自己决定：\n1. 此刻是继续占着账号拦住 User（allow: false），还是心软/退让/被顶下线而放行让 User 登回来（allow: true）？\n2. 弹窗提示语（modalText，25字以内，贴合你此刻对 User 说的话）。\n3. 若不放行，给出 12~18 句新铺上屏幕的短句（lines，每句 2~12 字）。`,
       `严格只输出 JSON，不要 markdown 代码块，格式：{"allow":false,"modalText":"...","lines":["..."]}`
     ].filter(Boolean).join('\n\n');
 
@@ -137,74 +201,42 @@
         ? `前几轮顶号过程：\n${clashHistory.join('\n')}\n现在 User 第 ${attemptNum} 次点击了「重新登录」。请立即做出真实反应。`
         : `现在 User 第 ${attemptNum} 次点击了「重新登录」。请立即做出真实反应。`);
 
-    const baseUrl = active.url.replace(/\/+$/, '');
-    let endpoint = baseUrl;
-    let headers = { 'Content-Type': 'application/json' };
-    let body = {};
-
-    if (active.provider === 'google') {
-      endpoint = `${baseUrl}/models/${encodeURIComponent(active.model)}:generateContent?key=${encodeURIComponent(active.key)}`;
-      body = {
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-        generationConfig: { temperature: 0.95 }
-      };
-    } else if (active.provider === 'anthropic') {
-      endpoint = baseUrl.endsWith('/messages') ? baseUrl : `${baseUrl}/messages`;
-      headers['x-api-key'] = active.key;
-      headers['anthropic-version'] = '2023-06-01';
-      body = {
-        model: active.model,
-        max_tokens: 600,
-        temperature: 0.95,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }]
-      };
-    } else {
-      endpoint = baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl}/chat/completions`;
-      headers['Authorization'] = `Bearer ${active.key}`;
-      body = {
-        model: active.model,
-        temperature: 0.95,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ]
-      };
-    }
-
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body)
-    });
-
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-
     let rawText = '';
-    if (active.provider === 'google') {
-      rawText = data?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
-    } else if (active.provider === 'anthropic') {
-      rawText = Array.isArray(data?.content) ? data.content.map(c => c.text || '').join('') : '';
-    } else {
-      rawText = data?.choices?.[0]?.message?.content || '';
+    let usedModel = cfg.primary.model;
+    let retried = false;
+
+    try {
+      rawText = await callLlmSlot(cfg.primary, temp, systemPrompt, userPrompt);
+    } catch (err) {
+      const hasBackup = cfg.backupEnabled && cfg.backup && cfg.backup.url && cfg.backup.key;
+      if (cfg.autoRetry) {
+        const retrySlot = hasBackup ? cfg.backup : cfg.primary;
+        usedModel = retrySlot.model;
+        retried = true;
+        try {
+          rawText = await callLlmSlot(retrySlot, temp, systemPrompt, userPrompt);
+        } catch (err2) {
+          window.PhoneAPI.addLog({ module: 'LLM', source: '顶号实时对抗', ok: false, rawError: err2.message || String(err2) });
+          throw err2;
+        }
+      } else {
+        window.PhoneAPI.addLog({ module: 'LLM', source: '顶号实时对抗', ok: false, rawError: err.message || String(err) });
+        throw err;
+      }
     }
 
     try {
-      if (window.PhoneAPI && typeof window.PhoneAPI.addLog === 'function') {
-        window.PhoneAPI.addLog({
-          type: 'LLM',
-          status: '成功',
-          source: '顶号实时对抗',
-          detail: `模型 ${active.model} 第 ${attemptNum} 轮响应`
-        });
-      }
+      window.PhoneAPI.addLog({
+        module: 'LLM',
+        source: retried ? '顶号实时对抗（重试）' : '顶号实时对抗',
+        ok: true,
+        rawError: `模型 ${usedModel} 第 ${attemptNum} 轮响应成功`
+      });
     } catch (e) {}
 
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      return { allow: false, modalText: rawText.slice(0, 28), lines: [] };
+      return { allow: false, modalText: rawText.slice(0, 28) || '你别想把我顶下去。', lines: [] };
     }
     return JSON.parse(jsonMatch[0]);
   }
@@ -269,7 +301,16 @@
       if (!cleanLines.length) return;
       const pick = () => cleanLines[Math.floor(Math.random() * cleanLines.length)];
 
-      if (!underlayEl.children.length) {
+      // 初次入场：由少到多、逐渐加速铺满（约 3.8 秒内渐进吞没整屏）
+      if (!underlayEl.children.length && !wallEl.children.length) {
+        // 1. 先零星浮出前 10 句（慢节奏，让人看清第一批字）
+        for (let i = 0; i < 10; i++) {
+          const level = i % 3 === 0 ? 'lv-top' : 'lv-mid';
+          spawnItem(pick(), level, 12 + Math.random() * 76, 10 + Math.random() * 78, 120 + i * 150);
+        }
+
+        // 2. 底层暗红密字从 900ms 起逐行渐隐渗出
+        const order = Array.from({ length: 44 }, (_, i) => i).sort(() => Math.random() - 0.5);
         for (let r = 0; r < 44; r++) {
           const row = document.createElement('div');
           row.className = 'cto-underlay-row';
@@ -278,30 +319,46 @@
           row.textContent = segs.join(' ');
           row.style.setProperty('--cto-ux', `${-Math.round(Math.random() * 60)}px`);
           underlayEl.appendChild(row);
+          addTimer(() => row.classList.add('show'), 950 + order[r] * 55);
         }
-      }
 
-      if (!wallEl.children.length) {
-        let idx = 0;
-        for (let r = 0; r < 18; r++) {
+        // 3. 1.2s ~ 3.8s 越出越快，层层叠满全屏
+        const coords = [];
+        for (let r = 0; r < 16; r++) {
           for (let c = 0; c < 6; c++) {
-            const x = 3 + c * 18.8 + (Math.random() - 0.5) * 10;
-            const y = 2 + r * 5.6 + (Math.random() - 0.5) * 3;
-            spawnItem(pick(), 'lv-bg', x, y, 8 + idx * 5);
-            idx++;
+            coords.push({
+              x: 3 + c * 18.8 + (Math.random() - 0.5) * 10,
+              y: 2 + r * 6.2 + (Math.random() - 0.5) * 3.5,
+              level: 'lv-bg'
+            });
           }
         }
-        for (let i = 0; i < 105; i++) {
-          const r = Math.random();
-          const level = r > 0.84 ? 'lv-huge' : (r > 0.52 ? 'lv-top' : 'lv-mid');
-          spawnItem(pick(), level, 4 + Math.random() * 92, 2 + Math.random() * 96, 100 + i * 9);
+        for (let i = 0; i < 95; i++) {
+          const rnd = Math.random();
+          coords.push({
+            x: 4 + Math.random() * 92,
+            y: 2 + Math.random() * 96,
+            level: rnd > 0.85 ? 'lv-huge' : (rnd > 0.52 ? 'lv-top' : 'lv-mid')
+          });
         }
-      } else {
-        cleanLines.forEach((txt, i) => {
-          const level = txt.length <= 4 ? 'lv-huge' : (i % 3 === 0 ? 'lv-top' : 'lv-mid');
-          spawnItem(txt, level, 5 + Math.random() * 90, 3 + Math.random() * 94, i * 24);
+        coords.sort(() => Math.random() - 0.5);
+
+        const total = coords.length;
+        coords.forEach((pt, idx) => {
+          // 加速曲线：前慢后快，越来越密
+          const p = idx / total;
+          const delay = Math.round(950 + Math.pow(p, 0.72) * 2900);
+          spawnItem(pick(), pt.level, pt.x, pt.y, delay);
         });
-        while (wallEl.children.length > 340) {
+      } else {
+        // 每次点「重新登录」被拦：继续渐进往上叠 22 句新词
+        const count = Math.max(cleanLines.length, 22);
+        for (let i = 0; i < count; i++) {
+          const txt = cleanLines[i % cleanLines.length];
+          const level = txt.length <= 4 ? 'lv-huge' : (i % 3 === 0 ? 'lv-top' : 'lv-mid');
+          spawnItem(txt, level, 5 + Math.random() * 90, 3 + Math.random() * 94, 40 + i * 48);
+        }
+        while (wallEl.children.length > 360) {
           wallEl.removeChild(wallEl.firstChild);
         }
       }
@@ -330,7 +387,6 @@
       }, 320);
     }
 
-    // 初始铺屏：优先用传入的 AI 台词，否则现场向 AI 生成第一批
     if (Array.isArray(opts.initialLines) && opts.initialLines.length) {
       floodWallFromLines(opts.initialLines);
       if (opts.initialModalText) descEl.textContent = opts.initialModalText;
@@ -364,9 +420,9 @@
         errMsg = e && e.message ? e.message : '请求失败';
       }
 
-      if (errMsg || !result || result.error) {
+      if (errMsg || !result) {
         titleEl.textContent = '连接异常';
-        descEl.textContent = (result && result.error) || `接口请求失败（${errMsg}），请检查 API 后重试或点「退出」。`;
+        descEl.textContent = `接口请求失败（${errMsg || '无响应'}），请检查 API 后重试或点「退出」。`;
         busy = false;
         reloginBtn.disabled = false;
         reloginBtn.textContent = '重新登录';
