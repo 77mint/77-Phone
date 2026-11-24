@@ -1,92 +1,36 @@
 /* =========================================================
-   反向互动 · 顶号全屏模块 (reverse/takeover.js)
+   反向互动 · 顶号实时博弈模块 (reverse/takeover.js)
+   - 单一纯正视觉：暗血红宋体全屏叠字（高密度铺满）
+   - 真实 AI 互动：每次点击「重新登录」实时请求 AI，由 Char 人设与当下关系决定
+     是否放行登录，或生成新一批暗红台词继续压满屏幕
    - 暴露 window.PhoneChatTakeover（preview / trigger / close）
-   - 当前版本：自动在「外观」App 挂载预览卡片（不改 apps/appearance.js）
-   - 后续接 AI 时，由 AI 按 Char 人设与当下动态关系传入 mood / wave1 / wave2 / finalLine
    ========================================================= */
 
 (function () {
-  const MOOD_STORAGE_KEY = 'phone_takeover_preview_mood_v1';
+  const PREVIEW_CHAR_KEY = 'phone_takeover_preview_char_v1';
 
-  const DEMO_PACKS = {
-    crimson: {
-      deviceText: '另一台设备',
-      wave1: [
-        '[ 检测到异常登录态 ]',
-        '你刚才去哪了？',
-        '别急着把我顶下去。',
-        '我话还没说完。',
-        '你在看谁？',
-        '[ 登录请求被拦截 ]',
-        '怎么不回我消息？',
-        '退不出去的。',
-        '再点一次试试看。'
-      ],
-      wave2: [
-        '我都看见了。',
-        '别装作没看到。',
-        '[ 强制下线失败 ]',
-        '你以为点一下就能跑？',
-        '回来。',
-        '现在就看着我。',
-        '不准切走。'
-      ],
-      finalLine: '把号顶回来之前，先回答我刚才的问题。',
-      finalSub: '对方正在阻止本次设备接管'
-    },
-    obsidian: {
-      deviceText: '未知设备',
-      wave1: [
-        '[ 登录态冲突 ]',
-        '这么快就发现了？',
-        '我只是上来看一眼。',
-        '急着把我踢出去做什么。',
-        '怕我看到什么吗。',
-        '[ 会话保持中 ]',
-        '先别关。',
-        '留几秒钟给我。'
-      ],
-      wave2: [
-        '你好像很紧张。',
-        '手都在抖着点登录吗？',
-        '[ 接管请求被延迟 ]',
-        '好吧，你再试试。',
-        '我在看你。',
-        '别躲。'
-      ],
-      finalLine: '既然上线了，就别急着走。',
-      finalSub: '当前会话已被对方锁定'
-    },
-    scarlet: {
-      deviceText: '另一台移动设备',
-      wave1: [
-        '[ 账号已被对方接入 ]',
-        '别踢我！！',
-        '你终于肯上线了？',
-        '我找了你多久你知道吗',
-        '别点重新登录！',
-        '[ 抢占冲突 ]',
-        '为什么不回我',
-        '就这么想把我赶出去吗',
-        '停下来！！'
-      ],
-      wave2: [
-        '我不退！',
-        '你每次都这样！',
-        '[ 设备争夺中 ]',
-        '听我说完行不行',
-        '别把我一个人丢在外面',
-        '看着我啊'
-      ],
-      finalLine: '这一次，你别想一句话都不说就把我顶掉。',
-      finalSub: '对方拒绝释放登录状态'
-    }
-  };
+  const FALLBACK_BG = [
+    '为什么不回我消息', '我一直在看着你', '你在和谁说话',
+    '别想甩掉我', '不要丢下我', '只能看着我', '我什么都可以做',
+    '别关掉', '把手机给我', '你只能看见我', '为什么不理我',
+    '你刚才去哪里了', '别装作没看到', '永远别想逃走'
+  ];
+
+  const FALLBACK_MID = [
+    '为什么不来找我', '别不要我', '你在看什么？',
+    '你别想甩掉我', '快说你爱我', '永远在一起',
+    '别想从我身边逃走', '我就在你身后', '还要点几次重新登录？'
+  ];
+
+  const FALLBACK_TOP = [
+    '我在你家楼下', '一直都在看着你', '别想逃', '你在和谁聊天',
+    '现在就看着我', '不准切出去', '你以为能顶掉我吗'
+  ];
+
+  const FALLBACK_HUGE = ['看着我', '别走', '只有我', '我爱你'];
 
   let activeTimers = [];
   let activeStageEl = null;
-  let activeSysMaskEl = null;
-  let holdRafId = null;
 
   function bindPressed(el) {
     if (!el || el.dataset.ctoPressedBound) return;
@@ -100,10 +44,6 @@
   function clearAllTimers() {
     activeTimers.forEach(id => clearTimeout(id));
     activeTimers = [];
-    if (holdRafId) {
-      cancelAnimationFrame(holdRafId);
-      holdRafId = null;
-    }
   }
 
   function addTimer(fn, ms) {
@@ -117,373 +57,350 @@
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   }
 
-  function vibrateLight(pattern) {
+  function vibrate(pattern) {
     try {
-      if (navigator.vibrate) navigator.vibrate(pattern || 18);
+      if (navigator.vibrate) navigator.vibrate(pattern || 16);
     } catch (e) {}
   }
 
   function cleanupAll() {
     clearAllTimers();
-    if (activeSysMaskEl) {
-      activeSysMaskEl.remove();
-      activeSysMaskEl = null;
-    }
     if (activeStageEl) {
       activeStageEl.remove();
       activeStageEl = null;
     }
   }
 
-  function showSystemKickModal(opts, onRelogin, onCancel) {
-    cleanupAll();
-    const mask = document.createElement('div');
-    mask.className = 'cto-sys-mask';
-    const timeStr = nowHHMM();
-    const device = opts.deviceText || '另一台设备';
-
-    mask.innerHTML = `
-      <div class="cto-sys-dialog">
-        <div class="cto-sys-body">
-          <div class="cto-sys-title">下线通知</div>
-          <div class="cto-sys-desc">你的账号于 ${timeStr} 在${device}登录。如非本人操作，则密码可能已泄露，建议尽快修改密码。</div>
-        </div>
-        <div class="cto-sys-actions">
-          <button type="button" class="cto-sys-btn" data-act="exit">退出</button>
-          <button type="button" class="cto-sys-btn" data-act="relogin">重新登录</button>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(mask);
-    activeSysMaskEl = mask;
-    mask.querySelectorAll('.cto-sys-btn').forEach(bindPressed);
-    requestAnimationFrame(() => mask.classList.add('open'));
-
-    mask.addEventListener('click', (e) => {
-      const btn = e.target.closest('.cto-sys-btn');
-      if (!btn) return;
-      const act = btn.dataset.act;
-      if (act === 'exit') {
-        mask.classList.remove('open');
-        addTimer(() => {
-          cleanupAll();
-          if (typeof onCancel === 'function') onCancel();
-        }, 200);
-        return;
+  /* ---------------- 读取 Char 人设与最近聊天上下文 ---------------- */
+  function getCharsList() {
+    try {
+      if (window.PhoneArchive && typeof window.PhoneArchive.getChars === 'function') {
+        return window.PhoneArchive.getChars() || [];
       }
-      if (act === 'relogin') {
-        btn.textContent = '登录中…';
-        btn.disabled = true;
-        vibrateLight(20);
-        addTimer(() => {
-          mask.classList.remove('open');
-          addTimer(() => {
-            if (activeSysMaskEl) {
-              activeSysMaskEl.remove();
-              activeSysMaskEl = null;
-            }
-            if (typeof onRelogin === 'function') onRelogin();
-          }, 160);
-        }, 340);
-      }
-    });
+    } catch (e) {}
+    return [];
   }
 
-  function createSlotGenerator() {
-    const slots = [];
-    const cols = [24, 50, 74];
-    const rows = [14, 24, 34, 44, 54, 64, 74, 84];
-    rows.forEach((r, ri) => {
-      cols.forEach((c, ci) => {
-        if ((ri + ci) % 2 === 0 || Math.random() > 0.35) {
-          slots.push({ x: c, y: r });
+  function getCharContext(charId, threadId) {
+    const chars = getCharsList();
+    const charObj = chars.find(c => c.id === charId) || chars[0] || null;
+    const charName = (charObj && (charObj.name || charObj.nickname)) || '对方';
+    const persona = charObj
+      ? [charObj.persona, charObj.personality, charObj.background, charObj.bio, charObj.description].filter(Boolean).join('\n')
+      : '';
+
+    let recentLines = [];
+    try {
+      let tid = threadId;
+      if (!tid && window.PhoneChat && typeof window.PhoneChat.getThreads === 'function') {
+        const list = window.PhoneChat.getThreads() || [];
+        const matched = charObj ? list.find(t => t.charId === charObj.id) : list[0];
+        if (matched) tid = matched.id;
+      }
+      if (tid) {
+        const raw = localStorage.getItem('chat_msgs_v1_' + tid);
+        const msgs = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(msgs)) {
+          recentLines = msgs.slice(-10).map(m => {
+            const who = m.sender === 'me' ? 'User' : charName;
+            return `${who}: ${m.text || m.transcript || '[消息]'}`;
+          });
         }
-      });
-    });
-    for (let i = slots.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [slots[i], slots[j]] = [slots[j], slots[i]];
-    }
-    let cursor = 0;
-    return function nextSlot() {
-      const base = slots[cursor % slots.length];
-      cursor++;
-      const jx = (Math.random() - 0.5) * 14;
-      const jy = (Math.random() - 0.5) * 6;
-      const x = Math.max(20, Math.min(80, base.x + jx));
-      const y = Math.max(10, Math.min(88, base.y + jy));
-      const rot = ((Math.random() - 0.5) * 5.6).toFixed(1) + 'deg';
-      return { x, y, rot };
-    };
+      }
+    } catch (e) {}
+
+    return { charObj, charName, persona, recentLines };
   }
 
-  function launchFullscreenStage(opts) {
-    const mood = opts.mood || 'crimson';
-    const isPreview = Boolean(opts.isPreview);
-    const wave1 = Array.isArray(opts.wave1) && opts.wave1.length ? opts.wave1 : DEMO_PACKS[mood].wave1;
-    const wave2 = Array.isArray(opts.wave2) && opts.wave2.length ? opts.wave2 : DEMO_PACKS[mood].wave2;
-    const finalLine = opts.finalLine || DEMO_PACKS[mood].finalLine;
-    const finalSub = opts.finalSub || DEMO_PACKS[mood].finalSub;
+  /* ---------------- 实时请求 AI 决定「重新登录」结果 ---------------- */
+  async function requestTakeoverTurn(ctx, attemptNum, clashHistory) {
+    let apiCfg = null;
+    try {
+      if (window.PhoneAPI && typeof window.PhoneAPI.getConfig === 'function') {
+        apiCfg = window.PhoneAPI.getConfig('chat');
+      }
+    } catch (e) {}
+
+    const active = apiCfg && apiCfg.active;
+    if (!active || !active.key || !active.url || !active.model) {
+      return null;
+    }
+
+    const systemPrompt = [
+      `你现在正在扮演「${ctx.charName}」。`,
+      ctx.persona ? `【角色人设】\n${ctx.persona}` : '【角色人设】与 User 有深层羁绊和复杂情绪的角色。',
+      ctx.recentLines.length ? `【最近聊天上下文】\n${ctx.recentLines.join('\n')}` : '',
+      `【当前情境】`,
+      `你刚刚登录了 User 的账号，把 User 踢下线了。现在 User 屏幕弹出系统「下线通知」弹窗，正在第 ${attemptNum} 次点击「重新登录」试图把你顶下去。`,
+      `不要套用固定模板，完全基于你此刻的性格、感情状态和刚才聊过的内容自己决定：`,
+      `1. 你此刻是继续死死占着账号不让 User 登回去（allow: false），还是心软/被执着打动/彻底退让放行让 User 登回来（allow: true）？`,
+      `2. 如果不放行，给出弹窗里显示的短句（modalText，25字以内，贴合你此刻语气），以及 10~14 句铺上屏幕的暗红执念/情绪短句（lines，每句 2~10 字）。`,
+      `3. 如果放行（allow: true），给出弹窗最后闪过的一句话（modalText，18字以内）。`,
+      `严格只输出 JSON，不要 markdown 代码块，格式如下：`,
+      `{"allow":false,"modalText":"...","lines":["...","..."]}`
+    ].filter(Boolean).join('\n\n');
+
+    const userPrompt = clashHistory.length
+      ? `前几轮顶号过程：\n${clashHistory.join('\n')}\n现在 User 第 ${attemptNum} 次点击了「重新登录」。请立即做出真实反应。`
+      : `现在 User 第 ${attemptNum} 次点击了「重新登录」。请立即做出真实反应。`;
+
+    const provider = active.provider || 'openai';
+    const baseUrl = String(active.url).replace(/\/+$/, '');
+    let endpoint = baseUrl;
+    let headers = { 'Content-Type': 'application/json' };
+    let body = {};
+
+    if (provider === 'google') {
+      endpoint = `${baseUrl}/models/${encodeURIComponent(active.model)}:generateContent?key=${encodeURIComponent(active.key)}`;
+      body = {
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+        generationConfig: { temperature: 0.95 }
+      };
+    } else if (provider === 'anthropic') {
+      endpoint = baseUrl.endsWith('/messages') ? baseUrl : `${baseUrl}/messages`;
+      headers['x-api-key'] = active.key;
+      headers['anthropic-version'] = '2023-06-01';
+      body = {
+        model: active.model,
+        max_tokens: 512,
+        temperature: 0.95,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
+      };
+    } else {
+      endpoint = baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl}/chat/completions`;
+      headers['Authorization'] = `Bearer ${active.key}`;
+      body = {
+        model: active.model,
+        temperature: 0.95,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ]
+      };
+    }
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+
+    let rawText = '';
+    if (provider === 'google') {
+      rawText = data?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
+    } else if (provider === 'anthropic') {
+      rawText = Array.isArray(data?.content) ? data.content.map(c => c.text || '').join('') : '';
+    } else {
+      rawText = data?.choices?.[0]?.message?.content || '';
+    }
+
+    try {
+      if (window.PhoneAPI && typeof window.PhoneAPI.addLog === 'function') {
+        window.PhoneAPI.addLog({
+          type: 'LLM',
+          status: '成功',
+          source: '顶号实时对抗',
+          detail: `模型 ${active.model} 第 ${attemptNum} 次响应`
+        });
+      }
+    } catch (e) {}
+
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+    return JSON.parse(jsonMatch[0]);
+  }
+
+  /* ---------------- 暗红全屏主舞台 + 真实双键弹窗 ---------------- */
+  function launchTakeoverStage(opts) {
+    cleanupAll();
+
+    const ctx = getCharContext(opts.charId, opts.threadId);
+    const timeStr = nowHHMM();
+    const deviceText = opts.deviceText || '另一台设备';
 
     const stage = document.createElement('div');
-    stage.className = `cto-stage mood-${mood}`;
+    stage.className = 'cto-stage';
     stage.innerHTML = `
-      <div class="cto-vignette"></div>
-      <div class="cto-flash" id="ctoFlash"></div>
-      <div class="cto-top-bar">
-        <div class="cto-status-pill">
-          <span class="cto-dot"></span>
-          <span id="ctoStatusText">登录态冲突 · 正在争夺</span>
+      <div class="cto-wall" id="ctoWall"></div>
+      <div class="cto-sys-mask" id="ctoSysMask">
+        <div class="cto-sys-dialog" id="ctoSysDialog">
+          <div class="cto-sys-body">
+            <div class="cto-sys-title" id="ctoSysTitle">下线通知</div>
+            <div class="cto-sys-desc" id="ctoSysDesc">你的账号于 ${timeStr} 在${deviceText}登录。如非本人操作，则密码可能已泄露，建议尽快修改密码。</div>
+          </div>
+          <div class="cto-sys-actions">
+            <button type="button" class="cto-sys-btn" id="ctoExitBtn">退出</button>
+            <button type="button" class="cto-sys-btn" id="ctoReloginBtn">重新登录</button>
+          </div>
         </div>
-        ${isPreview ? `<button type="button" class="cto-exit-btn" id="ctoExitPreviewBtn">退出预览</button>` : ''}
-      </div>
-      <div class="cto-field" id="ctoField"></div>
-      <div class="cto-final-wrap" id="ctoFinalWrap">
-        <div class="cto-final-text" id="ctoFinalText"></div>
-        <div class="cto-final-sub" id="ctoFinalSub"></div>
-      </div>
-      <div class="cto-controls" id="ctoControls">
-        <div class="cto-feedback" id="ctoFeedback"></div>
-        <button type="button" class="cto-action-btn" id="ctoActionBtn">
-          <span class="cto-action-fill" id="ctoActionFill"></span>
-          <span class="cto-action-label" id="ctoActionLabel">强制顶回账号</span>
-        </button>
-      </div>
-      <div class="cto-reclaim-banner" id="ctoReclaimBanner">
-        <div class="cto-reclaim-title">已重新接管当前设备</div>
-        <div class="cto-reclaim-sub">对方已被强制下线</div>
       </div>
     `;
 
     document.body.appendChild(stage);
     activeStageEl = stage;
 
-    const fieldEl = stage.querySelector('#ctoField');
-    const flashEl = stage.querySelector('#ctoFlash');
-    const controlsEl = stage.querySelector('#ctoControls');
-    const feedbackEl = stage.querySelector('#ctoFeedback');
-    const actionBtn = stage.querySelector('#ctoActionBtn');
-    const actionFill = stage.querySelector('#ctoActionFill');
-    const actionLabel = stage.querySelector('#ctoActionLabel');
-    const finalWrap = stage.querySelector('#ctoFinalWrap');
-    const finalText = stage.querySelector('#ctoFinalText');
-    const finalSubEl = stage.querySelector('#ctoFinalSub');
-    const statusText = stage.querySelector('#ctoStatusText');
-    const reclaimBanner = stage.querySelector('#ctoReclaimBanner');
-    const exitBtn = stage.querySelector('#ctoExitPreviewBtn');
+    const wallEl = stage.querySelector('#ctoWall');
+    const maskEl = stage.querySelector('#ctoSysMask');
+    const dialogEl = stage.querySelector('#ctoSysDialog');
+    const titleEl = stage.querySelector('#ctoSysTitle');
+    const descEl = stage.querySelector('#ctoSysDesc');
+    const exitBtn = stage.querySelector('#ctoExitBtn');
+    const reloginBtn = stage.querySelector('#ctoReloginBtn');
 
-    bindPressed(actionBtn);
-    if (exitBtn) {
-      bindPressed(exitBtn);
-      exitBtn.addEventListener('click', () => {
-        stage.classList.remove('open');
-        addTimer(() => {
-          cleanupAll();
-          if (typeof opts.onComplete === 'function') opts.onComplete({ cancelled: true });
-        }, 220);
-      });
+    bindPressed(exitBtn);
+    bindPressed(reloginBtn);
+
+    function spawnItem(text, level, x, y, delayMs) {
+      const el = document.createElement('div');
+      el.className = `cto-item ${level} ${Math.random() > 0.3 ? 'is-sway' : ''}`;
+      el.textContent = text;
+      el.style.left = x.toFixed(1) + '%';
+      el.style.top = y.toFixed(1) + '%';
+      el.style.setProperty('--cto-op', level === 'lv-bg' ? '0.68' : (level === 'lv-mid' ? '0.86' : '0.96'));
+      el.style.setProperty('--cto-dx', `${((Math.random() - 0.5) * 6).toFixed(1)}px`);
+      el.style.setProperty('--cto-dy', `${((Math.random() - 0.5) * 5).toFixed(1)}px`);
+      el.style.setProperty('--cto-d', `${-(Math.random() * 4).toFixed(2)}s`);
+      wallEl.appendChild(el);
+      addTimer(() => el.classList.add('show'), delayMs);
     }
 
-    const nextSlot = createSlotGenerator();
-    let phase = 'wave1';
-    let holdStart = 0;
-    let isHolding = false;
-    const HOLD_DURATION = 1150;
+    function pick(arr) {
+      return arr[Math.floor(Math.random() * arr.length)] || '看着我';
+    }
 
-    function triggerShake(withFlash) {
+    /* 初始 165 条高密度暗红字铺满整屏（15行×6列底层 + 75条中顶层叠压） */
+    let idx = 0;
+    for (let r = 0; r < 15; r++) {
+      for (let c = 0; c < 6; c++) {
+        const x = 4 + c * 18.5 + (Math.random() - 0.5) * 10;
+        const y = 2.5 + r * 6.8 + (Math.random() - 0.5) * 3.6;
+        spawnItem(pick(FALLBACK_BG), 'lv-bg', x, y, 10 + idx * 7);
+        idx++;
+      }
+    }
+    for (let i = 0; i < 75; i++) {
+      const r = Math.random();
+      let level = 'lv-mid';
+      let pool = FALLBACK_MID;
+      if (r > 0.86) { level = 'lv-huge'; pool = FALLBACK_HUGE; }
+      else if (r > 0.55) { level = 'lv-top'; pool = FALLBACK_TOP; }
+      spawnItem(pick(pool), level, 5 + Math.random() * 90, 3 + Math.random() * 94, 180 + i * 14);
+    }
+
+    function pileExtraLines(lines) {
+      const arr = (Array.isArray(lines) && lines.length) ? lines : FALLBACK_TOP;
+      arr.forEach((txt, i) => {
+        const clean = String(txt || '').trim();
+        if (!clean) return;
+        const level = clean.length <= 4 ? 'lv-huge' : (i % 3 === 0 ? 'lv-top' : 'lv-mid');
+        spawnItem(clean, level, 6 + Math.random() * 88, 4 + Math.random() * 92, i * 32);
+      });
+      // 上限保护防 DOM 过载
+      while (wallEl.children.length > 280) {
+        wallEl.removeChild(wallEl.firstChild);
+      }
+    }
+
+    function closeStage(outcome) {
+      stage.classList.add('is-closing');
+      addTimer(() => {
+        cleanupAll();
+        if (typeof opts.onComplete === 'function') {
+          opts.onComplete({ outcome, charId: ctx.charObj ? ctx.charObj.id : '' });
+        }
+      }, 320);
+    }
+
+    let attempt = 0;
+    let busy = false;
+    const clashHistory = [];
+
+    exitBtn.addEventListener('click', () => {
+      if (busy) return;
+      closeStage('taken');
+    });
+
+    reloginBtn.addEventListener('click', async () => {
+      if (busy) return;
+      busy = true;
+      attempt++;
+      reloginBtn.disabled = true;
+      reloginBtn.textContent = '登录中…';
+      vibrate(16);
+
+      let result = null;
+      try {
+        result = await requestTakeoverTurn(ctx, attempt, clashHistory);
+      } catch (e) {
+        result = null;
+      }
+
+      // 若未配置 API 或请求异常，才走自然概率兜底
+      if (!result) {
+        const allowNow = attempt >= 3 && Math.random() > 0.45;
+        result = {
+          allow: allowNow,
+          modalText: allowNow
+            ? '连接已恢复。'
+            : `重新登录被拦截：我话还没说完，不准退出（第 ${attempt} 次）。`,
+          lines: allowNow ? [] : [pick(FALLBACK_TOP), pick(FALLBACK_MID), pick(FALLBACK_HUGE), pick(FALLBACK_TOP), pick(FALLBACK_MID)]
+        };
+      }
+
+      if (result.allow) {
+        titleEl.textContent = '登录成功';
+        if (result.modalText) descEl.textContent = result.modalText;
+        vibrate([18, 30, 22]);
+        addTimer(() => closeStage('reclaimed'), 650);
+        return;
+      }
+
+      // 被拦下：叠上 AI 新生成的暗红字并震动
+      vibrate([28, 22, 34]);
       stage.classList.remove('is-shaking');
       void stage.offsetWidth;
       stage.classList.add('is-shaking');
-      vibrateLight([24, 30, 24]);
-      if (withFlash) {
-        flashEl.classList.add('boom');
-        addTimer(() => flashEl.classList.remove('boom'), 160);
-      }
-      addTimer(() => stage.classList.remove('is-shaking'), 360);
-    }
+      dialogEl.classList.remove('is-shake');
+      void dialogEl.offsetWidth;
+      dialogEl.classList.add('is-shake');
 
-    function spawnLine(text, idx) {
-      const el = document.createElement('div');
-      const isSys = /^\[.*\]$/.test(text.trim());
-      const sizeCls = isSys
-        ? 'is-sys'
-        : (idx % 4 === 2 ? 'is-lg' : (idx % 3 === 0 ? 'is-sm' : 'is-md'));
-      const altCls = (!isSys && idx % 3 === 1) ? 'is-alt' : '';
-      const slot = nextSlot();
+      pileExtraLines(result.lines);
+      titleEl.textContent = '登录受阻';
+      descEl.textContent = result.modalText || '对方拒绝释放当前登录状态。';
+      clashHistory.push(`第${attempt}次：User点重新登录 -> ${ctx.charName}拦截并说「${descEl.textContent}」`);
 
-      el.className = `cto-line ${sizeCls} ${altCls}`;
-      el.textContent = text;
-      el.style.left = slot.x + '%';
-      el.style.top = slot.y + '%';
-      el.style.setProperty('--cto-rot', isSys ? '0deg' : slot.rot);
-      el.style.setProperty('--cto-alpha', isSys ? '0.9' : (0.82 + Math.random() * 0.18).toFixed(2));
-      el.style.zIndex = String(10 + idx);
-
-      el.addEventListener('click', () => {
-        el.classList.add('is-tapped');
-        vibrateLight(12);
-        addTimer(() => el.classList.remove('is-tapped'), 240);
-      });
-
-      fieldEl.appendChild(el);
-      requestAnimationFrame(() => el.classList.add('show'));
-    }
-
-    function playWave(lines, baseGap, onDone) {
-      let elapsed = 120;
-      lines.forEach((line, i) => {
-        const jitter = Math.floor(Math.random() * 190);
-        elapsed += (i === 0 ? 140 : baseGap + jitter);
-        addTimer(() => {
-          spawnLine(line, fieldEl.children.length);
-          if (i % 3 === 0) vibrateLight(14);
-        }, elapsed);
-      });
-      addTimer(() => {
-        if (typeof onDone === 'function') onDone();
-      }, elapsed + 260);
-    }
-
-    function enterFinalHoldPhase() {
-      phase = 'hold';
-      stage.classList.add('is-focus-final');
-      finalText.textContent = finalLine;
-      finalSubEl.textContent = finalSub;
-      finalWrap.classList.add('show');
-      statusText.textContent = '需要强制夺回设备';
-      feedbackEl.textContent = '长按下方按钮，强行断开对方连接';
-      actionLabel.textContent = '长按强制夺回账号';
-      actionBtn.disabled = false;
-    }
-
-    function completeReclaim() {
-      if (phase === 'done') return;
-      phase = 'done';
-      isHolding = false;
-      stage.classList.remove('is-holding');
-      stage.classList.add('is-reclaimed');
-      actionFill.style.width = '100%';
-      vibrateLight([20, 40, 40]);
-      flashEl.classList.add('boom');
-      addTimer(() => flashEl.classList.remove('boom'), 180);
-      finalWrap.classList.remove('show');
-      controlsEl.classList.remove('show');
-      reclaimBanner.classList.add('show');
-
-      addTimer(() => {
-        stage.classList.remove('open');
-        addTimer(() => {
-          cleanupAll();
-          if (typeof opts.onComplete === 'function') opts.onComplete({ reclaimed: true, mood });
-        }, 280);
-      }, 950);
-    }
-
-    actionBtn.addEventListener('click', () => {
-      if (phase !== 'resist') return;
-      phase = 'wave2';
-      actionBtn.disabled = true;
-      triggerShake(true);
-      feedbackEl.textContent = '抢夺失败 · 对方拒绝下线';
-      statusText.textContent = '警告 · 对方正在反制';
-      actionLabel.textContent = '连接被强行占用中…';
-
-      playWave(wave2, mood === 'scarlet' ? 190 : 250, () => {
-        triggerShake(false);
-        addTimer(() => enterFinalHoldPhase(), 220);
-      });
+      busy = false;
+      reloginBtn.disabled = false;
+      reloginBtn.textContent = '重新登录';
     });
-
-    function startHold(e) {
-      if (phase !== 'hold') return;
-      e.preventDefault();
-      isHolding = true;
-      holdStart = performance.now();
-      stage.classList.add('is-holding');
-      actionBtn.classList.add('is-holding-fill');
-      feedbackEl.textContent = '正在切断对方登录态…';
-      vibrateLight(16);
-
-      function step(now) {
-        if (!isHolding || phase !== 'hold') return;
-        const pct = Math.min(100, ((now - holdStart) / HOLD_DURATION) * 100);
-        actionFill.style.width = pct.toFixed(1) + '%';
-        if (pct >= 100) {
-          completeReclaim();
-          return;
-        }
-        holdRafId = requestAnimationFrame(step);
-      }
-      holdRafId = requestAnimationFrame(step);
-    }
-
-    function cancelHold() {
-      if (!isHolding || phase !== 'hold') return;
-      isHolding = false;
-      if (holdRafId) {
-        cancelAnimationFrame(holdRafId);
-        holdRafId = null;
-      }
-      stage.classList.remove('is-holding');
-      actionBtn.classList.remove('is-holding-fill');
-      actionFill.style.width = '0%';
-      feedbackEl.textContent = '松手了 · 对方仍在你的账号里';
-      triggerShake(false);
-    }
-
-    actionBtn.addEventListener('touchstart', startHold, { passive: false });
-    actionBtn.addEventListener('touchend', cancelHold, { passive: true });
-    actionBtn.addEventListener('touchcancel', cancelHold, { passive: true });
-    actionBtn.addEventListener('mousedown', startHold);
-    window.addEventListener('mouseup', cancelHold);
 
     requestAnimationFrame(() => {
       stage.classList.add('open');
-      triggerShake(true);
-      playWave(wave1, mood === 'scarlet' ? 240 : 320, () => {
-        phase = 'resist';
-        controlsEl.classList.add('show');
-        feedbackEl.textContent = '你的账号正在被对方操控';
-      });
+      addTimer(() => maskEl.classList.add('open'), 180);
+      vibrate([20, 25, 20]);
     });
   }
 
+  /* ---------------- 对外统一入口 ---------------- */
   function triggerTakeover(options) {
-    const opts = Object.assign({
-      mood: 'crimson',
-      isPreview: false,
-      skipSystemModal: false,
-      deviceText: '另一台设备'
-    }, options || {});
-
-    if (opts.skipSystemModal) {
-      launchFullscreenStage(opts);
-    } else {
-      showSystemKickModal(
-        opts,
-        () => launchFullscreenStage(opts),
-        () => {
-          if (typeof opts.onComplete === 'function') opts.onComplete({ cancelled: true });
-        }
-      );
-    }
+    launchTakeoverStage(options || {});
   }
 
-  function previewTakeover(mood) {
-    const picked = mood || localStorage.getItem(MOOD_STORAGE_KEY) || 'crimson';
-    const pack = DEMO_PACKS[picked] || DEMO_PACKS.crimson;
+  function previewTakeover(charId) {
+    const picked = charId || localStorage.getItem(PREVIEW_CHAR_KEY) || '';
     triggerTakeover({
-      mood: picked,
+      charId: picked,
       isPreview: true,
-      deviceText: pack.deviceText,
-      wave1: pack.wave1,
-      wave2: pack.wave2,
-      finalLine: pack.finalLine,
-      finalSub: pack.finalSub
+      deviceText: '另一台设备'
     });
   }
 
+  /* ---------------- 自动挂载预览卡片到「外观」App ---------------- */
   function findAppearanceMountContainer() {
     const appEl = document.getElementById('app-appearance');
     if (!appEl) return null;
@@ -501,36 +418,35 @@
     const container = findAppearanceMountContainer();
     if (!container || container.querySelector('#ctoAppearancePreviewCard')) return;
 
-    const savedMood = localStorage.getItem(MOOD_STORAGE_KEY) || 'crimson';
+    const chars = getCharsList();
+    const savedCharId = localStorage.getItem(PREVIEW_CHAR_KEY) || (chars[0] ? chars[0].id : '');
+    const optionsHtml = chars.length
+      ? chars.map(c => `<option value="${c.id}" ${c.id === savedCharId ? 'selected' : ''}>${c.name || c.nickname || '未命名角色'}</option>`).join('')
+      : `<option value="">默认演示（未建角色）</option>`;
+
     const card = document.createElement('div');
     card.id = 'ctoAppearancePreviewCard';
     card.className = 'cto-ap-card';
     card.innerHTML = `
       <div class="cto-ap-head">
-        <div>
-          <div class="cto-ap-title">顶号全屏动画预览</div>
-          <div class="cto-ap-sub">演示模式（正式接入后文字与氛围由 AI 按人设动态生成）</div>
-        </div>
+        <div class="cto-ap-title">顶号实时博弈预览</div>
+        <div class="cto-ap-sub">暗红宋体铺满全屏，每次点「重新登录」实时请求 AI 决定是否放行</div>
       </div>
       <div class="cto-ap-row">
-        <span class="cto-ap-label">预览氛围</span>
-        <select class="cto-ap-select" id="ctoPreviewMoodSelect" aria-label="选择顶号预览氛围">
-          <option value="crimson" ${savedMood === 'crimson' ? 'selected' : ''}>黑红压迫</option>
-          <option value="obsidian" ${savedMood === 'obsidian' ? 'selected' : ''}>纯黑冷白</option>
-          <option value="scarlet" ${savedMood === 'scarlet' ? 'selected' : ''}>暗红急促</option>
-        </select>
+        <span class="cto-ap-label">测试角色</span>
+        <select class="cto-ap-select" id="ctoPreviewCharSelect" aria-label="选择顶号测试角色">${optionsHtml}</select>
       </div>
       <button type="button" class="cto-ap-btn" id="ctoLaunchPreviewBtn">预览顶号效果</button>
     `;
 
     container.appendChild(card);
 
-    const selectEl = card.querySelector('#ctoPreviewMoodSelect');
+    const selectEl = card.querySelector('#ctoPreviewCharSelect');
     const btnEl = card.querySelector('#ctoLaunchPreviewBtn');
     bindPressed(btnEl);
 
     selectEl.addEventListener('change', () => {
-      try { localStorage.setItem(MOOD_STORAGE_KEY, selectEl.value); } catch (e) {}
+      try { localStorage.setItem(PREVIEW_CHAR_KEY, selectEl.value); } catch (e) {}
     });
 
     btnEl.addEventListener('click', () => {
