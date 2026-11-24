@@ -1,0 +1,262 @@
+/* =========================================================
+   Chat 表情包发送抽屉 & 联想搜图 & 表情包气泡 (apps/chat-emoji.css)
+   - 独立挂载于 #ctRoomFooter 与 #ctRoomMessages，不改动 apps/chat.css
+   - 全字号跟随 --app-font-size，全控件配齐 .is-pressed 物理手感
+   ========================================================= */
+
+#app-chat {
+  --cte-drawer-bg: #f7f7f7;
+  --cte-card-bg: #ffffff;
+  --cte-pill-bg: #e5e5ea;
+  --cte-pill-active-bg: #111111;
+  --cte-pill-active-fg: #ffffff;
+  --cte-text: #111111;
+  --cte-muted: #8e8e93;
+  --cte-border: rgba(0, 0, 0, 0.08);
+}
+
+/* 联想搜图悬浮条（贴在输入栏上方） */
+.cte-assoc-bar {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 4px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  border-top: 0.5px solid var(--cte-border);
+  background: var(--cte-drawer-bg);
+}
+
+.cte-assoc-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.cte-assoc-bar.show {
+  display: flex;
+}
+
+.cte-assoc-chip {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  border: 0.5px solid var(--cte-border);
+  background: var(--cte-card-bg);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.14s ease;
+}
+
+.cte-assoc-chip:active,
+.cte-assoc-chip.is-pressed {
+  transform: scale(0.9);
+  opacity: 0.8;
+}
+
+.cte-assoc-chip img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+/* 底部表情包抽屉（平滑推起输入栏） */
+.cte-drawer {
+  height: 0;
+  overflow: hidden;
+  background: var(--cte-drawer-bg);
+  border-top: 0 solid var(--cte-border);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  transition: height 0.26s cubic-bezier(0.32, 0.72, 0, 1), border-top-width 0.2s ease;
+}
+
+.cte-drawer.open {
+  height: calc(256px + env(safe-area-inset-bottom, 0px));
+  border-top-width: 0.5px;
+}
+
+.cte-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  flex-shrink: 0;
+  border-bottom: 0.5px solid var(--cte-border);
+}
+
+.cte-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.cte-tab {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--cte-pill-bg);
+  color: var(--cte-text);
+  font-family: inherit;
+  font-size: calc(var(--app-font-size, 15px) - 3px);
+  font-weight: 500;
+  padding: 5px 12px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.16s ease, color 0.16s ease;
+}
+
+.cte-tab:active,
+.cte-tab.is-pressed {
+  transform: scale(0.92);
+}
+
+.cte-tab.active {
+  background: var(--cte-pill-active-bg);
+  color: var(--cte-pill-active-fg);
+  font-weight: 600;
+}
+
+.cte-grid-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 10px 12px calc(14px + env(safe-area-inset-bottom, 0px));
+}
+
+.cte-grid-wrap::-webkit-scrollbar {
+  display: none;
+}
+
+.cte-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cte-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.14s ease;
+}
+
+.cte-cell:active,
+.cte-cell.is-pressed {
+  transform: scale(0.9);
+  opacity: 0.78;
+}
+
+.cte-cell-box {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  background: var(--cte-card-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.cte-cell-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.cte-cell-name {
+  width: 100%;
+  text-align: center;
+  font-size: calc(var(--app-font-size, 15px) - 4px);
+  color: var(--cte-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cte-empty {
+  text-align: center;
+  padding: 36px 16px;
+  font-size: calc(var(--app-font-size, 15px) - 2px);
+  color: var(--cte-muted);
+  line-height: 1.55;
+}
+
+.cte-empty-btn {
+  margin-top: 10px;
+  border: none;
+  border-radius: 999px;
+  background: var(--cte-pill-active-bg);
+  color: var(--cte-pill-active-fg);
+  font-family: inherit;
+  font-size: calc(var(--app-font-size, 15px) - 2px);
+  font-weight: 600;
+  padding: 7px 16px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.15s ease;
+}
+
+.cte-empty-btn:active,
+.cte-empty-btn.is-pressed {
+  transform: scale(0.93);
+  opacity: 0.85;
+}
+
+/* 聊天窗口里的表情包气泡（无底色框、无尖角） */
+#app-chat .ct-msg-bubble.cte-sticker-bubble {
+  background: transparent !important;
+  padding: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  min-width: 0;
+  min-height: 0;
+  max-width: 148px;
+}
+
+#app-chat .ct-msg-bubble.cte-sticker-bubble::before,
+#app-chat .ct-msg-bubble.cte-sticker-bubble::after {
+  display: none !important;
+  content: none !important;
+  border: none !important;
+}
+
+.cte-msg-sticker-img {
+  display: block;
+  width: 118px;
+  height: 118px;
+  max-width: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  #app-chat {
+    --cte-drawer-bg: #1c1c1e;
+    --cte-card-bg: #2c2c2e;
+    --cte-pill-bg: #2c2c2e;
+    --cte-pill-active-bg: #f2f2f7;
+    --cte-pill-active-fg: #111111;
+    --cte-text: #f2f2f7;
+    --cte-muted: #8e8e93;
+    --cte-border: rgba(255, 255, 255, 0.08);
+  }
+}
