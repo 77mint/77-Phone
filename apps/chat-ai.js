@@ -4,7 +4,7 @@
    - 读取 PhoneArchive（Char 人设）+ PhoneChatMe / PhoneMask（当前账号与面具）
    - 读取 PhoneChatDetails（显示思维链开关 / 自定义思维链 / 上下文条数）
    - 仅在空输入框点 ↑（phone:chat-request-reply）时触发，支持对方继续接着说
-   - 全兼容 <think> / <thinking> / <thought> / <cot> 与原生 reasoning/thinking 字段
+   - 全模型通用思维链（[COT]...[/COT] + 原生 reasoning/thinking/<think> 全兼容）
    - 支持顶部纯黑「对方正在输入中…」与 AI 临场决定的「打字又删除」（[RETYPE] / [GIVEUP]）
    ========================================================= */
 
@@ -161,11 +161,11 @@
 
         if (showCot) {
             prompt +=
-                `\n【强制输出格式：思考过程（每一轮都必须严格遵守，绝对不能省略）】\n` +
+                `\n【通用思考过程格式（每一轮必须输出，不可省略）】\n` +
                 (customCot
-                    ? `每次回复的最开头必须先输出 <think>...</think>，内容要求：${customCot}\n`
-                    : `每次回复的最开头必须先输出 <think>...</think>，里面用第一人称简短写下你此刻真实的内心想法、情绪波动或斟酌措辞的过程。\n`) +
-                `严格按以下格式输出：\n<think>这里写内心想法</think>\n这里写第一条回复|||这里写第二条回复`;
+                    ? `回复的最开头必须先用 [COT]...[/COT] 写出你的内心思考，要求：${customCot}\n`
+                    : `回复的最开头必须先用 [COT]...[/COT] 写一段简短真实的第一人称内心想法（情绪、斟酌措辞、没说出口的话等）。\n`) +
+                `示例：\n[COT]她怎么突然这么问，有点开心又不想表现得太明显。[/COT]\n怎么啦|||突然问这个干嘛`;
         }
 
         return prompt;
@@ -192,7 +192,7 @@
 
             const role = m.sender === 'me' ? 'user' : 'assistant';
             if (role === 'assistant' && showCot && m.cot) {
-                text = `<think>${String(m.cot).trim()}</think>\n${text}`;
+                text = `[COT]${String(m.cot).trim()}[/COT]\n${text}`;
             }
 
             if (out.length && out[out.length - 1].role === role) {
@@ -206,6 +206,11 @@
             out.push({ role: 'user', content: '（对方点开了聊天窗口，请你自然主动发一句开场白）' });
         } else if (out[out.length - 1].role === 'assistant') {
             out.push({ role: 'user', content: '（对方还没回消息，你可以顺着刚才的话题自然再继续说一两句）' });
+        }
+
+        // 在发送给 API 的最后一条 user 消息尾部附带隐藏格式提醒，确保所有模型每轮都稳定输出 [COT]...[/COT]
+        if (showCot && out.length && out[out.length - 1].role === 'user') {
+            out[out.length - 1].content += '\n\n(系统提醒：请务必在回复最开头先用 [COT]...[/COT] 写简短内心思考，再换行写微信回复正文)';
         }
 
         return out;
@@ -383,12 +388,29 @@
         let retypeCount = 0;
         let giveUp = false;
 
-        // 兼容提取 <think> / <thinking> / <thought> / <cot>
+        // 1. 通用提取 [COT]...[/COT] 和 【COT】...【/COT】
+        text = text.replace(/[\[【]COT[\]】]([\s\S]*?)[\[【]\/COT[\]】]/gi, (_, inner) => {
+            const clean = String(inner || '').trim();
+            if (clean) cot = cot ? (cot + '\n' + clean) : clean;
+            return '';
+        }).trim();
+
+        // 2. 兼容提取 <think> / <thinking> / <thought> / <cot>
         text = text.replace(/<(think|thinking|thought|cot)>([\s\S]*?)<\/\1>/gi, (_, _tag, inner) => {
             const clean = String(inner || '').trim();
             if (clean) cot = cot ? (cot + '\n' + clean) : clean;
             return '';
         }).trim();
+
+        // 3. 兜底：若模型漏写闭合标签 [/COT]，按首行切分
+        if (/^[\[【]COT[\]】]/i.test(text)) {
+            const nl = text.indexOf('\n');
+            if (nl !== -1) {
+                const head = text.slice(0, nl).replace(/^[\[【]COT[\]】]/i, '').trim();
+                if (head) cot = cot ? (cot + '\n' + head) : head;
+                text = text.slice(nl + 1).trim();
+            }
+        }
 
         // 提取 AI 临场决定的打字又删除标记
         text = text.replace(/\[RETYPE(?::(\d+))?\]/gi, (_, n) => {
