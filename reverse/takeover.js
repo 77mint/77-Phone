@@ -1,98 +1,56 @@
 /* =========================================================
-   反向互动 · 顶号实时抢夺模块 (reverse/takeover.js)
+   反向互动 · 顶号全屏模块 (reverse/takeover.js)
+   - 三套独立视觉：p1(眩晕密字墙) / p2(红字叠满屏) / p3(阴湿宋体排版)
+   - 零游戏感 UI：纯上滑手势挣脱 + 真实暗黑系统「下线通知」弹窗互顶
    - 暴露 window.PhoneChatTakeover（preview / trigger / close）
-   - 实时拔河抢夺（点按钮 / 戳碎红字墙 / 对方实时反扑与劫持按钮）
-   - 双结局：硬抢夺回 / 抢输或放弃被接管（纯黑宋体 + 竖排低语 + 猩红关键字）
-   - 当前为外观页演示预览，正式接入 AI 后由 AI 按 Char 人设与当下动态关系生成文本
    ========================================================= */
 
 (function () {
-  const MOOD_STORAGE_KEY = 'phone_takeover_preview_mood_v1';
+  const STYLE_STORAGE_KEY = 'phone_takeover_preview_style_v2';
 
   const DEMO_PACKS = {
-    crimson: {
+    p1: {
       deviceText: '另一台设备',
-      wallPhrases: [
-        '你只能是我的',
-        '别急着把我顶下去',
-        '你在看谁的聊天记录',
-        '不准退出来',
-        '看着我',
-        '我话还没说完'
-      ],
-      hijackTexts: ['不准退', '留下来', '别点了'],
-      typo: {
-        lines: [
-          { text: '把号顶回去之前，', offset: -14 },
-          { text: '先看着', kw: '我', after: '。', big: true, offset: 12 },
-          { text: '你刚才到底在', kw: '躲', after: '什么？', sub: true, offset: -6 }
-        ],
-        whispers: ['别把门关上', '我都看见了', '再跑一次试试']
-      },
-      winTypo: {
-        lines: [
-          { text: '已切断对方连接。', offset: 0 },
-          { text: '下一次，不会这么轻易松手。', sub: true, offset: 0 }
-        ],
-        whispers: ['强制下线完成', '已重新接管']
-      }
+      phrase: '你只能是我的',
+      hijackTexts: ['别点', '留下来', '不准退']
     },
-    obsidian: {
+    p2: {
+      deviceText: '另一台设备',
+      bgPhrases: [
+        '为什么不回我消息', '我一直在看着你', '你在和谁说话',
+        '别想甩掉我', '不要丢下我', '只能看着我', '我什么都可以做'
+      ],
+      midPhrases: [
+        '为什么不来找我', '别不要我', '你在看什么？',
+        '你别想甩掉我', '快说你爱我', '永远在一起'
+      ],
+      topPhrases: [
+        '我在你家楼下', '一直都在看着你', '别想逃', '你在和谁聊天'
+      ],
+      hugeWords: ['看着我', '别走', '只有我'],
+      hijackTexts: ['不许退', '看着我', '别关掉']
+    },
+    p3: {
       deviceText: '未知设备',
-      wallPhrases: [
-        '这么急着把我踢出去吗',
-        '怕我看到什么',
-        '先别关',
-        '我在看你',
-        '手在抖什么'
+      lines: [
+        { text: '说', kw: '爱', after: '这个词，', offset: -12 },
+        { text: '不觉得', sub: true, offset: 6 },
+        { text: '嘴里有', kw: '血腥', after: '味吗？', big: true, offset: 0 }
       ],
-      hijackTexts: ['别躲', '再留一会儿', '看着屏幕'],
-      typo: {
-        lines: [
-          { text: '说', kw: '不在意', after: '的时候，', offset: -10 },
-          { text: '你自己信吗？', big: true, offset: 14 },
-          { text: '账号我先替你', kw: '收着', after: '了。', sub: true, offset: -4 }
-        ],
-        whispers: ['何必这么紧张', '只是看一眼而已', '你逃不掉的']
-      },
-      winTypo: {
-        lines: [
-          { text: '对方已被顶下线。', offset: 0 },
-          { text: '刚才的痕迹，已经留在这里了。', sub: true, offset: 0 }
-        ],
-        whispers: ['会话已收回', '当前设备在线']
-      }
-    },
-    scarlet: {
-      deviceText: '另一台移动设备',
-      wallPhrases: [
-        '别踢我',
-        '为什么不回我消息',
-        '听我说完行不行',
-        '我不退',
-        '看着我啊'
+      whispers: [
+        { text: '你刚才在看谁', pos: 'pos-left' },
+        { text: '为什么不说话', pos: 'pos-right' },
+        { text: '装作不在吗', pos: 'pos-mid' },
+        { text: '感觉不到吗', pos: 'pos-low' }
       ],
-      hijackTexts: ['不许踢我', '别走', '回我一句'],
-      typo: {
-        lines: [
-          { text: '每次都是这样，', offset: -12 },
-          { text: '一句话不说就想', kw: '逃', after: '。', big: true, offset: 10 },
-          { text: '这一次，', kw: '不准', after: '走。', sub: true, offset: -8 }
-        ],
-        whispers: ['你到底在哪', '别把我丢在外面', '求你别关掉']
-      },
-      winTypo: {
-        lines: [
-          { text: '你把对方顶下线了。', offset: 0 },
-          { text: '聊天框里，对方正在重新输入。', sub: true, offset: 0 }
-        ],
-        whispers: ['连接已强行断开', '设备已恢复']
-      }
+      extraWhispers: [
+        '手还在发抖吗', '别急着关掉', '我就在这里'
+      ],
+      hijackTexts: ['别躲', '回答我', '不准走']
     }
   };
 
   let activeTimers = [];
-  let tugInterval = null;
   let activeStageEl = null;
   let activeSysMaskEl = null;
 
@@ -105,13 +63,9 @@
     el.addEventListener('touchcancel', () => el.classList.remove('is-pressed'), { passive: true });
   }
 
-  function clearAllLoops() {
+  function clearAllTimers() {
     activeTimers.forEach(id => clearTimeout(id));
     activeTimers = [];
-    if (tugInterval) {
-      clearInterval(tugInterval);
-      tugInterval = null;
-    }
   }
 
   function addTimer(fn, ms) {
@@ -139,7 +93,7 @@
   }
 
   function cleanupAll() {
-    clearAllLoops();
+    clearAllTimers();
     if (activeSysMaskEl) {
       activeSysMaskEl.remove();
       activeSysMaskEl = null;
@@ -150,407 +104,440 @@
     }
   }
 
-  /* ---------------- 阶段 0：仿系统下线弹窗 ---------------- */
-  function showSystemKickModal(opts, onRelogin, onCancel) {
-    cleanupAll();
+  /* ---------------- 真实系统「下线通知」弹窗 ---------------- */
+  function showSystemAlert(opts) {
+    if (activeSysMaskEl) {
+      activeSysMaskEl.remove();
+      activeSysMaskEl = null;
+    }
+
     const mask = document.createElement('div');
-    mask.className = 'cto-sys-mask';
+    mask.className = `cto-sys-mask ${opts.dark ? 'is-dark' : ''}`;
     const timeStr = nowHHMM();
     const device = opts.deviceText || '另一台设备';
+    const titleText = opts.title || '下线通知';
+    const descText = opts.desc || `你的账号于 ${timeStr} 在${device}登录。如非本人操作，则密码可能已泄露，建议尽快修改密码。`;
+    const leftText = opts.leftText || '退出';
+    const rightText = opts.rightText || '重新登录';
 
     mask.innerHTML = `
       <div class="cto-sys-dialog">
         <div class="cto-sys-body">
-          <div class="cto-sys-title">下线通知</div>
-          <div class="cto-sys-desc">你的账号于 ${timeStr} 在${device}登录。如非本人操作，则密码可能已泄露，建议尽快修改密码。</div>
+          <div class="cto-sys-title">${escapeHtml(titleText)}</div>
+          <div class="cto-sys-desc">${escapeHtml(descText)}</div>
         </div>
         <div class="cto-sys-actions">
-          <button type="button" class="cto-sys-btn" data-act="exit">退出</button>
-          <button type="button" class="cto-sys-btn" data-act="relogin">重新登录</button>
+          <button type="button" class="cto-sys-btn" data-act="left">${escapeHtml(leftText)}</button>
+          <button type="button" class="cto-sys-btn" data-act="right">${escapeHtml(rightText)}</button>
         </div>
       </div>
     `;
 
     document.body.appendChild(mask);
     activeSysMaskEl = mask;
+    const dialog = mask.querySelector('.cto-sys-dialog');
+    const rightBtn = mask.querySelector('[data-act="right"]');
     mask.querySelectorAll('.cto-sys-btn').forEach(bindPressed);
+
     requestAnimationFrame(() => mask.classList.add('open'));
+
+    function closeSelf(cb) {
+      mask.classList.remove('open');
+      addTimer(() => {
+        if (activeSysMaskEl === mask) {
+          mask.remove();
+          activeSysMaskEl = null;
+        }
+        if (typeof cb === 'function') cb();
+      }, 170);
+    }
 
     mask.addEventListener('click', (e) => {
       const btn = e.target.closest('.cto-sys-btn');
       if (!btn) return;
-      if (btn.dataset.act === 'exit') {
-        mask.classList.remove('open');
-        addTimer(() => {
-          cleanupAll();
-          if (typeof onCancel === 'function') onCancel();
-        }, 200);
+      const act = btn.dataset.act;
+      if (act === 'left') {
+        closeSelf(() => {
+          if (typeof opts.onExit === 'function') opts.onExit();
+        });
         return;
       }
-      if (btn.dataset.act === 'relogin') {
-        btn.textContent = '登录中…';
-        btn.disabled = true;
-        vibrate(18);
-        addTimer(() => {
-          mask.classList.remove('open');
-          addTimer(() => {
-            if (activeSysMaskEl) {
-              activeSysMaskEl.remove();
-              activeSysMaskEl = null;
-            }
-            if (typeof onRelogin === 'function') onRelogin();
-          }, 150);
-        }, 300);
+      if (act === 'right') {
+        if (typeof opts.onRelogin === 'function') {
+          opts.onRelogin({
+            btn: rightBtn,
+            dialog,
+            close: closeSelf
+          });
+        }
       }
     });
   }
 
-  /* ---------------- 构建阴湿宋体错落排版 HTML ---------------- */
-  function buildTypoHtml(typoData) {
-    const lines = (typoData && Array.isArray(typoData.lines)) ? typoData.lines : [];
-    const whispers = (typoData && Array.isArray(typoData.whispers)) ? typoData.whispers : [];
+  /* ---------------- 风格 P1：魔怔眩晕密字墙 ---------------- */
+  function mountStyleP1(container, pack) {
+    const wrap = document.createElement('div');
+    wrap.className = 'cto-p1-wrap';
+    const phrase = pack.phrase || '你只能是我的';
+    const lineText = Array(8).fill(phrase).join(' ');
+    const rows = 28;
 
-    const vColsHtml = [
-      whispers[0] ? `<div class="cto-vcol left">${escapeHtml(whispers[0])}</div>` : '',
-      whispers[1] ? `<div class="cto-vcol right">${escapeHtml(whispers[1])}</div>` : '',
-      whispers[2] ? `<div class="cto-vcol mid">${escapeHtml(whispers[2])}</div>` : ''
-    ].join('');
+    for (let i = 0; i < rows; i++) {
+      const row = document.createElement('div');
+      row.className = 'cto-p1-row';
+      row.textContent = lineText;
+      row.dataset.txt = lineText;
+      row.style.setProperty('--cto-x', `${Math.round((Math.random() - 0.5) * 46)}px`);
+      row.style.setProperty('--cto-dx', `${(i % 2 === 0 ? 1 : -1) * (8 + (i % 5) * 2)}px`);
+      row.style.setProperty('--cto-sk', `${i % 2 === 0 ? -2.4 : 2.4}deg`);
+      row.style.setProperty('--cto-d', `${-(i * 0.14).toFixed(2)}s`);
+      wrap.appendChild(row);
+    }
 
-    const linesHtml = lines.map((item) => {
-      const cls = ['cto-tline'];
-      if (item.big) cls.push('is-big');
-      if (item.sub) cls.push('is-sub');
-      const tx = typeof item.offset === 'number' ? item.offset : 0;
-      const body = item.kw
-        ? `${escapeHtml(item.text || '')}<span class="cto-kw">${escapeHtml(item.kw)}</span>${escapeHtml(item.after || '')}`
-        : escapeHtml(item.text || '');
-      return `<div class="${cls.join(' ')}" style="--cto-tx:${tx}px;">${body}</div>`;
-    }).join('');
-
-    return `<div class="cto-typo-box">${vColsHtml}${linesHtml}</div>`;
+    container.appendChild(wrap);
+    return {
+      intensify() {
+        wrap.classList.add('is-intense');
+      }
+    };
   }
 
-  /* ---------------- 阶段 1：实时抢夺全屏舞台 ---------------- */
-  function launchRealtimeStage(opts) {
-    const mood = opts.mood || 'crimson';
-    const pack = DEMO_PACKS[mood] || DEMO_PACKS.crimson;
+  /* ---------------- 风格 P2：红字叠红字 · 层层淹没 ---------------- */
+  function mountStyleP2(container, pack) {
+    const wrap = document.createElement('div');
+    wrap.className = 'cto-p2-wrap';
+    container.appendChild(wrap);
+
+    function spawnOne(text, level, delayMs) {
+      const el = document.createElement('div');
+      el.className = `cto-p2-item ${level} ${Math.random() > 0.35 ? 'is-sway' : ''}`;
+      el.textContent = text;
+      const x = 10 + Math.random() * 80;
+      const y = 8 + Math.random() * 82;
+      el.style.left = x.toFixed(1) + '%';
+      el.style.top = y.toFixed(1) + '%';
+      el.style.setProperty('--cto-op', level === 'lv-bg' ? '0.68' : (level === 'lv-mid' ? '0.88' : '0.96'));
+      el.style.setProperty('--cto-dx', `${((Math.random() - 0.5) * 8).toFixed(1)}px`);
+      el.style.setProperty('--cto-dy', `${((Math.random() - 0.5) * 6).toFixed(1)}px`);
+      el.style.setProperty('--cto-d', `${-(Math.random() * 3).toFixed(2)}s`);
+      wrap.appendChild(el);
+      addTimer(() => el.classList.add('show'), delayMs);
+    }
+
+    function spawnBurst(count, baseDelay) {
+      const bg = pack.bgPhrases || [];
+      const mid = pack.midPhrases || [];
+      const top = pack.topPhrases || [];
+      const huge = pack.hugeWords || [];
+
+      for (let i = 0; i < count; i++) {
+        const r = Math.random();
+        let level = 'lv-bg';
+        let pool = bg;
+        if (r > 0.86 && huge.length) { level = 'lv-huge'; pool = huge; }
+        else if (r > 0.64 && top.length) { level = 'lv-top'; pool = top; }
+        else if (r > 0.32 && mid.length) { level = 'lv-mid'; pool = mid; }
+        const text = pool[Math.floor(Math.random() * pool.length)] || '看着我';
+        spawnOne(text, level, baseDelay + i * 55);
+      }
+    }
+
+    spawnBurst(28, 80);
+
+    return {
+      intensify() {
+        spawnBurst(10, 20);
+      }
+    };
+  }
+
+  /* ---------------- 风格 P3：阴湿宋体艺术排版 ---------------- */
+  function mountStyleP3(container, pack) {
+    const wrap = document.createElement('div');
+    wrap.className = 'cto-p3-wrap';
+    const box = document.createElement('div');
+    box.className = 'cto-p3-box';
+
+    const whispers = Array.isArray(pack.whispers) ? pack.whispers : [];
+    whispers.forEach((w, idx) => {
+      const v = document.createElement('div');
+      v.className = `cto-p3-vcol ${w.pos || 'pos-left'}`;
+      v.textContent = w.text || '';
+      box.appendChild(v);
+      addTimer(() => v.classList.add('show'), 260 + idx * 180);
+    });
+
+    const lines = Array.isArray(pack.lines) ? pack.lines : [];
+    lines.forEach((item, idx) => {
+      const ln = document.createElement('div');
+      ln.className = 'cto-p3-line' + (item.big ? ' is-big' : '') + (item.sub ? ' is-sub' : '');
+      ln.style.setProperty('--cto-tx', `${typeof item.offset === 'number' ? item.offset : 0}px`);
+      ln.innerHTML = item.kw
+        ? `${escapeHtml(item.text || '')}<span class="cto-p3-kw">${escapeHtml(item.kw)}</span>${escapeHtml(item.after || '')}`
+        : escapeHtml(item.text || '');
+      box.appendChild(ln);
+      addTimer(() => ln.classList.add('show'), 140 + idx * 240);
+    });
+
+    wrap.appendChild(box);
+    container.appendChild(wrap);
+
+    let extraIdx = 0;
+    return {
+      intensify() {
+        const extras = pack.extraWhispers || [];
+        if (!extras.length) return;
+        const txt = extras[extraIdx % extras.length];
+        extraIdx++;
+        const v = document.createElement('div');
+        v.className = 'cto-p3-vcol';
+        v.style.left = `${14 + Math.random() * 68}%`;
+        v.style.top = `${10 + Math.random() * 55}%`;
+        v.style.color = 'rgba(200, 14, 28, 0.62)';
+        v.textContent = txt;
+        box.appendChild(v);
+        requestAnimationFrame(() => v.classList.add('show'));
+      }
+    };
+  }
+
+  /* ---------------- 全屏舞台 + 纯手势与暗黑系统弹窗对抗 ---------------- */
+  function launchFullscreenStage(opts) {
+    const styleId = (opts.style && DEMO_PACKS[opts.style]) ? opts.style : 'p1';
+    const pack = Object.assign({}, DEMO_PACKS[styleId], opts.customPack || {});
     const isPreview = Boolean(opts.isPreview);
-    const wallPhrases = (Array.isArray(opts.wallPhrases) && opts.wallPhrases.length) ? opts.wallPhrases : pack.wallPhrases;
-    const hijackTexts = (Array.isArray(opts.hijackTexts) && opts.hijackTexts.length) ? opts.hijackTexts : pack.hijackTexts;
-    const loseTypo = opts.typo || pack.typo;
-    const winTypo = opts.winTypo || pack.winTypo;
 
     const stage = document.createElement('div');
-    stage.className = `cto-stage mood-${mood}`;
+    stage.className = 'cto-stage';
     stage.innerHTML = `
-      <div class="cto-tug-track"><div class="cto-tug-enemy" id="ctoTugEnemy"></div></div>
-      ${isPreview ? `<button type="button" class="cto-preview-x" id="ctoPreviewClose" aria-label="退出预览">×</button>` : ''}
+      <div class="cto-visual-slot" id="ctoVisualSlot" style="position:absolute;inset:0;"></div>
       <div class="cto-flash" id="ctoFlash"></div>
-      <div class="cto-wall" id="ctoWall"></div>
-      <div class="cto-typo" id="ctoTypo"></div>
-      <div class="cto-bottom" id="ctoBottom">
-        <div class="cto-whisper" id="ctoWhisper">连点「夺回」或直接戳碎红字</div>
-        <button type="button" class="cto-fight-btn" id="ctoFightBtn">夺 回 账 号</button>
-        <button type="button" class="cto-yield-btn" id="ctoYieldBtn">算了，不抢了</button>
-        <div class="cto-end-actions" id="ctoEndActions">
-          <button type="button" class="cto-end-btn" id="ctoEndCloseBtn">返回</button>
-        </div>
+      ${isPreview ? `<button type="button" class="cto-preview-x" id="ctoPreviewClose" aria-label="退出预览">×</button>` : ''}
+      <div class="cto-home-area">
+        <div class="cto-subtle-tip" id="ctoSubtleTip">上滑或轻点屏幕</div>
+        <div class="cto-home-bar"></div>
       </div>
     `;
 
     document.body.appendChild(stage);
     activeStageEl = stage;
 
-    const tugEnemyEl = stage.querySelector('#ctoTugEnemy');
+    const visualSlot = stage.querySelector('#ctoVisualSlot');
     const flashEl = stage.querySelector('#ctoFlash');
-    const wallEl = stage.querySelector('#ctoWall');
-    const typoEl = stage.querySelector('#ctoTypo');
-    const whisperEl = stage.querySelector('#ctoWhisper');
-    const fightBtn = stage.querySelector('#ctoFightBtn');
-    const yieldBtn = stage.querySelector('#ctoYieldBtn');
-    const endActions = stage.querySelector('#ctoEndActions');
-    const endCloseBtn = stage.querySelector('#ctoEndCloseBtn');
-    const previewCloseBtn = stage.querySelector('#ctoPreviewClose');
+    const tipEl = stage.querySelector('#ctoSubtleTip');
+    const previewClose = stage.querySelector('#ctoPreviewClose');
 
-    bindPressed(fightBtn);
-    bindPressed(yieldBtn);
-    bindPressed(endCloseBtn);
-    if (previewCloseBtn) bindPressed(previewCloseBtn);
+    let visualCtrl = null;
+    if (styleId === 'p1') visualCtrl = mountStyleP1(visualSlot, pack);
+    else if (styleId === 'p2') visualCtrl = mountStyleP2(visualSlot, pack);
+    else visualCtrl = mountStyleP3(visualSlot, pack);
 
-    /* 构建铺满屏幕的密字墙行（约 22 行，铺满整屏无留白） */
-    const TOTAL_ROWS = 22;
-    const rowEls = [];
-    for (let i = 0; i < TOTAL_ROWS; i++) {
-      const row = document.createElement('div');
-      row.className = 'cto-wall-row';
-      const phrase = wallPhrases[i % wallPhrases.length];
-      const sep = ' ';
-      row.textContent = Array(7).fill(phrase).join(sep);
-      const shift = Math.round((Math.random() - 0.5) * 44);
-      row.style.setProperty('--cto-shift', shift + 'px');
-      wallEl.appendChild(row);
-      rowEls.push(row);
+    if (previewClose) {
+      bindPressed(previewClose);
+      previewClose.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dismissStage('cancelled');
+      });
     }
 
-    let userControl = 36; // 0 = 对方完全接管, 100 = 你彻底抢回
-    let ended = false;
-    let hijacked = false;
-    let hijackUsed = false;
-    let flashTypoShown = false;
+    let struggleCount = 0;
+    const NEED_STRUGGLES = 3;
+    let settled = false;
+    let alertOpen = false;
 
-    function triggerShake(flashType) {
-      stage.classList.remove('is-shaking');
+    function pulseRedShake() {
+      vibrate([25, 25, 30]);
+      stage.classList.remove('is-snapped');
       void stage.offsetWidth;
-      stage.classList.add('is-shaking');
-      if (flashType) {
-        flashEl.classList.remove('is-red', 'is-white');
-        flashEl.classList.add(flashType === 'white' ? 'is-white' : 'is-red');
-        addTimer(() => flashEl.classList.remove('is-red', 'is-white'), 150);
+      stage.classList.add('is-snapped');
+      flashEl.classList.add('is-red');
+      addTimer(() => flashEl.classList.remove('is-red'), 150);
+      addTimer(() => stage.classList.remove('is-snapped'), 340);
+      if (visualCtrl && typeof visualCtrl.intensify === 'function') {
+        visualCtrl.intensify();
       }
-      addTimer(() => stage.classList.remove('is-shaking'), 300);
     }
 
-    function syncVisualByControl() {
-      const enemyPct = Math.max(0, Math.min(100, 100 - userControl));
-      tugEnemyEl.style.width = enemyPct.toFixed(1) + '%';
+    function dismissStage(outcome) {
+      if (settled) return;
+      settled = true;
+      stage.classList.add('is-dismissing');
+      addTimer(() => {
+        cleanupAll();
+        if (typeof opts.onComplete === 'function') {
+          opts.onComplete({ outcome, style: styleId });
+        }
+      }, 300);
+    }
 
-      const visibleCount = Math.round((enemyPct / 100) * TOTAL_ROWS);
-      rowEls.forEach((row, idx) => {
-        if (idx < visibleCount) {
-          row.classList.remove('is-cracked');
-          row.classList.add('show');
-          row.classList.toggle('is-dim', idx % 3 === 2 && userControl > 45);
-        } else {
-          row.classList.add('is-cracked');
+    function openDarkClashModal() {
+      if (settled || alertOpen) return;
+      alertOpen = true;
+      tipEl.classList.add('is-hidden');
+
+      showSystemAlert({
+        dark: true,
+        title: struggleCount === 0 ? '登录态冲突' : '重新登录失败',
+        desc: struggleCount === 0
+          ? '当前账号仍在另一台设备保持在线。'
+          : '对方正在阻止本次设备接管，是否继续强行登录？',
+        leftText: '退出',
+        rightText: '重新登录',
+        deviceText: pack.deviceText,
+        onExit: () => {
+          alertOpen = false;
+          // 主动放弃 -> 真正被对方接管定格
+          pulseRedShake();
+          tipEl.textContent = '已由对方接管';
+          tipEl.classList.remove('is-hidden');
+        },
+        onRelogin: ({ btn, dialog, close }) => {
+          struggleCount++;
+          if (struggleCount < NEED_STRUGGLES) {
+            vibrate([30, 20, 40]);
+            const hijackList = pack.hijackTexts || ['别点', '留下来'];
+            const word = hijackList[(struggleCount - 1) % hijackList.length];
+            btn.classList.add('is-hijacked');
+            btn.textContent = word;
+            dialog.classList.remove('is-shake');
+            void dialog.offsetWidth;
+            dialog.classList.add('is-shake');
+
+            addTimer(() => {
+              close(() => {
+                alertOpen = false;
+                pulseRedShake();
+              });
+            }, 620);
+          } else {
+            btn.textContent = '登录中…';
+            btn.disabled = true;
+            vibrate([20, 35, 25]);
+            addTimer(() => {
+              close(() => {
+                alertOpen = false;
+                dismissStage('reclaimed');
+              });
+            }, 340);
+          }
         }
       });
     }
 
-    function showTypoSequence(typoData) {
-      typoEl.innerHTML = buildTypoHtml(typoData);
-      requestAnimationFrame(() => {
-        typoEl.classList.add('show');
-        const lines = typoEl.querySelectorAll('.cto-tline');
-        lines.forEach((ln, i) => {
-          addTimer(() => ln.classList.add('show'), 140 + i * 240);
-        });
-      });
-    }
+    /* 纯手势：本能上滑挣脱 / 轻点唤出系统弹窗 */
+    let touchStartY = 0;
+    let touchStartX = 0;
+    let touchMoved = false;
+    let lastDeltaY = 0;
 
-    function finishFight(outcome) {
-      if (ended) return;
-      ended = true;
-      clearAllLoops();
-      stage.classList.add('is-ended');
-      fightBtn.style.display = 'none';
-      yieldBtn.style.display = 'none';
-      fightBtn.style.transform = '';
+    stage.addEventListener('touchstart', (e) => {
+      if (settled || alertOpen) return;
+      if (e.target.closest('#ctoPreviewClose')) return;
+      const t = e.touches[0];
+      touchStartY = t.clientY;
+      touchStartX = t.clientX;
+      touchMoved = false;
+      lastDeltaY = 0;
+      stage.classList.add('is-dragging');
+    }, { passive: true });
 
-      if (outcome === 'reclaimed') {
-        vibrate([20, 30, 45]);
-        triggerShake('white');
-        whisperEl.classList.remove('is-danger');
-        whisperEl.textContent = '已重新夺回当前设备';
-        showTypoSequence(winTypo);
-      } else {
-        vibrate([45, 35, 65]);
-        triggerShake('red');
-        whisperEl.classList.add('is-danger');
-        whisperEl.textContent = '账号已被对方接管';
-        showTypoSequence(loseTypo);
+    stage.addEventListener('touchmove', (e) => {
+      if (settled || alertOpen) return;
+      const t = e.touches[0];
+      const dy = t.clientY - touchStartY;
+      const dx = Math.abs(t.clientX - touchStartX);
+      if (Math.abs(dy) > 8 || dx > 8) touchMoved = true;
+
+      if (dy < 0) {
+        // 阻尼感：上滑越高阻力越大
+        const resisted = Math.max(-220, dy * 0.62);
+        lastDeltaY = dy;
+        stage.style.transform = `translate3d(0, ${resisted.toFixed(1)}px, 0)`;
+      }
+    }, { passive: true });
+
+    stage.addEventListener('touchend', () => {
+      if (settled || alertOpen) return;
+      stage.classList.remove('is-dragging');
+      stage.style.transform = '';
+
+      if (!touchMoved) {
+        openDarkClashModal();
+        return;
       }
 
-      addTimer(() => {
-        endActions.classList.add('show');
-      }, 650);
-
-      endCloseBtn.onclick = () => {
-        stage.classList.remove('open');
-        addTimer(() => {
-          cleanupAll();
-          if (typeof opts.onComplete === 'function') {
-            opts.onComplete({ outcome, mood });
+      if (lastDeltaY < -68) {
+        struggleCount++;
+        if (struggleCount >= NEED_STRUGGLES) {
+          vibrate([20, 35, 30]);
+          dismissStage('reclaimed');
+        } else {
+          pulseRedShake();
+          if (struggleCount === 2) {
+            addTimer(() => openDarkClashModal(), 260);
           }
-        }, 220);
-      };
-    }
+        }
+      }
+    }, { passive: true });
 
-    function triggerHijackSabotage() {
-      if (hijackUsed || ended) return;
-      hijackUsed = true;
-      hijacked = true;
-      vibrate([30, 25, 35]);
-      triggerShake('red');
-      userControl = Math.max(24, userControl - 20);
-      syncVisualByControl();
+    stage.addEventListener('touchcancel', () => {
+      stage.classList.remove('is-dragging');
+      stage.style.transform = '';
+    }, { passive: true });
 
-      const word = hijackTexts[Math.floor(Math.random() * hijackTexts.length)] || '不准退';
-      fightBtn.classList.add('is-hijacked');
-      fightBtn.textContent = word;
-      const dodgeX = (Math.random() > 0.5 ? 1 : -1) * 18;
-      fightBtn.style.transform = `translateX(${dodgeX}px)`;
-      whisperEl.classList.add('is-danger');
-      whisperEl.textContent = '对方拦住了你的操作';
-
-      addTimer(() => {
-        if (ended) return;
-        hijacked = false;
-        fightBtn.classList.remove('is-hijacked');
-        fightBtn.textContent = '夺 回 账 号';
-        fightBtn.style.transform = '';
-        whisperEl.classList.remove('is-danger');
-        whisperEl.textContent = '继续顶回去！';
-      }, 1050);
-    }
-
-    function pulseFlashTypo() {
-      if (flashTypoShown || ended) return;
-      flashTypoShown = true;
-      stage.classList.add('is-typo-focus');
-      showTypoSequence(loseTypo);
-      addTimer(() => {
-        if (ended) return;
-        typoEl.classList.remove('show');
-        stage.classList.remove('is-typo-focus');
-      }, 1350);
-    }
-
-    /* 交互 1：戳碎红字墙任意一行 */
-    rowEls.forEach((row) => {
-      row.addEventListener('click', () => {
-        if (ended || row.classList.contains('is-cracked')) return;
-        row.classList.add('is-cracked');
-        vibrate(12);
-        userControl = Math.min(100, userControl + 5.5);
-        syncVisualByControl();
-        if (userControl >= 100) finishFight('reclaimed');
-      });
+    // 桌面端点击调试兼容
+    stage.addEventListener('click', (e) => {
+      if (settled || alertOpen) return;
+      if (e.target.closest('#ctoPreviewClose')) return;
+      if ('ontouchstart' in window) return;
+      openDarkClashModal();
     });
 
-    /* 交互 2：连点「夺回账号」按钮 */
-    fightBtn.addEventListener('click', () => {
-      if (ended) return;
-      if (hijacked) {
-        triggerShake('red');
-        vibrate(25);
-        userControl = Math.max(10, userControl - 4);
-        syncVisualByControl();
-        return;
-      }
-
-      vibrate(14);
-      userControl = Math.min(100, userControl + 8.5);
-      syncVisualByControl();
-
-      const randRow = rowEls[Math.floor(Math.random() * rowEls.length)];
-      if (randRow && !randRow.classList.contains('is-cracked')) {
-        randRow.classList.add('is-glitch');
-        addTimer(() => randRow.classList.remove('is-glitch'), 140);
-      }
-
-      if (userControl >= 68 && !hijackUsed) {
-        triggerHijackSabotage();
-        return;
-      }
-
-      if (userControl >= 100) {
-        finishFight('reclaimed');
-      }
-    });
-
-    /* 交互 3：主动放弃 -> 进入对方接管结局 */
-    yieldBtn.addEventListener('click', () => {
-      if (ended) return;
-      userControl = 0;
-      syncVisualByControl();
-      finishFight('taken');
-    });
-
-    if (previewCloseBtn) {
-      previewCloseBtn.addEventListener('click', () => {
-        stage.classList.remove('open');
-        addTimer(() => {
-          cleanupAll();
-          if (typeof opts.onComplete === 'function') opts.onComplete({ cancelled: true });
-        }, 200);
-      });
-    }
-
-    /* 入场：密字墙快速瀑布式铺满 + 启动实时反扑循环 */
     requestAnimationFrame(() => {
       stage.classList.add('open');
-      triggerShake('red');
-
-      rowEls.forEach((row, idx) => {
-        addTimer(() => {
-          if (ended) return;
-          row.classList.add('show');
-          if (idx % 4 === 0) vibrate(10);
-        }, idx * 36);
-      });
-
-      addTimer(() => {
-        if (ended) return;
-        syncVisualByControl();
-
-        tugInterval = setInterval(() => {
-          if (ended) return;
-          const pull = mood === 'scarlet' ? (3.2 + Math.random() * 2.8) : (2.4 + Math.random() * 2.4);
-          userControl = Math.max(0, userControl - pull);
-          syncVisualByControl();
-
-          const activeRows = rowEls.filter(r => !r.classList.contains('is-cracked'));
-          if (activeRows.length) {
-            const pick = activeRows[Math.floor(Math.random() * activeRows.length)];
-            pick.classList.add('is-glitch');
-            addTimer(() => pick.classList.remove('is-glitch'), 130);
-          }
-
-          if (userControl <= 22 && !flashTypoShown) {
-            pulseFlashTypo();
-          }
-
-          if (userControl <= 0) {
-            finishFight('taken');
-          }
-        }, 320);
-      }, 680);
+      vibrate([25, 30, 25]);
+      addTimer(() => tipEl.classList.add('is-hidden'), 3600);
     });
   }
 
   /* ---------------- 对外统一入口 ---------------- */
   function triggerTakeover(options) {
     const opts = Object.assign({
-      mood: 'crimson',
+      style: 'p1',
       isPreview: false,
       skipSystemModal: false,
       deviceText: '另一台设备'
     }, options || {});
 
     if (opts.skipSystemModal) {
-      launchRealtimeStage(opts);
+      launchFullscreenStage(opts);
     } else {
-      showSystemKickModal(
-        opts,
-        () => launchRealtimeStage(opts),
-        () => {
-          if (typeof opts.onComplete === 'function') opts.onComplete({ cancelled: true });
+      showSystemAlert({
+        dark: false,
+        title: '下线通知',
+        deviceText: opts.deviceText,
+        onExit: () => {
+          if (typeof opts.onComplete === 'function') opts.onComplete({ outcome: 'cancelled' });
+        },
+        onRelogin: ({ btn, close }) => {
+          btn.textContent = '登录中…';
+          btn.disabled = true;
+          vibrate(18);
+          addTimer(() => {
+            close(() => launchFullscreenStage(opts));
+          }, 300);
         }
-      );
+      });
     }
   }
 
-  function previewTakeover(mood) {
-    const picked = mood || localStorage.getItem(MOOD_STORAGE_KEY) || 'crimson';
-    const pack = DEMO_PACKS[picked] || DEMO_PACKS.crimson;
+  function previewTakeover(style) {
+    const raw = style || localStorage.getItem(STYLE_STORAGE_KEY) || 'p1';
+    const normalized = DEMO_PACKS[raw] ? raw : 'p1';
     triggerTakeover({
-      mood: picked,
+      style: normalized,
       isPreview: true,
-      deviceText: pack.deviceText,
-      wallPhrases: pack.wallPhrases,
-      hijackTexts: pack.hijackTexts,
-      typo: pack.typo,
-      winTypo: pack.winTypo
+      deviceText: DEMO_PACKS[normalized].deviceText
     });
   }
 
@@ -572,21 +559,22 @@
     const container = findAppearanceMountContainer();
     if (!container || container.querySelector('#ctoAppearancePreviewCard')) return;
 
-    const savedMood = localStorage.getItem(MOOD_STORAGE_KEY) || 'crimson';
+    const rawSaved = localStorage.getItem(STYLE_STORAGE_KEY) || 'p1';
+    const savedStyle = DEMO_PACKS[rawSaved] ? rawSaved : 'p1';
     const card = document.createElement('div');
     card.id = 'ctoAppearancePreviewCard';
     card.className = 'cto-ap-card';
     card.innerHTML = `
       <div class="cto-ap-head">
-        <div class="cto-ap-title">顶号实时抢夺预览</div>
-        <div class="cto-ap-sub">演示模式 · 可硬抢夺回，也可停手/放弃看被接管结局</div>
+        <div class="cto-ap-title">顶号全屏效果预览</div>
+        <div class="cto-ap-sub">进全屏后可上滑挣脱，或轻点屏幕唤出系统弹窗硬顶</div>
       </div>
       <div class="cto-ap-row">
-        <span class="cto-ap-label">预览氛围</span>
-        <select class="cto-ap-select" id="ctoPreviewMoodSelect" aria-label="选择顶号预览氛围">
-          <option value="crimson" ${savedMood === 'crimson' ? 'selected' : ''}>黑红密字</option>
-          <option value="obsidian" ${savedMood === 'obsidian' ? 'selected' : ''}>纯黑冷白</option>
-          <option value="scarlet" ${savedMood === 'scarlet' ? 'selected' : ''}>暗红失控</option>
+        <span class="cto-ap-label">视觉风格</span>
+        <select class="cto-ap-select" id="ctoPreviewMoodSelect" aria-label="选择顶号视觉风格">
+          <option value="p1" ${savedStyle === 'p1' ? 'selected' : ''}>P1 · 魔怔眩晕密字</option>
+          <option value="p2" ${savedStyle === 'p2' ? 'selected' : ''}>P2 · 红字叠满屏</option>
+          <option value="p3" ${savedStyle === 'p3' ? 'selected' : ''}>P3 · 阴湿宋体排版</option>
         </select>
       </div>
       <button type="button" class="cto-ap-btn" id="ctoLaunchPreviewBtn">预览顶号效果</button>
@@ -599,7 +587,7 @@
     bindPressed(btnEl);
 
     selectEl.addEventListener('change', () => {
-      try { localStorage.setItem(MOOD_STORAGE_KEY, selectEl.value); } catch (e) {}
+      try { localStorage.setItem(STYLE_STORAGE_KEY, selectEl.value); } catch (e) {}
     });
 
     btnEl.addEventListener('click', () => {
