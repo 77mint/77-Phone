@@ -1,13 +1,16 @@
 /* =========================================================
    反向互动 · 顶号实时博弈模块 (reverse/takeover.js)
-   - 零固定台词、无预览卡片，全屏暗红文字与弹窗回应 100% 由 AI 实时生成
-   - 渐进加速铺满：由几句慢慢渗出，越来越快、越叠越多直到吞没全屏
-   - 严格对齐 PhoneAPI.getConfig('llm')（支持 OpenAI / Google / Anthropic / 副 API 重试 / 日志）
+   - Canvas 单图层绘制暗血红宋体全屏叠字（丝滑 60fps、彻底解决 iOS Safari 爆显存刷新）
+   - 渐进加速铺满：由少到多、越来越快直到吞没全屏
+   - 100% 真实 AI 博弈：严格对齐 PhoneAPI.getConfig('llm')
    ========================================================= */
 
 (function () {
+  const SERIF_STACK = '"Songti SC", "STSong", "Noto Serif SC", "PingFang SC", Georgia, serif';
+
   let activeTimers = [];
   let activeStageEl = null;
+  let activeRafId = null;
 
   function bindPressed(el) {
     if (!el || el.dataset.ctoPressedBound) return;
@@ -21,6 +24,10 @@
   function clearAllTimers() {
     activeTimers.forEach(id => clearTimeout(id));
     activeTimers = [];
+    if (activeRafId) {
+      cancelAnimationFrame(activeRafId);
+      activeRafId = null;
+    }
   }
 
   function addTimer(fn, ms) {
@@ -38,6 +45,15 @@
     try {
       if (navigator.vibrate) navigator.vibrate(pattern || 16);
     } catch (e) {}
+  }
+
+  function getBaseFontSize() {
+    try {
+      const raw = getComputedStyle(document.documentElement).getPropertyValue('--app-font-size');
+      const parsed = parseFloat(raw);
+      if (!Number.isNaN(parsed) && parsed > 8) return parsed;
+    } catch (e) {}
+    return 15;
   }
 
   function cleanupAll() {
@@ -190,8 +206,8 @@
       ctx.recentLines.length ? `【最近聊天上下文】\n${ctx.recentLines.join('\n')}` : '',
       `【当前情境】`,
       isInitial
-        ? `你刚刚登录了 User 的账号，把 User 踢下线了。现在 User 屏幕已经弹出「下线通知」。请结合你的人设、你们当下的关系以及刚才聊过的内容，现场写出 14~20 句此刻盘旋在你心头、将铺满 User 屏幕的暗红短句（lines，每句 2~12 字，完全符合你自己的口吻与情绪）。`
-        : `你刚刚登录了 User 的账号，User 正在第 ${attemptNum} 次点击「重新登录」试图把你顶下去。没有任何预设次数限制，完全基于你此刻的性格、感情状态和刚才聊过的内容自己决定：\n1. 此刻是继续占着账号拦住 User（allow: false），还是心软/退让/被顶下线而放行让 User 登回来（allow: true）？\n2. 弹窗提示语（modalText，25字以内，贴合你此刻对 User 说的话）。\n3. 若不放行，给出 12~18 句新铺上屏幕的短句（lines，每句 2~12 字）。`,
+        ? `你刚刚主动登录了 User 的账号，把 User 踢下线了。现在 User 屏幕已经弹出「下线通知」。请结合你的人设、你们当下的关系以及刚才聊过的内容，现场写出 14~20 句此刻盘旋在你心头、将铺满 User 屏幕的暗红短句（lines，每句 2~12 字，完全符合你自己的口吻与情绪）。`
+        : `你刚刚主动登录了 User 的账号，把 User 踢下线了，说明你此刻正有强烈的情绪或话想留住对方。现在 User 正在第 ${attemptNum} 次点击「重新登录」试图把你顶下去。没有任何预设次数限制，完全基于你此刻的人设、感情状态和刚才聊过的内容自己决定：\n1. 此刻是继续占着账号拦住 User（allow: false），还是确实心软/退让/被顶下线而放行（allow: true）？\n2. 弹窗提示语（modalText，25字以内，贴合你此刻对 User 说的话）。\n3. 若不放行，给出 12~18 句新铺上屏幕的短句（lines，每句 2~12 字）。`,
       `严格只输出 JSON，不要 markdown 代码块，格式：{"allow":false,"modalText":"...","lines":["..."]}`
     ].filter(Boolean).join('\n\n');
 
@@ -241,6 +257,143 @@
     return JSON.parse(jsonMatch[0]);
   }
 
+  /* ---------------- 轻量单层 Canvas 渐进叠字渲染器 ---------------- */
+  function createCanvasWall(canvasEl) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    const baseFs = getBaseFontSize();
+
+    function resize() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvasEl.width = Math.round(width * dpr);
+      canvasEl.height = Math.round(height * dpr);
+    }
+    resize();
+
+    const items = [];
+    let hasInitialFlood = false;
+    const ctx2d = canvasEl.getContext('2d');
+
+    function addWord(text, level, xPct, yPct, appearAtMs) {
+      const cfgMap = {
+        under: { size: Math.max(11, baseFs - 2), weight: '500', color: 'rgba(96, 7, 14, 0.56)', blur: 2, alpha: 0.9 },
+        bg:    { size: Math.max(11, baseFs - 2), weight: '500', color: 'rgba(122, 9, 18, 0.76)', blur: 3, alpha: 0.9 },
+        mid:   { size: baseFs + 3,               weight: '600', color: 'rgba(156, 13, 24, 0.88)', blur: 5, alpha: 0.94 },
+        top:   { size: baseFs + 10,              weight: '700', color: 'rgba(170, 15, 28, 0.96)', blur: 8, alpha: 0.98 },
+        huge:  { size: baseFs + 18,              weight: '800', color: 'rgba(186, 17, 31, 0.98)', blur: 10, alpha: 1 }
+      };
+      const cfg = cfgMap[level] || cfgMap.mid;
+      items.push({
+        text,
+        x: (xPct / 100) * width,
+        y: (yPct / 100) * height,
+        size: cfg.size,
+        weight: cfg.weight,
+        color: cfg.color,
+        blur: cfg.blur,
+        targetAlpha: cfg.alpha,
+        appearAt: appearAtMs,
+        fadeDur: level === 'under' ? 520 : 280
+      });
+    }
+
+    function floodLines(lines) {
+      const clean = (Array.isArray(lines) ? lines : []).map(s => String(s || '').trim()).filter(Boolean);
+      if (!clean.length) return;
+      const pick = () => clean[Math.floor(Math.random() * clean.length)];
+      const now = performance.now();
+
+      if (!hasInitialFlood) {
+        hasInitialFlood = true;
+
+        // 1. 前 10 句慢节奏浮出，让人清楚看到字在一条条多起来
+        for (let i = 0; i < 10; i++) {
+          const lv = i % 3 === 0 ? 'top' : 'mid';
+          addWord(pick(), lv, 12 + Math.random() * 76, 10 + Math.random() * 78, now + 120 + i * 160);
+        }
+
+        // 2. 底层无缝密字逐行渗出（1.0s ~ 3.6s）
+        const rowOrder = Array.from({ length: 42 }, (_, i) => i).sort(() => Math.random() - 0.5);
+        for (let r = 0; r < 42; r++) {
+          const segs = [];
+          for (let k = 0; k < 7; k++) segs.push(pick());
+          const yPct = (r / 41) * 100;
+          const xPct = 42 + (Math.random() - 0.5) * 24;
+          addWord(segs.join(' '), 'under', xPct, yPct, now + 1000 + rowOrder[r] * 60);
+        }
+
+        // 3. 中/上/大字加速铺满全屏（1.1s ~ 4.2s）
+        const pts = [];
+        for (let r = 0; r < 16; r++) {
+          for (let c = 0; c < 6; c++) {
+            pts.push({
+              x: 3 + c * 18.8 + (Math.random() - 0.5) * 10,
+              y: 2 + r * 6.2 + (Math.random() - 0.5) * 3.5,
+              lv: 'bg'
+            });
+          }
+        }
+        for (let i = 0; i < 95; i++) {
+          const rnd = Math.random();
+          pts.push({
+            x: 5 + Math.random() * 90,
+            y: 3 + Math.random() * 94,
+            lv: rnd > 0.85 ? 'huge' : (rnd > 0.52 ? 'top' : 'mid')
+          });
+        }
+        pts.sort(() => Math.random() - 0.5);
+
+        pts.forEach((pt, idx) => {
+          const p = idx / pts.length;
+          const delay = 1100 + Math.pow(p, 0.72) * 3100;
+          addWord(pick(), pt.lv, pt.x, pt.y, now + delay);
+        });
+      } else {
+        // 每次「重新登录」被拦：继续渐进往上叠 24 句新词
+        const count = Math.max(clean.length, 24);
+        for (let i = 0; i < count; i++) {
+          const txt = clean[i % clean.length];
+          const lv = txt.length <= 4 ? 'huge' : (i % 3 === 0 ? 'top' : 'mid');
+          addWord(txt, lv, 6 + Math.random() * 88, 4 + Math.random() * 92, now + 40 + i * 50);
+        }
+        if (items.length > 420) {
+          items.splice(0, items.length - 420);
+        }
+      }
+    }
+
+    function renderFrame(now) {
+      ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx2d.clearRect(0, 0, width, height);
+      ctx2d.textAlign = 'center';
+      ctx2d.textBaseline = 'middle';
+
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        if (now < it.appearAt) continue;
+        const t = Math.min(1, (now - it.appearAt) / it.fadeDur);
+        const alpha = it.targetAlpha * t;
+        const scale = 1.06 - 0.06 * t;
+
+        ctx2d.save();
+        ctx2d.globalAlpha = alpha;
+        ctx2d.font = `${it.weight} ${Math.round(it.size * scale)}px ${SERIF_STACK}`;
+        ctx2d.fillStyle = it.color;
+        ctx2d.shadowColor = 'rgba(110, 4, 12, 0.65)';
+        ctx2d.shadowBlur = it.blur;
+        ctx2d.fillText(it.text, it.x, it.y);
+        ctx2d.restore();
+      }
+
+      activeRafId = requestAnimationFrame(renderFrame);
+    }
+
+    activeRafId = requestAnimationFrame(renderFrame);
+    return { floodLines, resize };
+  }
+
   function launchTakeoverStage(opts) {
     cleanupAll();
 
@@ -251,8 +404,7 @@
     const stage = document.createElement('div');
     stage.className = 'cto-stage';
     stage.innerHTML = `
-      <div class="cto-underlay" id="ctoUnderlay"></div>
-      <div class="cto-wall" id="ctoWall"></div>
+      <canvas class="cto-canvas" id="ctoCanvas"></canvas>
       <div class="cto-sys-mask" id="ctoSysMask">
         <div class="cto-sys-dialog" id="ctoSysDialog">
           <div class="cto-sys-body">
@@ -270,8 +422,7 @@
     document.body.appendChild(stage);
     activeStageEl = stage;
 
-    const underlayEl = stage.querySelector('#ctoUnderlay');
-    const wallEl = stage.querySelector('#ctoWall');
+    const canvasEl = stage.querySelector('#ctoCanvas');
     const maskEl = stage.querySelector('#ctoSysMask');
     const dialogEl = stage.querySelector('#ctoSysDialog');
     const titleEl = stage.querySelector('#ctoSysTitle');
@@ -282,87 +433,7 @@
     bindPressed(exitBtn);
     bindPressed(reloginBtn);
 
-    function spawnItem(text, level, x, y, delayMs) {
-      const el = document.createElement('div');
-      el.className = `cto-item ${level} ${Math.random() > 0.35 ? 'is-sway' : ''}`;
-      el.textContent = text;
-      el.style.left = x.toFixed(1) + '%';
-      el.style.top = y.toFixed(1) + '%';
-      el.style.setProperty('--cto-op', level === 'lv-bg' ? '0.72' : (level === 'lv-mid' ? '0.88' : '0.96'));
-      el.style.setProperty('--cto-dx', `${((Math.random() - 0.5) * 6).toFixed(1)}px`);
-      el.style.setProperty('--cto-dy', `${((Math.random() - 0.5) * 5).toFixed(1)}px`);
-      el.style.setProperty('--cto-d', `${-(Math.random() * 4).toFixed(2)}s`);
-      wallEl.appendChild(el);
-      addTimer(() => el.classList.add('show'), delayMs);
-    }
-
-    function floodWallFromLines(lines) {
-      const cleanLines = (Array.isArray(lines) ? lines : []).map(s => String(s || '').trim()).filter(Boolean);
-      if (!cleanLines.length) return;
-      const pick = () => cleanLines[Math.floor(Math.random() * cleanLines.length)];
-
-      // 初次入场：由少到多、逐渐加速铺满（约 3.8 秒内渐进吞没整屏）
-      if (!underlayEl.children.length && !wallEl.children.length) {
-        // 1. 先零星浮出前 10 句（慢节奏，让人看清第一批字）
-        for (let i = 0; i < 10; i++) {
-          const level = i % 3 === 0 ? 'lv-top' : 'lv-mid';
-          spawnItem(pick(), level, 12 + Math.random() * 76, 10 + Math.random() * 78, 120 + i * 150);
-        }
-
-        // 2. 底层暗红密字从 900ms 起逐行渐隐渗出
-        const order = Array.from({ length: 44 }, (_, i) => i).sort(() => Math.random() - 0.5);
-        for (let r = 0; r < 44; r++) {
-          const row = document.createElement('div');
-          row.className = 'cto-underlay-row';
-          const segs = [];
-          for (let k = 0; k < 6; k++) segs.push(pick());
-          row.textContent = segs.join(' ');
-          row.style.setProperty('--cto-ux', `${-Math.round(Math.random() * 60)}px`);
-          underlayEl.appendChild(row);
-          addTimer(() => row.classList.add('show'), 950 + order[r] * 55);
-        }
-
-        // 3. 1.2s ~ 3.8s 越出越快，层层叠满全屏
-        const coords = [];
-        for (let r = 0; r < 16; r++) {
-          for (let c = 0; c < 6; c++) {
-            coords.push({
-              x: 3 + c * 18.8 + (Math.random() - 0.5) * 10,
-              y: 2 + r * 6.2 + (Math.random() - 0.5) * 3.5,
-              level: 'lv-bg'
-            });
-          }
-        }
-        for (let i = 0; i < 95; i++) {
-          const rnd = Math.random();
-          coords.push({
-            x: 4 + Math.random() * 92,
-            y: 2 + Math.random() * 96,
-            level: rnd > 0.85 ? 'lv-huge' : (rnd > 0.52 ? 'lv-top' : 'lv-mid')
-          });
-        }
-        coords.sort(() => Math.random() - 0.5);
-
-        const total = coords.length;
-        coords.forEach((pt, idx) => {
-          // 加速曲线：前慢后快，越来越密
-          const p = idx / total;
-          const delay = Math.round(950 + Math.pow(p, 0.72) * 2900);
-          spawnItem(pick(), pt.level, pt.x, pt.y, delay);
-        });
-      } else {
-        // 每次点「重新登录」被拦：继续渐进往上叠 22 句新词
-        const count = Math.max(cleanLines.length, 22);
-        for (let i = 0; i < count; i++) {
-          const txt = cleanLines[i % cleanLines.length];
-          const level = txt.length <= 4 ? 'lv-huge' : (i % 3 === 0 ? 'lv-top' : 'lv-mid');
-          spawnItem(txt, level, 5 + Math.random() * 90, 3 + Math.random() * 94, 40 + i * 48);
-        }
-        while (wallEl.children.length > 360) {
-          wallEl.removeChild(wallEl.firstChild);
-        }
-      }
-    }
+    const wall = createCanvasWall(canvasEl);
 
     const clashHistory = [];
     let attempt = 0;
@@ -388,23 +459,25 @@
     }
 
     if (Array.isArray(opts.initialLines) && opts.initialLines.length) {
-      floodWallFromLines(opts.initialLines);
+      wall.floodLines(opts.initialLines);
       if (opts.initialModalText) descEl.textContent = opts.initialModalText;
     } else {
       requestTakeoverTurn(ctx, 0, []).then((initRes) => {
         if (!activeStageEl || activeStageEl !== stage) return;
         if (initRes && Array.isArray(initRes.lines) && initRes.lines.length) {
-          floodWallFromLines(initRes.lines);
+          wall.floodLines(initRes.lines);
         }
       }).catch(() => {});
     }
 
-    exitBtn.addEventListener('click', () => {
+    exitBtn.addEventListener('click', (e) => {
+      e.preventDefault();
       if (busy) return;
       closeStage('taken');
     });
 
-    reloginBtn.addEventListener('click', async () => {
+    reloginBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
       if (busy) return;
       busy = true;
       attempt++;
@@ -416,8 +489,8 @@
       let errMsg = '';
       try {
         result = await requestTakeoverTurn(ctx, attempt, clashHistory);
-      } catch (e) {
-        errMsg = e && e.message ? e.message : '请求失败';
+      } catch (err) {
+        errMsg = err && err.message ? err.message : '请求失败';
       }
 
       if (errMsg || !result) {
@@ -433,7 +506,7 @@
         titleEl.textContent = '登录成功';
         if (result.modalText) descEl.textContent = result.modalText;
         vibrate([18, 30, 22]);
-        addTimer(() => closeStage('reclaimed'), 650);
+        addTimer(() => closeStage('reclaimed'), 1600);
         return;
       }
 
@@ -445,7 +518,7 @@
       void dialogEl.offsetWidth;
       dialogEl.classList.add('is-shake');
 
-      floodWallFromLines(result.lines);
+      wall.floodLines(result.lines);
       titleEl.textContent = '登录受阻';
       if (result.modalText) descEl.textContent = result.modalText;
       clashHistory.push(`第${attempt}次：User点重新登录 -> ${ctx.charName}拦截并说「${descEl.textContent}」`);
