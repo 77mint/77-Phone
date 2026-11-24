@@ -5,8 +5,8 @@
    - 适配 iOS visualViewport，原生键盘弹起不遮挡输入框
    - 支持 P1 长按流式转文字、P2 独占麦克风真录音（可回放）、默认展开转文字白卡、滑动引用
    - 支持 Char 视角切换（气泡左右互换、隐藏右上角复杂按钮、自动隐藏 CoT、预留关系备注接口）
-   - 支持气泡头顶 CoT 思维链胶囊（点按顺滑展开、连发仅挂第一条）
-   - 支持顶部备注位「对方正在输入中…」状态切换 + 派发 phone:chat-user-sent 给 chat-ai.js
+   - 支持气泡头顶 CoT 思维链胶囊（每次回复首气泡均展示、点按顺滑展开）
+   - 支持顶部备注位「对方正在输入中…」（停字立刻恢复备注名并保留免打扰铃铛）
    ========================================================= */
 
 (function () {
@@ -354,14 +354,31 @@
         return `<div class="${boxCls}" data-user-avatar-box="1">${escapeHtml(fallbackChar)}</div>`;
     }
 
-    /* ---------------- 顶部备注位「对方正在输入中…」切换 ---------------- */
+    /* ---------------- 顶部备注位「对方正在输入中…」切换（停字恢复备注） ---------------- */
+    function resolveRoomRemarkTitle() {
+        const pov = getActivePov();
+        if (!pov.isChar && currentThreadId && window.PhoneChatDetails && typeof window.PhoneChatDetails.getSettings === 'function') {
+            try {
+                const ds = window.PhoneChatDetails.getSettings(currentThreadId);
+                if (ds && ds.remark) return ds.remark;
+            } catch (e) {}
+        }
+        return currentRoomBaseTitle || '聊天';
+    }
+
     function syncRoomTitle() {
         const titleEl = document.getElementById('ctRoomTitle');
         if (!titleEl) return;
         const pov = getActivePov();
         const isTyping = !pov.isChar && !!currentThreadId && typingThreads.has(currentThreadId);
+        const existingBell = titleEl.querySelector('#ctRoomMuteBell');
         titleEl.classList.toggle('is-typing', isTyping);
-        titleEl.textContent = isTyping ? '对方正在输入中…' : (currentRoomBaseTitle || '聊天');
+        if (isTyping) {
+            titleEl.textContent = '对方正在输入中…';
+        } else {
+            titleEl.textContent = resolveRoomRemarkTitle();
+            if (existingBell) titleEl.appendChild(existingBell);
+        }
     }
 
     function setThreadTyping(threadId, isTyping) {
@@ -1266,7 +1283,7 @@
         const userRemark = pov.isChar ? getCharRemarkForUser(pov.charId) : '我';
         let lastShownTime = '';
 
-        box.innerHTML = msgs.map((m, idx) => {
+        box.innerHTML = msgs.map((m) => {
             // 在 Char 视角下：Char 发的消息在右边(me)，User 发的消息在左边(对方)
             const isCharSender = m.sender === 'char' || (m.sender !== 'me' && !!m.charId);
             const isMe = pov.isChar ? (isCharSender && (!m.charId || m.charId === pov.charId)) : (m.sender === 'me');
@@ -1295,37 +1312,28 @@
                 timeHtml = `<div class="ct-msg-time">${escapeHtml(m.time)}</div>`;
             }
 
-            // CoT 思维链：仅在 User 视角 + 开关开启 + 对方气泡 + 连发首条时显示
+            // CoT 思维链：每次对方回复的首条气泡带 cot 即展示在气泡头顶
             let cotHtml = '';
             const cotText = getMsgCotText(m);
             if (showCot && !isMe && cotText) {
-                const prev = idx > 0 ? msgs[idx - 1] : null;
-                const prevIsSameCharBurst = prev
-                    && (prev.sender === 'char' || (prev.sender !== 'me' && !!prev.charId))
-                    && (!m.charId || !prev.charId || m.charId === prev.charId)
-                    && (!m.time || !prev.time || m.time === prev.time)
-                    && !!getMsgCotText(prev);
-
-                if (!prevIsSameCharBurst) {
-                    const isOpen = expandedCotIds.has(m.id);
-                    const durVal = m.cotDuration || m.thinkingTime;
-                    const pillLabel = m.cotTitle
-                        ? m.cotTitle
-                        : (durVal ? `已思考 ${durVal}s` : '思考过程');
-                    cotHtml = `
-                        <div class="ct-cot-wrap${isOpen ? ' open' : ''}" data-cot-id="${escapeHtml(m.id)}">
-                            <button type="button" class="ct-cot-pill" aria-expanded="${isOpen ? 'true' : 'false'}">
-                                <span class="ct-cot-label">${escapeHtml(pillLabel)}</span>
-                                <svg class="ct-cot-chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-                            </button>
-                            <div class="ct-cot-body">
-                                <div class="ct-cot-inner">
-                                    <div class="ct-cot-card">${escapeHtml(cotText)}</div>
-                                </div>
+                const isOpen = expandedCotIds.has(m.id);
+                const durVal = m.cotDuration || m.thinkingTime;
+                const pillLabel = m.cotTitle
+                    ? m.cotTitle
+                    : (durVal ? `已思考 ${durVal}s` : '思考过程');
+                cotHtml = `
+                    <div class="ct-cot-wrap${isOpen ? ' open' : ''}" data-cot-id="${escapeHtml(m.id)}">
+                        <button type="button" class="ct-cot-pill" aria-expanded="${isOpen ? 'true' : 'false'}">
+                            <span class="ct-cot-label">${escapeHtml(pillLabel)}</span>
+                            <svg class="ct-cot-chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                        <div class="ct-cot-body">
+                            <div class="ct-cot-inner">
+                                <div class="ct-cot-card">${escapeHtml(cotText)}</div>
                             </div>
                         </div>
-                    `;
-                }
+                    </div>
+                `;
             }
 
             const isVoice = m.type === 'voice';
