@@ -1,0 +1,2431 @@
+/* =========================================================
+   全站统一日夜模式 & 字号跟随补齐 (dark.css)
+   - 响应 html[data-theme="dark"] / html[data-theme="light"]
+   - 覆盖：桌面、锁屏、外观、12 个独立软件、以及微信全套页面
+   - 末尾附带早期 App 遗漏的 --app-font-size 字号统一补齐
+   ========================================================= */
+
+html[data-theme="dark"] body {
+  color: #f2f2f7;
+}
+
+/* =========================================================
+   1. 桌面 / 锁屏 / 全局液态玻璃 (style.css & app.js)
+   ========================================================= */
+html[data-theme="dark"] .wallpaper,
+html[data-theme="dark"] .lock-wallpaper {
+  background-color: #0b0b0c;
+}
+
+html[data-theme="dark"] .app-name {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .page-dot {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+html[data-theme="dark"] .page-dot.active {
+  background: rgba(255, 255, 255, 0.86);
+}
+
+html[data-theme="dark"] .lock-clock {
+  color: #f2f2f7;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.55);
+}
+
+html[data-theme="dark"] .lock-hint {
+  color: rgba(242, 242, 247, 0.72);
+}
+
+html[data-theme="dark"] .lock-bar {
+  background: rgba(242, 242, 247, 0.35);
+}
+
+html[data-theme="dark"] .glass,
+html[data-theme="dark"] .app-back,
+html[data-theme="dark"] .lg-bottom-bar,
+html[data-theme="dark"] .mu-back-sm,
+html[data-theme="dark"] .mu-mini-player,
+html[data-theme="dark"] .mu-bottom-bar {
+  background: linear-gradient(135deg, rgba(44, 44, 48, 0.72) 0%, rgba(28, 28, 32, 0.56) 50%, rgba(40, 40, 46, 0.68) 100%) !important;
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.45),
+    inset 0 1px 1px rgba(255, 255, 255, 0.22),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.35) !important;
+}
+
+html[data-theme="dark"] .glass::before,
+html[data-theme="dark"] .app-back::before,
+html[data-theme="dark"] .lg-bottom-bar::before,
+html[data-theme="dark"] .mu-back-sm::before,
+html[data-theme="dark"] .mu-mini-player::before,
+html[data-theme="dark"] .mu-bottom-bar::before {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.42) 0%,
+    rgba(255, 255, 255, 0.14) 24%,
+    rgba(255, 255, 255, 0) 46%,
+    rgba(255, 255, 255, 0) 56%,
+    rgba(255, 255, 255, 0.14) 78%,
+    rgba(255, 255, 255, 0.36) 100%
+  );
+}
+
+html[data-theme="dark"] .app-back svg,
+html[data-theme="dark"] .mu-back-sm svg {
+  stroke: #f2f2f7;
+}
+
+html[data-theme="dark"] .home-edit-menu {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: linear-gradient(180deg, rgba(36, 36, 40, 0.96) 0%, rgba(28, 28, 30, 0.94) 100%);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
+}
+
+html[data-theme="dark"] .home-edit-menu-item {
+  color: #f2f2f7;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .home-edit-menu-item.is-pressed {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .app-minus-badge {
+  background: rgba(44, 44, 46, 0.92);
+  color: #e5e5ea;
+}
+
+/* =========================================================
+   2. 外观 (apps/appearance.css)
+   ========================================================= */
+html[data-theme="dark"] #app-appearance {
+  background: #0b0b0c;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .lg-card,
+html[data-theme="dark"] .icon-pack-btn,
+html[data-theme="dark"] .icon-pack-sheet {
+  background: #1c1c1e;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .lg-row {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .lg-label,
+html[data-theme="dark"] .font-item-name,
+html[data-theme="dark"] .font-check,
+html[data-theme="dark"] .font-add-btn,
+html[data-theme="dark"] .home-icon-title,
+html[data-theme="dark"] .icon-grid-name,
+html[data-theme="dark"] .icon-pack-name,
+html[data-theme="dark"] .icon-pack-sheet-title {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .lg-select {
+  color: #a1a1a6 !important;
+}
+
+html[data-theme="dark"] .mini-btn,
+html[data-theme="dark"] .home-tag,
+html[data-theme="dark"] .icon-pack-preview-wrap,
+html[data-theme="dark"] .icon-pack-action,
+html[data-theme="dark"] .icon-pack-thumb,
+html[data-theme="dark"] .font-del {
+  background: #2c2c2e;
+  color: #e5e5ea;
+}
+
+html[data-theme="dark"] .mini-btn.is-pressed,
+html[data-theme="dark"] .icon-pack-btn.is-pressed {
+  background: #3a3a3c;
+}
+
+html[data-theme="dark"] .font-accordion {
+  background: #161618;
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .font-item {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme="dark"] .lg-switch {
+  background: #3a3a3c;
+}
+
+html[data-theme="dark"] .lg-switch.on {
+  background: #3eb575;
+}
+
+html[data-theme="dark"] .ios-range {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+html[data-theme="dark"] .ios-slider-dots span {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+html[data-theme="dark"] .lg-tab {
+  color: #a1a1a6;
+}
+
+html[data-theme="dark"] .lg-tab.active {
+  color: #ffffff;
+}
+
+html[data-theme="dark"] .lg-tab-indicator {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+html[data-theme="dark"] .icon-upload-box {
+  background: #242426;
+  border-color: #48484a;
+  color: #a1a1a6;
+}
+
+html[data-theme="dark"] .icon-default-box {
+  background: #242426;
+  border-color: #f2f2f7;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .icon-pack-action.primary,
+html[data-theme="dark"] .icon-reset-badge,
+html[data-theme="dark"] .icon-pack-del {
+  background: #f2f2f7;
+  color: #111111;
+}
+
+html[data-theme="dark"] .icon-clear-btn {
+  color: #ff453a;
+}
+
+/* =========================================================
+   3. API (apps/api.css)
+   ========================================================= */
+html[data-theme="dark"] #app-api {
+  background: #0b0b0c;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .api-header-title,
+html[data-theme="dark"] .api-card-title,
+html[data-theme="dark"] .api-switch-text,
+html[data-theme="dark"] .api-sub-badge,
+html[data-theme="dark"] .api-log-mod,
+html[data-theme="dark"] .api-log-analysis,
+html[data-theme="dark"] .api-test-msg.ok,
+html[data-theme="dark"] #app-api .api-tab.active {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .api-card-sub.configured,
+html[data-theme="dark"] .api-log-raw {
+  color: #d1d1d6;
+}
+
+html[data-theme="dark"] .api-card,
+html[data-theme="dark"] .api-clear-top,
+html[data-theme="dark"] .api-log-card,
+html[data-theme="dark"] .api-log-empty-card {
+  background: #1c1c1e;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .api-card-body {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .api-card.open .api-chevron {
+  stroke: #f2f2f7;
+}
+
+html[data-theme="dark"] .api-preset-row,
+html[data-theme="dark"] .api-seg-btn,
+html[data-theme="dark"] .api-input-box,
+html[data-theme="dark"] .api-model-chip,
+html[data-theme="dark"] .api-switch-row,
+html[data-theme="dark"] .api-btn-secondary,
+html[data-theme="dark"] .api-log-raw {
+  background: #242426;
+  color: #e5e5ea;
+}
+
+html[data-theme="dark"] .api-input,
+html[data-theme="dark"] .api-select {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .api-mini-action,
+html[data-theme="dark"] .api-preset-use {
+  background: #3a3a3c;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .api-preset-row.active,
+html[data-theme="dark"] .api-seg-btn.active,
+html[data-theme="dark"] .api-model-chip.active,
+html[data-theme="dark"] .api-btn-primary {
+  background: #f2f2f7;
+  color: #111111;
+}
+
+html[data-theme="dark"] .api-preset-row.active .api-preset-use {
+  background: #111111;
+  color: #ffffff;
+}
+
+html[data-theme="dark"] .api-preset-row.active .api-preset-meta {
+  color: rgba(17, 17, 17, 0.65);
+}
+
+html[data-theme="dark"] .api-sub-section {
+  background: #161618;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+html[data-theme="dark"] .api-switch {
+  background: #3a3a3c;
+}
+
+html[data-theme="dark"] .api-switch.on {
+  background: #3eb575;
+}
+
+html[data-theme="dark"] #app-api .api-tab-indicator {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* =========================================================
+   4. 档案 (apps/archive.css)
+   ========================================================= */
+html[data-theme="dark"] #app-archive,
+html[data-theme="dark"] .ar-editor,
+html[data-theme="dark"] .ar-editor-foot {
+  background: #0b0b0c;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ar-title,
+html[data-theme="dark"] .ar-card-name,
+html[data-theme="dark"] .ar-net-detail-title,
+html[data-theme="dark"] .ar-npc-name,
+html[data-theme="dark"] .ar-dialog-title,
+html[data-theme="dark"] .ar-export-name,
+html[data-theme="dark"] .ar-top-tab.active,
+html[data-theme="dark"] #app-archive .ar-tab.active {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ar-add-btn,
+html[data-theme="dark"] .ar-pill-btn,
+html[data-theme="dark"] .ar-card,
+html[data-theme="dark"] .ar-empty,
+html[data-theme="dark"] .ar-net-card,
+html[data-theme="dark"] .ar-net-detail,
+html[data-theme="dark"] .ar-icon-circle,
+html[data-theme="dark"] .ar-form-card,
+html[data-theme="dark"] .ar-npc-add,
+html[data-theme="dark"] .ar-npc-card,
+html[data-theme="dark"] .ar-danger-btn,
+html[data-theme="dark"] .ar-dialog {
+  background: #1c1c1e;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ar-add-btn svg,
+html[data-theme="dark"] .ar-icon-circle svg,
+html[data-theme="dark"] .ar-npc-add svg,
+html[data-theme="dark"] .ar-dialog-close svg {
+  stroke: #f2f2f7;
+}
+
+html[data-theme="dark"] .ar-pill-btn.active,
+html[data-theme="dark"] .ar-group-chip.active,
+html[data-theme="dark"] .ar-seg-btn.active,
+html[data-theme="dark"] .ar-primary-btn,
+html[data-theme="dark"] .ar-net-node.is-center .ar-net-circle {
+  background: #f2f2f7;
+  color: #111111;
+}
+
+html[data-theme="dark"] .ar-card-tag,
+html[data-theme="dark"] .ar-net-rel,
+html[data-theme="dark"] .ar-net-circle,
+html[data-theme="dark"] .ar-avatar-lg,
+html[data-theme="dark"] .ar-input-box,
+html[data-theme="dark"] .ar-group-chip,
+html[data-theme="dark"] .ar-seg-btn,
+html[data-theme="dark"] .ar-dialog-close,
+html[data-theme="dark"] .ar-export-opt {
+  background: #242426;
+  color: #e5e5ea;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+html[data-theme="dark"] .ar-rand-btn,
+html[data-theme="dark"] .ar-top-indicator {
+  background: #3a3a3c;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ar-top-tabs {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .ar-input,
+html[data-theme="dark"] .ar-textarea {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ar-net-label {
+  background: rgba(28, 28, 30, 0.92);
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ar-net-detail-desc {
+  color: #d1d1d6;
+}
+
+html[data-theme="dark"] .ar-npc-body {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .ar-npc-social-box {
+  background: #161618;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .ar-switch {
+  background: #3a3a3c;
+}
+
+html[data-theme="dark"] .ar-switch.on {
+  background: #3eb575;
+}
+
+html[data-theme="dark"] .ar-danger-btn,
+html[data-theme="dark"] .ar-npc-del {
+  color: #ff453a;
+}
+
+html[data-theme="dark"] #app-archive .ar-tab-indicator {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* =========================================================
+   5. 图书 (apps/books.css)
+   ========================================================= */
+html[data-theme="dark"] #app-books {
+  background: #0b0b0c;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .bk-title,
+html[data-theme="dark"] .bk-goal-heading,
+html[data-theme="dark"] .bk-arc-label,
+html[data-theme="dark"] .bk-arc-time,
+html[data-theme="dark"] .bk-lib-name,
+html[data-theme="dark"] .bk-stat-kpi-val,
+html[data-theme="dark"] .bk-chart-title,
+html[data-theme="dark"] .bk-bar-col.is-today .bk-bar-day,
+html[data-theme="dark"] .bk-habit-label,
+html[data-theme="dark"] .bk-modal-stat-title,
+html[data-theme="dark"] .bk-adjust-btn,
+html[data-theme="dark"] .bk-dialog-title,
+html[data-theme="dark"] #app-books .bk-tab.active {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .bk-import-btn,
+html[data-theme="dark"] .bk-goal-card,
+html[data-theme="dark"] .bk-lib-card,
+html[data-theme="dark"] .bk-stat-kpi,
+html[data-theme="dark"] .bk-chart-card,
+html[data-theme="dark"] .bk-habit-card,
+html[data-theme="dark"] .bk-notes-empty,
+html[data-theme="dark"] .bk-goal-modal,
+html[data-theme="dark"] .bk-dialog {
+  background: #1c1c1e;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .bk-import-btn svg,
+html[data-theme="dark"] .bk-notes-icon svg,
+html[data-theme="dark"] .bk-close-circle svg,
+html[data-theme="dark"] .bk-dialog-close svg,
+html[data-theme="dark"] .bk-step-btn svg {
+  stroke: #f2f2f7;
+}
+
+html[data-theme="dark"] .bk-shelf-ledge {
+  background: linear-gradient(180deg, #2c2c2e 0%, #222224 55%, #18181a 100%);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="dark"] .bk-cover-fallback {
+  background: linear-gradient(155deg, #2c2c2e 0%, #1c1c1e 100%);
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .bk-continue-btn,
+html[data-theme="dark"] .bk-lib-badge,
+html[data-theme="dark"] .bk-lib-bar-fill,
+html[data-theme="dark"] .bk-bar-col.is-today .bk-bar-fill,
+html[data-theme="dark"] .bk-share-btn,
+html[data-theme="dark"] .bk-preset-chip.active,
+html[data-theme="dark"] .bk-save-btn {
+  background: #f2f2f7;
+  color: #111111;
+}
+
+html[data-theme="dark"] .bk-continue-sub {
+  color: rgba(17, 17, 17, 0.7);
+}
+
+html[data-theme="dark"] .bk-lib-bar,
+html[data-theme="dark"] .bk-chart-pill,
+html[data-theme="dark"] .bk-notes-icon,
+html[data-theme="dark"] .bk-close-circle,
+html[data-theme="dark"] .bk-dialog-close,
+html[data-theme="dark"] .bk-step-btn,
+html[data-theme="dark"] .bk-preset-chip,
+html[data-theme="dark"] .bk-menu-btn {
+  background: #2c2c2e;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .bk-habit-row,
+html[data-theme="dark"] .bk-goal-divider {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: transparent;
+}
+
+html[data-theme="dark"] .bk-chart-goal-tag {
+  background: #1c1c1e;
+}
+
+html[data-theme="dark"] #app-books .bk-tab-indicator {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* =========================================================
+   6. 转换器 (apps/converter.css)
+   ========================================================= */
+html[data-theme="dark"] #app-converter,
+html[data-theme="dark"] .cv-wrap {
+  background: #0b0b0c;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .cv-title,
+html[data-theme="dark"] .cv-drop-title,
+html[data-theme="dark"] .cv-range-val,
+html[data-theme="dark"] .cv-result-name,
+html[data-theme="dark"] #app-converter .cv-tab.active {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .cv-card {
+  background: #1c1c1e;
+}
+
+html[data-theme="dark"] .cv-drop {
+  background: #242426;
+  border-color: #3a3a3c;
+}
+
+html[data-theme="dark"] .cv-drop-icon {
+  background: #2c2c2e;
+}
+
+html[data-theme="dark"] .cv-drop-icon svg {
+  stroke: #f2f2f7;
+}
+
+html[data-theme="dark"] .cv-seg-btn,
+html[data-theme="dark"] .cv-input-box,
+html[data-theme="dark"] .cv-mini-btn,
+html[data-theme="dark"] .cv-font-preview,
+html[data-theme="dark"] .cv-url-box,
+html[data-theme="dark"] .cv-copy-btn {
+  background: #242426;
+  color: #e5e5ea;
+}
+
+html[data-theme="dark"] .cv-input {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .cv-seg-btn.active,
+html[data-theme="dark"] .cv-primary-btn,
+html[data-theme="dark"] .cv-font-badge,
+html[data-theme="dark"] .cv-copy-btn.is-dark {
+  background: #f2f2f7;
+  color: #111111;
+}
+
+html[data-theme="dark"] .cv-mini-btn.is-danger {
+  color: #ff453a;
+}
+
+html[data-theme="dark"] #app-converter .cv-tab-indicator {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* =========================================================
+   7. 世界书 (apps/lorebook.css)
+   ========================================================= */
+html[data-theme="dark"] #app-lorebook,
+html[data-theme="dark"] .lb-detail {
+  background: #0b0b0c;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .lb-title,
+html[data-theme="dark"] .lb-book-name,
+html[data-theme="dark"] .lb-detail-title-input,
+html[data-theme="dark"] .lb-meta-row-title,
+html[data-theme="dark"] .lb-entry-title,
+html[data-theme="dark"] .lb-dialog-title {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .lb-pill-btn,
+html[data-theme="dark"] .lb-empty,
+html[data-theme="dark"] .lb-icon-circle,
+html[data-theme="dark"] .lb-meta-card,
+html[data-theme="dark"] .lb-add-entry-btn,
+html[data-theme="dark"] .lb-entry-card,
+html[data-theme="dark"] .lb-book-del-btn,
+html[data-theme="dark"] .lb-dialog {
+  background: #1c1c1e;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .lb-pill-btn svg,
+html[data-theme="dark"] .lb-icon-circle svg,
+html[data-theme="dark"] .lb-add-entry-btn svg,
+html[data-theme="dark"] .lb-dialog-close svg {
+  stroke: #f2f2f7;
+}
+
+html[data-theme="dark"] .lb-cover-fallback {
+  background: linear-gradient(155deg, #2c2c2e 0%, #1c1c1e 100%);
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .lb-cover-edit {
+  background: rgba(44, 44, 46, 0.92);
+}
+
+html[data-theme="dark"] .lb-cover-edit svg {
+  stroke: #f2f2f7;
+}
+
+html[data-theme="dark"] .lb-char-chip,
+html[data-theme="dark"] .lb-entry-badge,
+html[data-theme="dark"] .lb-input-box,
+html[data-theme="dark"] .lb-seg-btn,
+html[data-theme="dark"] .lb-dialog-close,
+html[data-theme="dark"] .lb-new-cover-box {
+  background: #242426;
+  color: #e5e5ea;
+}
+
+html[data-theme="dark"] .lb-char-chip.active,
+html[data-theme="dark"] .lb-seg-btn.active,
+html[data-theme="dark"] .lb-primary-btn {
+  background: #f2f2f7;
+  color: #111111;
+}
+
+html[data-theme="dark"] .lb-entry-body {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .lb-input,
+html[data-theme="dark"] .lb-textarea {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .lb-switch {
+  background: #3a3a3c;
+}
+
+html[data-theme="dark"] .lb-switch.on {
+  background: #3eb575;
+}
+
+html[data-theme="dark"] .lb-del-btn,
+html[data-theme="dark"] .lb-book-del-btn {
+  color: #ff453a;
+}
+
+/* =========================================================
+   8. 面具 (apps/mask.css)
+   ========================================================= */
+html[data-theme="dark"] #app-mask,
+html[data-theme="dark"] .msk-app,
+html[data-theme="dark"] .msk-header,
+html[data-theme="dark"] .msk-editor,
+html[data-theme="dark"] .msk-editor-header {
+  background: #0b0b0c;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .msk-title,
+html[data-theme="dark"] .msk-empty-title,
+html[data-theme="dark"] .msk-card-name,
+html[data-theme="dark"] .msk-editor-title,
+html[data-theme="dark"] .msk-field-label,
+html[data-theme="dark"] .msk-bind-name,
+html[data-theme="dark"] .msk-modal-title {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .msk-card,
+html[data-theme="dark"] .msk-portrait-box,
+html[data-theme="dark"] .msk-profile-fields,
+html[data-theme="dark"] .msk-setting-card,
+html[data-theme="dark"] .msk-bind-card,
+html[data-theme="dark"] .msk-delete-btn {
+  background: #1c1c1e;
+  color: #f2f2f7;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .msk-card.is-pressed {
+  background: #242426;
+}
+
+html[data-theme="dark"] .msk-card-avatar,
+html[data-theme="dark"] .msk-card-tag,
+html[data-theme="dark"] .msk-bound-pill,
+html[data-theme="dark"] .msk-bind-av,
+html[data-theme="dark"] .msk-modal-btn.is-cancel {
+  background: #2c2c2e;
+  color: #e5e5ea;
+}
+
+html[data-theme="dark"] .msk-card-footer,
+html[data-theme="dark"] .msk-field,
+html[data-theme="dark"] .msk-bind-row,
+html[data-theme="dark"] .msk-export-popover-item {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .msk-input,
+html[data-theme="dark"] .msk-textarea {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .msk-back-btn,
+html[data-theme="dark"] .msk-count-badge,
+html[data-theme="dark"] .msk-fab-action,
+html[data-theme="dark"] .msk-fab-btn,
+html[data-theme="dark"] .msk-export-top-btn,
+html[data-theme="dark"] .msk-export-popover,
+html[data-theme="dark"] .msk-modal {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: linear-gradient(145deg, rgba(44, 44, 48, 0.88) 0%, rgba(28, 28, 32, 0.78) 100%);
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .msk-export-popover-item {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .msk-fab-action-ic {
+  background: #2c2c2e;
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .msk-save-btn,
+html[data-theme="dark"] .msk-bind-row.is-selected .msk-check {
+  background: #f2f2f7;
+  color: #111111;
+  border-color: #f2f2f7;
+}
+
+html[data-theme="dark"] .msk-check {
+  background: #2c2c2e;
+  border-color: #545458;
+}
+
+html[data-theme="dark"] .msk-delete-btn {
+  color: #ff453a;
+}
+
+/* =========================================================
+   9. 记忆 (apps/memory.css)
+   ========================================================= */
+html[data-theme="dark"] #app-memory,
+html[data-theme="dark"] .mm-wrap {
+  background: #0b0b0c;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .mm-title,
+html[data-theme="dark"] .mm-content,
+html[data-theme="dark"] .mm-row-title,
+html[data-theme="dark"] .mm-dialog-title,
+html[data-theme="dark"] #app-memory .mm-tab.active {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .mm-filter-pill,
+html[data-theme="dark"] .mm-card,
+html[data-theme="dark"] .mm-empty,
+html[data-theme="dark"] .mm-dialog {
+  background: #1c1c1e;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .mm-tag,
+html[data-theme="dark"] .mm-mini-btn,
+html[data-theme="dark"] .mm-seg-btn,
+html[data-theme="dark"] .mm-preset-btn,
+html[data-theme="dark"] .mm-input-box,
+html[data-theme="dark"] .mm-model-chip,
+html[data-theme="dark"] .mm-action-btn,
+html[data-theme="dark"] .mm-icon-circle,
+html[data-theme="dark"] .mm-char-chip {
+  background: #242426;
+  color: #e5e5ea;
+}
+
+html[data-theme="dark"] .mm-fetch-btn {
+  background: #3a3a3c;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .mm-input,
+html[data-theme="dark"] .mm-textarea {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .mm-pill-btn,
+html[data-theme="dark"] .mm-filter-pill.active,
+html[data-theme="dark"] .mm-tag.is-pin,
+html[data-theme="dark"] .mm-mini-btn.is-active,
+html[data-theme="dark"] .mm-seg-btn.active,
+html[data-theme="dark"] .mm-model-chip.active,
+html[data-theme="dark"] .mm-action-btn.is-dark,
+html[data-theme="dark"] .mm-char-chip.active,
+html[data-theme="dark"] .mm-primary-btn {
+  background: #f2f2f7;
+  color: #111111;
+}
+
+html[data-theme="dark"] .mm-card-foot {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .mm-switch {
+  background: #3a3a3c;
+}
+
+html[data-theme="dark"] .mm-switch.on {
+  background: #3eb575;
+}
+
+html[data-theme="dark"] .mm-mini-btn.is-danger {
+  color: #ff453a;
+}
+
+html[data-theme="dark"] #app-memory .mm-tab-indicator {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* =========================================================
+   10. 音乐 (apps/music.css)
+   ========================================================= */
+html[data-theme="dark"] #app-music {
+  background: #0b0b0c;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .mu-sec-title,
+html[data-theme="dark"] .mu-rect-title,
+html[data-theme="dark"] .mu-artist-name,
+html[data-theme="dark"] .mu-card-title,
+html[data-theme="dark"] .mu-big-title,
+html[data-theme="dark"] .mu-profile-name,
+html[data-theme="dark"] .mu-dialog-title,
+html[data-theme="dark"] .mu-sheet-title,
+html[data-theme="dark"] .mu-q-title,
+html[data-theme="dark"] .mu-mini-info,
+html[data-theme="dark"] .mu-tab.active,
+html[data-theme="dark"] .mu-ps-title,
+html[data-theme="dark"] .mu-lyric-line.active,
+html[data-theme="dark"] .mu-mode-badge {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .mu-pill,
+html[data-theme="dark"] .mu-rect-card,
+html[data-theme="dark"] .mu-search-box,
+html[data-theme="dark"] .mu-mine-card,
+html[data-theme="dark"] .mu-dialog,
+html[data-theme="dark"] .mu-sheet {
+  background: #1c1c1e;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .mu-search-input,
+html[data-theme="dark"] .mu-text-input {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .mu-pill.active,
+html[data-theme="dark"] .mu-code-btn,
+html[data-theme="dark"] .mu-primary-btn,
+html[data-theme="dark"] .mu-ps-bar-fill {
+  background: #f2f2f7;
+  color: #111111;
+}
+
+html[data-theme="dark"] .mu-seg-4,
+html[data-theme="dark"] .mu-input-card,
+html[data-theme="dark"] .mu-dialog-close,
+html[data-theme="dark"] .mu-avatar,
+html[data-theme="dark"] .mu-sheet-avatar {
+  background: #2c2c2e;
+  color: #e5e5ea;
+}
+
+html[data-theme="dark"] .mu-seg-tab.active {
+  background: #3a3a3c;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .mu-player-sheet {
+  background: #111111;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .mu-ps-grab {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+html[data-theme="dark"] .mu-ps-art {
+  background: #1c1c1e;
+}
+
+html[data-theme="dark"] .mu-ps-art svg {
+  fill: rgba(255, 255, 255, 0.16);
+}
+
+html[data-theme="dark"] .mu-ps-bar,
+html[data-theme="dark"] .mu-vol-range {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+html[data-theme="dark"] .mu-mini-ctrl svg,
+html[data-theme="dark"] .mu-ps-btn svg,
+html[data-theme="dark"] .mu-ps-btn.main svg {
+  fill: #f2f2f7;
+}
+
+html[data-theme="dark"] .mu-ps-fbtn svg {
+  stroke: #d1d1d6;
+}
+
+html[data-theme="dark"] .mu-lyric-line {
+  color: #545458;
+}
+
+html[data-theme="dark"] .mu-tab {
+  color: #a1a1a6;
+}
+
+html[data-theme="dark"] .mu-tab-indicator {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* =========================================================
+   11. 线下 (apps/offline.css)
+   ========================================================= */
+html[data-theme="dark"] #app-offline,
+html[data-theme="dark"] .of-app,
+html[data-theme="dark"] .of-header,
+html[data-theme="dark"] .of-search-wrap,
+html[data-theme="dark"] .of-list-scroll,
+html[data-theme="dark"] .of-room,
+html[data-theme="dark"] .of-room-header,
+html[data-theme="dark"] .of-room-scroll,
+html[data-theme="dark"] .of-char-block,
+html[data-theme="dark"] .of-user-comment,
+html[data-theme="dark"] .of-room-footer,
+html[data-theme="dark"] .of-expand-textarea {
+  background: #111111;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .of-title,
+html[data-theme="dark"] .of-thread-name,
+html[data-theme="dark"] .of-room-title,
+html[data-theme="dark"] .of-post-name,
+html[data-theme="dark"] .of-post-brand,
+html[data-theme="dark"] .of-post-bio,
+html[data-theme="dark"] .of-sort-left,
+html[data-theme="dark"] .of-cmt-name,
+html[data-theme="dark"] .of-cmt-text,
+html[data-theme="dark"] .of-expand-title,
+html[data-theme="dark"] .of-sheet-title,
+html[data-theme="dark"] .of-pick-name {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .of-story-body {
+  color: #e5e5ea;
+}
+
+html[data-theme="dark"] .of-back-btn,
+html[data-theme="dark"] .of-compose-btn,
+html[data-theme="dark"] .of-room-circle-btn,
+html[data-theme="dark"] .of-expand-sheet,
+html[data-theme="dark"] .of-sheet {
+  background: #1c1c1e;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .of-search-box,
+html[data-theme="dark"] .of-reply-pill,
+html[data-theme="dark"] .of-avatar,
+html[data-theme="dark"] .of-post-avatar,
+html[data-theme="dark"] .of-cmt-avatar,
+html[data-theme="dark"] .of-reply-avatar,
+html[data-theme="dark"] .of-pick-avatar,
+html[data-theme="dark"] .of-sheet-close {
+  background: #242426;
+  color: #e5e5ea;
+}
+
+html[data-theme="dark"] .of-search-input,
+html[data-theme="dark"] .of-reply-input {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .of-reply-icons,
+html[data-theme="dark"] .of-reply-icon-btn,
+html[data-theme="dark"] .of-act-btn {
+  color: #d1d1d6;
+}
+
+html[data-theme="dark"] .of-thread-item.is-pressed,
+html[data-theme="dark"] .of-pick-item.is-pressed {
+  background: #1c1c1e;
+}
+
+html[data-theme="dark"] .of-char-block + .of-char-block,
+html[data-theme="dark"] .of-sort-bar,
+html[data-theme="dark"] .of-user-comment,
+html[data-theme="dark"] .of-expand-header,
+html[data-theme="dark"] .of-sheet-header {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .of-tabbar {
+  background: linear-gradient(180deg, rgba(44, 44, 48, 0.9) 0%, rgba(28, 28, 32, 0.86) 100%);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+html[data-theme="dark"] .of-tab-btn {
+  color: #a1a1a6;
+}
+
+html[data-theme="dark"] .of-tab-btn.is-active {
+  background: rgba(255, 255, 255, 0.14);
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .of-expand-send {
+  background: #f2f2f7;
+  color: #111111;
+}
+
+/* =========================================================
+   12. 预设 (apps/presets.css)
+   ========================================================= */
+html[data-theme="dark"] #app-presets,
+html[data-theme="dark"] .pr-wrap,
+html[data-theme="dark"] .pr-topbar,
+html[data-theme="dark"] .pr-search-wrap,
+html[data-theme="dark"] .pr-detail {
+  background: #0b0b0c;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .pr-title,
+html[data-theme="dark"] .pr-empty-title,
+html[data-theme="dark"] .pr-folder-name,
+html[data-theme="dark"] .pr-list-name,
+html[data-theme="dark"] .pr-detail-name-input,
+html[data-theme="dark"] .pr-token-big,
+html[data-theme="dark"] .pr-param-input,
+html[data-theme="dark"] .pr-entry-title,
+html[data-theme="dark"] .pr-modal-title,
+html[data-theme="dark"] .pr-ctx-title,
+html[data-theme="dark"] .pr-ctx-btn,
+html[data-theme="dark"] .pr-ctx-cancel {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .pr-search-box,
+html[data-theme="dark"] .pr-empty,
+html[data-theme="dark"] .pr-file-list,
+html[data-theme="dark"] .pr-card,
+html[data-theme="dark"] .pr-entry-card,
+html[data-theme="dark"] .pr-modal,
+html[data-theme="dark"] .pr-ctx-card,
+html[data-theme="dark"] .pr-ctx-cancel {
+  background: #1c1c1e;
+}
+
+html[data-theme="dark"] .pr-pill-btn,
+html[data-theme="dark"] .pr-icon-btn {
+  background: #242426;
+  color: #f2f2f7;
+  box-shadow: none;
+}
+
+html[data-theme="dark"] .pr-pill-btn.is-dark,
+html[data-theme="dark"] .pr-add-entry-btn,
+html[data-theme="dark"] .pr-seg-btn.is-active,
+html[data-theme="dark"] .pr-lock-btn.is-locked,
+html[data-theme="dark"] .pr-modal-submit,
+html[data-theme="dark"] .pr-tab-btn.is-active {
+  background: #f2f2f7;
+  color: #111111;
+}
+
+html[data-theme="dark"] .pr-search-input,
+html[data-theme="dark"] .pr-input,
+html[data-theme="dark"] .pr-textarea {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .pr-token-summary,
+html[data-theme="dark"] .pr-param-box,
+html[data-theme="dark"] .pr-role-tag,
+html[data-theme="dark"] .pr-input,
+html[data-theme="dark"] .pr-textarea,
+html[data-theme="dark"] .pr-seg-btn,
+html[data-theme="dark"] .pr-lock-btn,
+html[data-theme="dark"] .pr-empty-icon {
+  background: #242426;
+  color: #e5e5ea;
+}
+
+html[data-theme="dark"] .pr-list-row,
+html[data-theme="dark"] .pr-entry-body,
+html[data-theme="dark"] .pr-ctx-header,
+html[data-theme="dark"] .pr-ctx-btn {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .pr-list-row.is-pressed,
+html[data-theme="dark"] .pr-ctx-btn.is-pressed,
+html[data-theme="dark"] .pr-ctx-cancel.is-pressed {
+  background: #2c2c2e;
+}
+
+html[data-theme="dark"] .pr-bottom-bar {
+  background: linear-gradient(180deg, rgba(44, 44, 48, 0.9) 0%, rgba(28, 28, 32, 0.86) 100%);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+html[data-theme="dark"] .pr-switch {
+  background: #3a3a3c;
+}
+
+html[data-theme="dark"] .pr-switch.is-on {
+  background: #3eb575;
+}
+
+html[data-theme="dark"] .pr-del-btn {
+  background: rgba(255, 69, 58, 0.16);
+  color: #ff453a;
+}
+
+html[data-theme="dark"] .pr-ctx-btn.is-danger {
+  color: #ff453a;
+}
+
+/* =========================================================
+   13. 购物 (apps/shopping.css)
+   ========================================================= */
+html[data-theme="dark"] #app-shopping,
+html[data-theme="dark"] .sp-app,
+html[data-theme="dark"] .sp-header,
+html[data-theme="dark"] .sp-search-wrap,
+html[data-theme="dark"] .sp-detail {
+  background: #0b0b0c;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .sp-title,
+html[data-theme="dark"] .sp-empty-title,
+html[data-theme="dark"] .sp-card-title,
+html[data-theme="dark"] .sp-card-price,
+html[data-theme="dark"] .sp-cart-name,
+html[data-theme="dark"] .sp-cart-price,
+html[data-theme="dark"] .sp-checkout-total,
+html[data-theme="dark"] .sp-wallet-val,
+html[data-theme="dark"] .sp-order-status,
+html[data-theme="dark"] .sp-order-row,
+html[data-theme="dark"] .sp-detail-price,
+html[data-theme="dark"] .sp-detail-name {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .sp-circle-btn,
+html[data-theme="dark"] .sp-search-box,
+html[data-theme="dark"] .sp-empty-card,
+html[data-theme="dark"] .sp-card,
+html[data-theme="dark"] .sp-cart-item,
+html[data-theme="dark"] .sp-checkout-card,
+html[data-theme="dark"] .sp-wallet-card,
+html[data-theme="dark"] .sp-order-card,
+html[data-theme="dark"] .sp-detail-cover,
+html[data-theme="dark"] .sp-detail-card,
+html[data-theme="dark"] .sp-detail-footer,
+html[data-theme="dark"] .sp-sheet {
+  background: #1c1c1e;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .sp-search-input,
+html[data-theme="dark"] .sp-form-input {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .sp-card-cover,
+html[data-theme="dark"] .sp-empty-icon,
+html[data-theme="dark"] .sp-cart-thumb,
+html[data-theme="dark"] .sp-qty-box,
+html[data-theme="dark"] .sp-confirm-btn,
+html[data-theme="dark"] .sp-sheet-close,
+html[data-theme="dark"] .sp-form-input {
+  background: #242426;
+  color: #e5e5ea;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+html[data-theme="dark"] .sp-qty-btn {
+  background: #3a3a3c;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .sp-ai-search-btn,
+html[data-theme="dark"] .sp-add-mini,
+html[data-theme="dark"] .sp-check-btn.is-checked,
+html[data-theme="dark"] .sp-checkout-btn,
+html[data-theme="dark"] .sp-badge,
+html[data-theme="dark"] .sp-btn-solid,
+html[data-theme="dark"] .sp-form-submit {
+  background: #f2f2f7;
+  color: #111111;
+  border-color: #f2f2f7;
+}
+
+html[data-theme="dark"] .sp-btn-outline {
+  background: transparent;
+  color: #f2f2f7;
+  border-color: #f2f2f7;
+}
+
+html[data-theme="dark"] .sp-order-top,
+html[data-theme="dark"] .sp-order-foot,
+html[data-theme="dark"] .sp-detail-desc,
+html[data-theme="dark"] .sp-detail-footer {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .sp-detail-desc {
+  color: #d1d1d6;
+}
+
+html[data-theme="dark"] .sp-tabbar {
+  background: linear-gradient(180deg, rgba(44, 44, 48, 0.9) 0%, rgba(28, 28, 32, 0.86) 100%);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+html[data-theme="dark"] .sp-tab-btn {
+  color: #a1a1a6;
+}
+
+html[data-theme="dark"] .sp-tab-btn.is-active {
+  background: rgba(255, 255, 255, 0.14);
+  color: #f2f2f7;
+}
+
+/* =========================================================
+   14. 小团外卖 (apps/takeout.css)
+   ========================================================= */
+html[data-theme="dark"] #app-takeout,
+html[data-theme="dark"] .tk-app,
+html[data-theme="dark"] .tk-subview,
+html[data-theme="dark"] .tk-store-view {
+  background: #0b0b0c;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .tk-topbar,
+html[data-theme="dark"] .tk-subview-head {
+  background: rgba(11, 11, 12, 0.9);
+}
+
+html[data-theme="dark"] .tk-title,
+html[data-theme="dark"] .tk-cat-item.active .tk-cat-label,
+html[data-theme="dark"] .tk-sec-title,
+html[data-theme="dark"] .tk-store-name,
+html[data-theme="dark"] .tk-subview-title,
+html[data-theme="dark"] .tk-dish-name,
+html[data-theme="dark"] .tk-cart-drawer-title,
+html[data-theme="dark"] .tk-cart-drawer-name,
+html[data-theme="dark"] .tk-order-price,
+html[data-theme="dark"] .tk-tab-btn.active {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .tk-cat-label,
+html[data-theme="dark"] .tk-order-items {
+  color: #d1d1d6;
+}
+
+html[data-theme="dark"] .tk-cat-card,
+html[data-theme="dark"] .tk-store-card,
+html[data-theme="dark"] .tk-dish-card,
+html[data-theme="dark"] .tk-cart-drawer,
+html[data-theme="dark"] .tk-order-card,
+html[data-theme="dark"] .tk-modal {
+  background: #1c1c1e;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .tk-cat-icon,
+html[data-theme="dark"] .tk-preview-chip,
+html[data-theme="dark"] .tk-qty-btn.minus,
+html[data-theme="dark"] .tk-modal-close,
+html[data-theme="dark"] .tk-input,
+html[data-theme="dark"] .tk-mode-btn,
+html[data-theme="dark"] .tk-char-chip {
+  background: #242426;
+  color: #e5e5ea;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+html[data-theme="dark"] .tk-cat-item.active .tk-cat-icon,
+html[data-theme="dark"] .tk-qty-btn.plus,
+html[data-theme="dark"] .tk-mode-btn.active,
+html[data-theme="dark"] .tk-char-chip.active,
+html[data-theme="dark"] .tk-primary-btn {
+  background: #f2f2f7;
+  color: #111111;
+  border-color: #f2f2f7;
+}
+
+html[data-theme="dark"] .tk-store-badge,
+html[data-theme="dark"] .tk-circle-btn {
+  background: rgba(28, 28, 30, 0.88);
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .tk-cart-drawer-head,
+html[data-theme="dark"] .tk-cart-drawer-foot,
+html[data-theme="dark"] .tk-order-top {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .tk-back-btn,
+html[data-theme="dark"] .tk-bottom-bar {
+  background: linear-gradient(135deg, rgba(44, 44, 48, 0.78) 0%, rgba(28, 28, 32, 0.66) 100%);
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .tk-tab-btn {
+  color: #a1a1a6;
+}
+
+html[data-theme="dark"] .tk-tab-btn.active {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* =========================================================
+   15. 微信 Chat 全套深色模式（统一听外观开关）
+   ========================================================= */
+html[data-theme="dark"] #app-chat,
+html[data-theme="dark"] .ct-app,
+html[data-theme="dark"] .ct-scroll,
+html[data-theme="dark"] .ct-search-bar,
+html[data-theme="dark"] .ct-flat-list,
+html[data-theme="dark"] .ct-row {
+  background: #111111;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ct-scroll.is-gray {
+  background: #0b0b0c;
+}
+
+html[data-theme="dark"] .ct-topbar {
+  background: rgba(17, 17, 17, 0.92);
+}
+
+html[data-theme="dark"] .ct-glass-circle,
+html[data-theme="dark"] .ct-title,
+html[data-theme="dark"] .ct-row-name,
+html[data-theme="dark"] .ct-me-name,
+html[data-theme="dark"] .ct-room-title,
+html[data-theme="dark"] .ct-room-title.is-typing,
+html[data-theme="dark"] .ct-modal-title,
+html[data-theme="dark"] .ct-plus-item {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ct-row::after {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .ct-row:active,
+html[data-theme="dark"] .ct-row.is-pressed {
+  background: #1d1d1f;
+}
+
+html[data-theme="dark"] .ct-search-wrap,
+html[data-theme="dark"] .ct-avatar,
+html[data-theme="dark"] .ct-me-avatar,
+html[data-theme="dark"] .ct-modal-input,
+html[data-theme="dark"] .ct-modal-close,
+html[data-theme="dark"] .ct-pill-btn.done {
+  background: #242426;
+  color: #e5e5ea;
+}
+
+html[data-theme="dark"] .ct-search-input,
+html[data-theme="dark"] .ct-modal-input {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ct-card,
+html[data-theme="dark"] .ct-me-card,
+html[data-theme="dark"] .ct-plus-menu,
+html[data-theme="dark"] .ct-modal {
+  background: #1c1c1e;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.36);
+}
+
+html[data-theme="dark"] .ct-plus-item:active,
+html[data-theme="dark"] .ct-plus-item.is-pressed {
+  background: #2c2c2e;
+}
+
+html[data-theme="dark"] .ct-bottom-bar {
+  background: linear-gradient(135deg, rgba(44, 44, 48, 0.72) 0%, rgba(28, 28, 32, 0.56) 50%, rgba(40, 40, 46, 0.68) 100%);
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.45),
+    inset 0 1px 1px rgba(255, 255, 255, 0.24),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="dark"] .ct-bottom-bar::before {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.42) 0%,
+    rgba(255, 255, 255, 0.14) 24%,
+    rgba(255, 255, 255, 0) 46%,
+    rgba(255, 255, 255, 0) 56%,
+    rgba(255, 255, 255, 0.14) 78%,
+    rgba(255, 255, 255, 0.36) 100%
+  );
+}
+
+html[data-theme="dark"] .ct-tab-btn {
+  color: #a1a1a6;
+}
+
+html[data-theme="dark"] .ct-tab-btn.active {
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+html[data-theme="dark"] .ct-room,
+html[data-theme="dark"] .ct-room-messages {
+  background: #111111;
+}
+
+html[data-theme="dark"] .ct-room-head {
+  background: #111111;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .ct-msg-time {
+  color: #6e6e73;
+}
+
+html[data-theme="dark"] .ct-cot-pill {
+  background: #242426;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #a1a1a6;
+}
+
+html[data-theme="dark"] .ct-cot-card {
+  background: #1c1c1e;
+  border-left-color: #545458;
+  color: #aeaeb2;
+}
+
+html[data-theme="dark"] .ct-msg-avatar {
+  background: #2c2c2e;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ct-msg-bubble {
+  background: #2c2c2e;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ct-msg-bubble::before {
+  border-color: transparent #2c2c2e transparent transparent;
+}
+
+html[data-theme="dark"] .ct-msg-row.me .ct-msg-bubble {
+  background: #3eb575;
+  color: #111111;
+}
+
+html[data-theme="dark"] .ct-msg-row.me .ct-msg-bubble::before {
+  border-color: transparent transparent transparent #3eb575;
+}
+
+html[data-theme="dark"] .ct-msg-row:not(.me) .ct-voice-sec {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ct-msg-quote {
+  background: #242426;
+  color: #a1a1a6;
+}
+
+html[data-theme="dark"] .ct-msg-subcard {
+  background: #242426;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ct-msg-subdivider {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .ct-room-footer {
+  background: #1c1c1e;
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .ct-room-icon-btn {
+  color: #e5e5ea;
+}
+
+html[data-theme="dark"] .ct-room-input,
+html[data-theme="dark"] .ct-hold-talk-btn {
+  background: #2c2c2e;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ct-room-input::placeholder {
+  color: #7c7c82;
+}
+
+html[data-theme="dark"] .ct-hold-talk-btn:active,
+html[data-theme="dark"] .ct-hold-talk-btn.pressing {
+  background: #3a3a3c;
+}
+
+html[data-theme="dark"] .ct-quote-bar {
+  background: #2c2c2e;
+  color: #aeaeb2;
+}
+
+html[data-theme="dark"] .ct-quote-bar-close {
+  background: #545458;
+}
+
+html[data-theme="dark"] .ct-pick-row {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .ct-pill-btn,
+html[data-theme="dark"] .ct-primary-btn,
+html[data-theme="dark"] .ct-check-circle.checked {
+  background: #f2f2f7;
+  color: #111111;
+  border-color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ct-profile-head {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .ct-profile-body {
+  color: #d1d1d6;
+}
+
+html[data-theme="dark"] .ct-toast {
+  background: rgba(44, 44, 46, 0.94);
+  color: #ffffff;
+}
+
+/* 微信表情包抽屉 */
+html[data-theme="dark"] #app-chat {
+  --cte-drawer-bg: #1c1c1e;
+  --cte-card-bg: #2c2c2e;
+  --cte-pill-bg: #2c2c2e;
+  --cte-pill-active-bg: #f2f2f7;
+  --cte-pill-active-fg: #111111;
+  --cte-text: #f2f2f7;
+  --cte-muted: #8e8e93;
+  --cte-border: rgba(255, 255, 255, 0.08);
+}
+
+/* 微信联系人 */
+html[data-theme="dark"] #app-chat .ct-app.is-contacts-tab {
+  --ctc-bg: #111111;
+  --ctc-card-bg: #111111;
+  --ctc-sec-bg: #111111;
+  --ctc-search-bg: #242426;
+  --ctc-text: #f2f2f7;
+  --ctc-muted: #8e8e93;
+  --ctc-accent: #f2f2f7;
+  --ctc-divider: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .ctc-row:active {
+  background: #1d1d1f;
+}
+
+html[data-theme="dark"] .ctc-avatar {
+  background: #242426;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctc-index-item {
+  color: #a1a1a6;
+}
+
+html[data-theme="dark"] .ctc-index-item.active {
+  background: #f2f2f7;
+  color: #111111;
+}
+
+html[data-theme="dark"] .ctc-index-toast {
+  background: rgba(58, 58, 60, 0.9);
+  color: #ffffff;
+}
+
+/* 微信聊天详情页 */
+html[data-theme="dark"] .ctd-overlay,
+html[data-theme="dark"] .ctd-page,
+html[data-theme="dark"] .ctd-topbar {
+  background: #0b0b0c;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctd-back-btn,
+html[data-theme="dark"] .ctd-top-action-btn,
+html[data-theme="dark"] .ctd-card,
+html[data-theme="dark"] .ctd-row,
+html[data-theme="dark"] .ctd-search-box,
+html[data-theme="dark"] .ctd-calendar-card,
+html[data-theme="dark"] .ctd-date-pill-bar,
+html[data-theme="dark"] .ctd-msg-item,
+html[data-theme="dark"] .ctd-sheet-group,
+html[data-theme="dark"] .ctd-sheet-btn,
+html[data-theme="dark"] .ctd-modal-card,
+html[data-theme="dark"] .ctd-modal-btn {
+  background: #1c1c1e;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctd-back-btn.is-pressed,
+html[data-theme="dark"] .ctd-top-action-btn.is-pressed,
+html[data-theme="dark"] .ctd-profile-card.is-pressed,
+html[data-theme="dark"] .ctd-row.is-pressed,
+html[data-theme="dark"] .ctd-msg-item.is-pressed,
+html[data-theme="dark"] .ctd-sheet-btn.is-pressed,
+html[data-theme="dark"] .ctd-modal-btn.is-pressed,
+html[data-theme="dark"] .ctd-cal-day.has-msg.is-pressed {
+  background: #2c2c2e;
+}
+
+html[data-theme="dark"] .ctd-row.ctd-row-static.is-pressed {
+  background: #1c1c1e;
+}
+
+html[data-theme="dark"] .ctd-top-action-btn.primary,
+html[data-theme="dark"] .ctd-primary-btn,
+html[data-theme="dark"] .ctd-fetch-btn,
+html[data-theme="dark"] .ctd-provider-pill.active,
+html[data-theme="dark"] .ctd-cal-day.selected,
+html[data-theme="dark"] .ctd-check-circle.checked,
+html[data-theme="dark"] .ctd-sheet-check-row.checked .ctd-sheet-check-box {
+  background: #f2f2f7;
+  color: #111111;
+  border-color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctd-title,
+html[data-theme="dark"] .ctd-profile-name,
+html[data-theme="dark"] .ctd-row-title,
+html[data-theme="dark"] .ctd-field-label,
+html[data-theme="dark"] .ctd-cal-month,
+html[data-theme="dark"] .ctd-cal-day.has-msg,
+html[data-theme="dark"] .ctd-date-pill-text,
+html[data-theme="dark"] .ctd-msg-sender,
+html[data-theme="dark"] .ctd-sheet-title,
+html[data-theme="dark"] .ctd-sheet-check-text,
+html[data-theme="dark"] .ctd-modal-title {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctd-member-name,
+html[data-theme="dark"] .ctd-msg-body {
+  color: #d1d1d6;
+}
+
+html[data-theme="dark"] .ctd-group-members {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .ctd-row + .ctd-row::before,
+html[data-theme="dark"] .ctd-slider-row + .ctd-slider-row::before,
+html[data-theme="dark"] .ctd-row + .ctd-slider-row::before,
+html[data-theme="dark"] .ctd-slider-row + .ctd-row::before,
+html[data-theme="dark"] .ctd-sheet-btn + .ctd-sheet-btn::before {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .ctd-sheet-header,
+html[data-theme="dark"] .ctd-sheet-search-wrap,
+html[data-theme="dark"] .ctd-modal-actions,
+html[data-theme="dark"] .ctd-modal-btn + .ctd-modal-btn {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .ctd-avatar-lg,
+html[data-theme="dark"] .ctd-member-av,
+html[data-theme="dark"] .ctd-icon-more-btn,
+html[data-theme="dark"] .ctd-mini-reset,
+html[data-theme="dark"] .ctd-region-bar,
+html[data-theme="dark"] .ctd-cal-nav-btn,
+html[data-theme="dark"] .ctd-date-pill-clear,
+html[data-theme="dark"] .ctd-sheet-search-input,
+html[data-theme="dark"] .ctd-sheet-check-row,
+html[data-theme="dark"] .ctd-search-clear {
+  background: #2c2c2e;
+  color: #e5e5ea;
+}
+
+html[data-theme="dark"] .ctd-provider-pill {
+  background: #242426;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #d1d1d6;
+}
+
+html[data-theme="dark"] .ctd-region-btn {
+  color: #a1a1a6;
+}
+
+html[data-theme="dark"] .ctd-region-btn.active {
+  background: #3a3a3c;
+  color: #ffffff;
+}
+
+html[data-theme="dark"] .ctd-input-clean,
+html[data-theme="dark"] .ctd-textarea,
+html[data-theme="dark"] .ctd-modal-input {
+  background: #242426;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctd-search-input {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctd-switch {
+  background: #3a3a3c;
+}
+
+html[data-theme="dark"] .ctd-switch.on {
+  background: #3eb575;
+}
+
+html[data-theme="dark"] .ctd-range {
+  accent-color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctd-pinned-row {
+  background-color: #1c1c1e !important;
+}
+
+html[data-theme="dark"] .ctd-row-danger .ctd-row-title,
+html[data-theme="dark"] .ctd-sheet-btn.danger {
+  color: #ff453a;
+}
+
+html[data-theme="dark"] .ctd-cal-day {
+  color: #48484a;
+}
+
+html[data-theme="dark"] .ctd-theme-preview {
+  background: #111111;
+}
+
+html[data-theme="dark"] .ctd-prev-av {
+  background: #2c2c2e;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctd-prev-bubble {
+  background: var(--ctd-prev-bg, #2c2c2e);
+  color: var(--ctd-prev-color, #f2f2f7);
+}
+
+html[data-theme="dark"] .ctd-prev-bubble::before {
+  border-right-color: var(--ctd-prev-bg, #2c2c2e);
+}
+
+html[data-theme="dark"] .ctd-prev-row.me .ctd-prev-bubble {
+  background: var(--ctd-prev-bg, #3eb575);
+  color: var(--ctd-prev-color, #111111);
+}
+
+html[data-theme="dark"] .ctd-prev-row.me .ctd-prev-bubble::before {
+  border-left-color: var(--ctd-prev-bg, #3eb575);
+}
+
+/* 微信我的页 */
+html[data-theme="dark"] #app-chat .ct-app.is-me-tab {
+  --ctme-bg: #111111;
+  --ctme-row-bg: #111111;
+  --ctme-gap-bg: #0b0b0c;
+  --ctme-text: #f2f2f7;
+  --ctme-muted: #8e8e93;
+  --ctme-divider: rgba(255, 255, 255, 0.08);
+  background: #111111 !important;
+}
+
+html[data-theme="dark"] #app-chat .ct-app.is-me-tab #ctMainScroll,
+html[data-theme="dark"] #app-chat .ct-app.is-me-tab #ctMainScroll.is-gray,
+html[data-theme="dark"] .ctme-wrap {
+  background: #111111 !important;
+}
+
+html[data-theme="dark"] .ctme-profile.is-pressed,
+html[data-theme="dark"] .ctme-row.is-pressed,
+html[data-theme="dark"] .ctme-item.is-pressed,
+html[data-theme="dark"] .ctme-fav-card.is-pressed,
+html[data-theme="dark"] .ctme-pack-row.is-pressed {
+  background: #1d1d1f;
+}
+
+html[data-theme="dark"] .ctme-avatar,
+html[data-theme="dark"] .ctme-role-tag,
+html[data-theme="dark"] .ctme-role-tag.is-char,
+html[data-theme="dark"] .ctme-avatar-lg,
+html[data-theme="dark"] .ctme-mini-pill,
+html[data-theme="dark"] .ctme-btn-light,
+html[data-theme="dark"] .ctme-pack-thumb,
+html[data-theme="dark"] .ctme-sticker-img-wrap,
+html[data-theme="dark"] .ctme-acc-ava,
+html[data-theme="dark"] .ctme-acc-badge.is-main,
+html[data-theme="dark"] .ctme-acc-badge.is-alt,
+html[data-theme="dark"] .ctme-acc-badge.is-mask,
+html[data-theme="dark"] .ctme-acc-badge.is-char,
+html[data-theme="dark"] .ctme-acc-badge.is-locked,
+html[data-theme="dark"] .ctme-acc-badge.is-stealth,
+html[data-theme="dark"] .ctme-sheet-close,
+html[data-theme="dark"] .ctme-sticker-preview-box {
+  background: #2c2c2e;
+  color: #e5e5ea;
+}
+
+html[data-theme="dark"] .ctme-mini-pill.is-danger,
+html[data-theme="dark"] .ctme-btn-danger,
+html[data-theme="dark"] .ctme-action-btn.is-danger {
+  background: rgba(255, 69, 58, 0.16);
+  color: #ff453a;
+}
+
+html[data-theme="dark"] .ctme-overlay,
+html[data-theme="dark"] .ctme-sub-header {
+  background: #0b0b0c;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctme-back-btn,
+html[data-theme="dark"] .ctme-pill-btn,
+html[data-theme="dark"] .ctme-card,
+html[data-theme="dark"] .ctme-item,
+html[data-theme="dark"] .ctme-chip,
+html[data-theme="dark"] .ctme-search-box,
+html[data-theme="dark"] .ctme-fav-card,
+html[data-theme="dark"] .ctme-acc-card,
+html[data-theme="dark"] .ctme-sheet {
+  background: #1c1c1e;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctme-sub-title,
+html[data-theme="dark"] .ctme-item-label,
+html[data-theme="dark"] .ctme-bill-title,
+html[data-theme="dark"] .ctme-bill-val.is-out,
+html[data-theme="dark"] .ctme-fav-title,
+html[data-theme="dark"] .ctme-pack-name,
+html[data-theme="dark"] .ctme-moment-text,
+html[data-theme="dark"] .ctme-acc-name,
+html[data-theme="dark"] .ctme-sheet-title {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctme-fav-body,
+html[data-theme="dark"] .ctme-field-label,
+html[data-theme="dark"] .ctme-sticker-label {
+  color: #aeaeb2;
+}
+
+html[data-theme="dark"] .ctme-item::after,
+html[data-theme="dark"] .ctme-bill-row::after,
+html[data-theme="dark"] .ctme-pack-row::after,
+html[data-theme="dark"] .ctme-moment-row::after {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .ctme-acc-actions,
+html[data-theme="dark"] .ctme-sheet-head {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .ctme-input,
+html[data-theme="dark"] .ctme-textarea,
+html[data-theme="dark"] .ctme-select,
+html[data-theme="dark"] .ctme-quick-amt {
+  background: #242426;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctme-search-input {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctme-switch {
+  background: #3a3a3c;
+}
+
+html[data-theme="dark"] .ctme-switch.is-on {
+  background: #3eb575;
+}
+
+html[data-theme="dark"] .ctme-pill-btn.is-primary,
+html[data-theme="dark"] .ctme-btn-dark,
+html[data-theme="dark"] .ctme-chip.is-active,
+html[data-theme="dark"] .ctme-acc-badge,
+html[data-theme="dark"] .ctme-action-btn.is-primary,
+html[data-theme="dark"] .ctme-quick-amt.is-pressed {
+  background: #f2f2f7;
+  color: #111111;
+}
+
+html[data-theme="dark"] .ctme-acc-card.is-current {
+  border-color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctme-mask-quick {
+  background: #1c1c1e;
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+html[data-theme="dark"] .ctme-hint-box,
+html[data-theme="dark"] .ctme-action-btn {
+  background: #242426;
+  color: #e5e5ea;
+}
+
+/* 微信朋友圈 */
+html[data-theme="dark"] #app-chat .ct-app.is-moments-tab {
+  --ctm-bg: #111111;
+  --ctm-text: #f2f2f7;
+  --ctm-muted: #8e8e93;
+  --ctm-link: #7d98c4;
+  --ctm-divider: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .ctm-cover-area,
+html[data-theme="dark"] .ctm-compose,
+html[data-theme="dark"] .ctm-picker {
+  background: #111111;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctm-camera-btn,
+html[data-theme="dark"] .ctm-me-name,
+html[data-theme="dark"] .ctm-compose-cancel,
+html[data-theme="dark"] .ctm-compose-title,
+html[data-theme="dark"] .ctm-compose-textarea,
+html[data-theme="dark"] .ctm-opt-row,
+html[data-theme="dark"] .ctm-picker-btn,
+html[data-theme="dark"] .ctm-picker-title,
+html[data-theme="dark"] .ctm-pick-title {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctm-me-avatar,
+html[data-theme="dark"] .ctm-post-avatar,
+html[data-theme="dark"] .ctm-post-img,
+html[data-theme="dark"] .ctm-more-btn,
+html[data-theme="dark"] .ctm-compose-add,
+html[data-theme="dark"] .ctm-picker-search input,
+html[data-theme="dark"] .ctm-pick-av {
+  background: #242426;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctm-social-box,
+html[data-theme="dark"] .ctm-comment-bar {
+  background: #1c1c1e;
+}
+
+html[data-theme="dark"] .ctm-comment-input {
+  background: #2c2c2e;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctm-comment-send,
+html[data-theme="dark"] .ctm-compose-send.ready,
+html[data-theme="dark"] .ctm-pick-check.on {
+  background: #f2f2f7;
+  color: #111111;
+  border-color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctm-compose-send {
+  background: #242426;
+  color: #636366;
+}
+
+html[data-theme="dark"] .ctm-compose-textarea {
+  background: transparent;
+}
+
+html[data-theme="dark"] .ctm-compose-opts,
+html[data-theme="dark"] .ctm-opt-row,
+html[data-theme="dark"] .ctm-picker-head,
+html[data-theme="dark"] .ctm-picker-search,
+html[data-theme="dark"] .ctm-pick-row,
+html[data-theme="dark"] .ctm-likes-row + .ctm-comments-list {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* 微信长按菜单 / 多选 / 转发 */
+html[data-theme="dark"] .ctmu-popover {
+  background: #2c2c2e;
+}
+
+html[data-theme="dark"] .ctmu-popover.is-above .ctmu-arrow {
+  border-top-color: #2c2c2e;
+}
+
+html[data-theme="dark"] .ctmu-popover.is-below .ctmu-arrow {
+  border-bottom-color: #2c2c2e;
+}
+
+html[data-theme="dark"] .ctmu-multi-head,
+html[data-theme="dark"] .ctmu-fwd-page,
+html[data-theme="dark"] .ctmu-fwd-head,
+html[data-theme="dark"] .ctmu-fwd-search {
+  background: #111111;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .ctmu-multi-cancel,
+html[data-theme="dark"] .ctmu-multi-count,
+html[data-theme="dark"] .ctmu-multi-icon-btn,
+html[data-theme="dark"] .ctmu-fwd-head-btn,
+html[data-theme="dark"] .ctmu-fwd-head-title,
+html[data-theme="dark"] .ctmu-fwd-name,
+html[data-theme="dark"] .ctmu-bundle-title,
+html[data-theme="dark"] .ctmu-modal-title,
+html[data-theme="dark"] .ctmu-modal-act-btn,
+html[data-theme="dark"] .ctmu-sheet-btn {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctmu-multi-search-box,
+html[data-theme="dark"] .ctmu-fwd-search-box,
+html[data-theme="dark"] .ctmu-edit-area {
+  background: #242426;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctmu-multi-search-box input,
+html[data-theme="dark"] .ctmu-fwd-search-box input {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctmu-sel-box {
+  background: #2c2c2e;
+  border-color: #545458;
+}
+
+html[data-theme="dark"] .ctmu-multi-bar {
+  background: #1c1c1e;
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .ctmu-sheet,
+html[data-theme="dark"] .ctmu-sheet-btn,
+html[data-theme="dark"] .ctmu-fwd-scroll,
+html[data-theme="dark"] .ctmu-fwd-sec,
+html[data-theme="dark"] .ctmu-fwd-list-head,
+html[data-theme="dark"] .ctmu-fwd-row,
+html[data-theme="dark"] .ctmu-modal,
+html[data-theme="dark"] .ctmu-modal-act-btn {
+  background: #1c1c1e;
+}
+
+html[data-theme="dark"] .ctmu-sheet-btn,
+html[data-theme="dark"] .ctmu-fwd-row::after,
+html[data-theme="dark"] .ctmu-bundle-foot,
+html[data-theme="dark"] .ctmu-modal-actions,
+html[data-theme="dark"] .ctmu-modal-act-btn + .ctmu-modal-act-btn {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .ctmu-sheet-gap,
+html[data-theme="dark"] .ctmu-fwd-gap {
+  background: #0b0b0c;
+}
+
+html[data-theme="dark"] .ctmu-sheet-btn.danger {
+  color: #ff453a;
+}
+
+html[data-theme="dark"] .ctmu-fwd-recent-av,
+html[data-theme="dark"] .ctmu-fwd-av {
+  background: #2c2c2e;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctmu-fwd-new-btn,
+html[data-theme="dark"] .ctmu-modal-act-btn.primary {
+  color: #7d98c4;
+}
+
+/* 微信扩展面板 & 转账 */
+html[data-theme="dark"] #app-chat {
+  --ctp-drawer-bg: #1c1c1e;
+  --ctp-tile-bg: #2c2c2e;
+  --ctp-tile-color: #f2f2f7;
+  --ctp-tile-label: #a1a1a6;
+  --ctp-pill-bg: #2c2c2e;
+  --ctp-pill-color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctp-tr-page,
+html[data-theme="dark"] .ctp-keypad {
+  background: #111111;
+}
+
+html[data-theme="dark"] .ctp-tr-card,
+html[data-theme="dark"] .ctp-wxpay-sheet,
+html[data-theme="dark"] .ctp-pay-sheet,
+html[data-theme="dark"] .ctp-done-page,
+html[data-theme="dark"] .ctp-tr-detail,
+html[data-theme="dark"] .ctp-note-box {
+  background: #1c1c1e;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctp-tr-back,
+html[data-theme="dark"] .ctp-tr-peer-name,
+html[data-theme="dark"] .ctp-tr-card-label,
+html[data-theme="dark"] .ctp-tr-yen,
+html[data-theme="dark"] .ctp-tr-val,
+html[data-theme="dark"] .ctp-wxpay-x,
+html[data-theme="dark"] .ctp-wxpay-to,
+html[data-theme="dark"] .ctp-wxpay-amt,
+html[data-theme="dark"] .ctp-pay-title,
+html[data-theme="dark"] .ctp-pay-name,
+html[data-theme="dark"] .ctp-done-to,
+html[data-theme="dark"] .ctp-done-amt,
+html[data-theme="dark"] .ctp-done-row span:last-child,
+html[data-theme="dark"] .ctp-tr-detail-state,
+html[data-theme="dark"] .ctp-tr-detail-amt,
+html[data-theme="dark"] .ctp-note-head,
+html[data-theme="dark"] .ctp-note-btn {
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctp-tr-peer-av,
+html[data-theme="dark"] .ctp-pay-close,
+html[data-theme="dark"] .ctp-done-btn,
+html[data-theme="dark"] .ctp-note-inp {
+  background: #2c2c2e;
+  color: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctp-key,
+html[data-theme="dark"] .ctp-pwd-key {
+  background: #2c2c2e;
+  color: #f2f2f7;
+  box-shadow: none;
+}
+
+html[data-theme="dark"] .ctp-pwd-pad {
+  background: #111111;
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .ctp-pwd-key.is-muted {
+  background: #1c1c1e;
+}
+
+html[data-theme="dark"] .ctp-pwd-cell {
+  background: #2c2c2e;
+}
+
+html[data-theme="dark"] .ctp-pwd-dot {
+  background: #f2f2f7;
+}
+
+/* 微信一起听 */
+html[data-theme="dark"] .ctl-msg-card {
+  background: linear-gradient(180deg, #242426 0%, #1c1c1e 100%);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+html[data-theme="dark"] .ctl-msg-title,
+html[data-theme="dark"] .ctl-float-txt-inner,
+html[data-theme="dark"] .ctl-timer,
+html[data-theme="dark"] .ctl-quit-btn,
+html[data-theme="dark"] .ctl-song-title,
+html[data-theme="dark"] .ctl-change-btn,
+html[data-theme="dark"] .ctl-sheet-title,
+html[data-theme="dark"] .ctl-search-input,
+html[data-theme="dark"] .ctl-song-item-t,
+html[data-theme="dark"] .ctl-lrc-line.active {
+  color: #f2f2f7;
+  text-shadow: none;
+}
+
+html[data-theme="dark"] .ctl-glass,
+html[data-theme="dark"] .ctl-float-pill {
+  background: linear-gradient(180deg, rgba(44, 44, 48, 0.86) 0%, rgba(28, 28, 32, 0.78) 100%);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+html[data-theme="dark"] .ctl-float-btn {
+  background: rgba(58, 58, 62, 0.85);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+html[data-theme="dark"] .ctl-float-btn svg,
+html[data-theme="dark"] .ctl-step-btn svg,
+html[data-theme="dark"] .ctl-play-btn svg {
+  fill: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctl-float-btn.ctl-float-collapse svg,
+html[data-theme="dark"] .ctl-icon-btn svg,
+html[data-theme="dark"] .ctl-mode-btn svg {
+  stroke: #f2f2f7;
+}
+
+html[data-theme="dark"] .ctl-room {
+  background: radial-gradient(circle at 25% 18%, #261b20 0%, #141416 52%, #0c0c0e 100%);
+}
+
+html[data-theme="dark"] .ctl-change-btn,
+html[data-theme="dark"] .ctl-play-btn {
+  background: rgba(58, 58, 62, 0.9);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+html[data-theme="dark"] .ctl-sheet {
+  background: #1c1c1e;
+}
+
+html[data-theme="dark"] .ctl-sheet-close,
+html[data-theme="dark"] .ctl-search-row,
+html[data-theme="dark"] .ctl-song-item {
+  background: #2c2c2e;
+  color: #e5e5ea;
+}
+
+/* =========================================================
+   16. 系统开深色但外观手动选「浅色模式」时，压住 chat.css 自带的 @media 深色
+   ========================================================= */
+@media (prefers-color-scheme: dark) {
+  html[data-theme="light"] #app-chat,
+  html[data-theme="light"] .ct-app,
+  html[data-theme="light"] .ct-scroll,
+  html[data-theme="light"] .ct-search-bar,
+  html[data-theme="light"] .ct-flat-list,
+  html[data-theme="light"] .ct-row {
+    background: #ffffff;
+    color: #111111;
+  }
+
+  html[data-theme="light"] .ct-scroll.is-gray {
+    background: #f2f2f7;
+  }
+
+  html[data-theme="light"] .ct-topbar {
+    background: rgba(255, 255, 255, 0.94);
+  }
+
+  html[data-theme="light"] .ct-glass-circle,
+  html[data-theme="light"] .ct-title,
+  html[data-theme="light"] .ct-row-name,
+  html[data-theme="light"] .ct-me-name,
+  html[data-theme="light"] .ct-room-title,
+  html[data-theme="light"] .ct-room-title.is-typing,
+  html[data-theme="light"] .ct-modal-title,
+  html[data-theme="light"] .ct-plus-item {
+    color: #111111;
+  }
+
+  html[data-theme="light"] .ct-search-wrap,
+  html[data-theme="light"] .ct-avatar,
+  html[data-theme="light"] .ct-me-avatar,
+  html[data-theme="light"] .ct-modal-input,
+  html[data-theme="light"] .ct-modal-close {
+    background: #f2f2f7;
+    color: #111111;
+  }
+
+  html[data-theme="light"] .ct-card,
+  html[data-theme="light"] .ct-me-card,
+  html[data-theme="light"] .ct-plus-menu,
+  html[data-theme="light"] .ct-modal {
+    background: #ffffff;
+  }
+
+  html[data-theme="light"] .ct-room,
+  html[data-theme="light"] .ct-room-head,
+  html[data-theme="light"] .ct-room-messages {
+    background: #ededed;
+  }
+
+  html[data-theme="light"] .ct-msg-bubble {
+    background: #ffffff;
+    color: #111111;
+  }
+
+  html[data-theme="light"] .ct-msg-bubble::before {
+    border-color: transparent #ffffff transparent transparent;
+  }
+
+  html[data-theme="light"] .ct-msg-row.me .ct-msg-bubble {
+    background: #95ec69;
+    color: #111111;
+  }
+
+  html[data-theme="light"] .ct-msg-row.me .ct-msg-bubble::before {
+    border-color: transparent transparent transparent #95ec69;
+  }
+
+  html[data-theme="light"] .ct-room-footer {
+    background: #f7f7f7;
+    border-top-color: rgba(0, 0, 0, 0.08);
+  }
+
+  html[data-theme="light"] .ct-room-input,
+  html[data-theme="light"] .ct-hold-talk-btn {
+    background: #ffffff;
+    color: #111111;
+  }
+
+  html[data-theme="light"] #app-chat {
+    --cte-drawer-bg: #f7f7f7;
+    --cte-card-bg: #ffffff;
+    --cte-pill-bg: #e5e5ea;
+    --cte-pill-active-bg: #111111;
+    --cte-pill-active-fg: #ffffff;
+    --cte-text: #111111;
+    --cte-muted: #8e8e93;
+    --cte-border: rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* =========================================================
+   17. 顺手补齐：早期 App 遗漏的全局字体大小 (--app-font-size) 联动
+   ========================================================= */
+.ar-title,
+.cv-title,
+.lb-title,
+.mm-title {
+  font-size: calc(var(--app-font-size, 15px) + 7px);
+}
+
+.lb-detail-title-input {
+  font-size: calc(var(--app-font-size, 15px) + 5px);
+}
+
+.mu-ps-title {
+  font-size: calc(var(--app-font-size, 15px) + 5px);
+}
+
+.mu-ps-sub {
+  font-size: var(--app-font-size, 15px);
+}
+
+.mu-tab,
+.mu-seg-tab {
+  font-size: calc(var(--app-font-size, 15px) - 1px);
+}
+
+.ar-rand-btn,
+.ar-group-chip,
+.ar-npc-del,
+.ar-export-desc,
+.ar-net-label,
+.cv-mini-btn,
+.lb-char-chip,
+.lb-seg-btn,
+.lb-del-btn,
+.lb-new-cover-hint,
+.mm-mini-btn,
+.mm-fetch-btn,
+.mm-char-chip,
+.mu-code-btn,
+.mu-dialog-tip,
+.mu-q-badge {
+  font-size: calc(var(--app-font-size, 15px) - 3px);
+}
+
+.ar-card-tag,
+.ar-net-rel,
+.lb-entry-badge,
+.mm-tag,
+.mm-date,
+.mm-model-chip,
+.mu-ps-times,
+.of-room-views,
+.bk-lib-badge,
+.bk-chart-goal-tag,
+.sp-badge {
+  font-size: calc(var(--app-font-size, 15px) - 4px);
+}
