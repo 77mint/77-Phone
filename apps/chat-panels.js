@@ -1,7 +1,7 @@
 /* =========================================================
    Chat 输入扩展面板、发照片、转账、礼物 & 问小九模块 (apps/chat-panels.js)
-   - 第 1 页使用 ctp-grid-fixed（严格固定 8 格）
-   - 第 2 页保留 ctp-grid，外部扩展（如一起听）会自动直接插入第 2 页，零冲突零循环
+   - 第 1 页（ctp-grid）：预设 7 格 + chat-listen.js 自动插入「一起听」= 正好 8 格
+   - 第 2 页（ctp-grid-fixed）：文件
    ========================================================= */
 (function () {
   var STORAGE_THREADS_KEY = 'chat_threads_v1';
@@ -16,7 +16,6 @@
   var SVG_LOC_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>';
   var SVG_FAV_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
   var SVG_CARD_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c0-3.8 3.3-6 7.5-6s7.5 2.2 7.5 6"/></svg>';
-  var SVG_MUSIC_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M9 17.5a2.5 2.5 0 1 1-1.5-2.3V6l11-2v11.5a2.5 2.5 0 1 1-1.5-2.3V7.6l-8 1.5v8.4z"/></svg>';
   var SVG_FILE_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 
   var SVG_GIFT_BOW = '<svg width="34" height="34" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 19C17 12.5 12.2 10.5 9.2 12.5C6.5 14.3 7.2 18.8 11.2 19.6C14.2 20.2 17.5 19.6 20 19Z"/><path d="M20 19C23 12.5 27.8 10.5 30.8 12.5C33.5 14.3 32.8 18.8 28.8 19.6C25.8 20.2 22.5 19.6 20 19Z"/><path d="M20 19L10.5 30.5"/><path d="M20 19L29.5 30.5"/></svg>';
@@ -415,22 +414,6 @@
       return;
     }
 
-    if (msg.type === 'music') {
-      bubble.classList.remove('ctp-img-bubble', 'ctp-transfer-bubble', 'is-faded', 'ctp-gift-bubble', 'is-claimed');
-      bubble.classList.add('ctp-rich-card');
-      bubble.dataset.ctpRendered = '1';
-      bubble.innerHTML =
-        '<div class="ctp-rc-head">' +
-          '<div class="ctp-rc-icon is-dark">' + SVG_MUSIC_TILE + '</div>' +
-          '<div class="ctp-rc-meta">' +
-            '<div class="ctp-rc-title">' + escapeHtml(msg.songTitle || '音乐') + '</div>' +
-            '<div class="ctp-rc-sub">' + escapeHtml(msg.songArtist || '未知歌手') + '</div>' +
-          '</div>' +
-        '</div>' +
-        '<div class="ctp-rc-foot">音乐</div>';
-      return;
-    }
-
     if (msg.type === 'ask9') {
       bubble.classList.remove('ctp-img-bubble', 'ctp-transfer-bubble', 'is-faded', 'ctp-gift-bubble', 'is-claimed');
       bubble.classList.add('ctp-rich-card');
@@ -561,7 +544,7 @@
     var map = {};
     msgs.forEach(function (m) { map[m.id] = m; });
 
-    var richTypes = ['image', 'image_bundle', 'transfer', 'transfer_tip', 'gift', 'gift_tip', 'location', 'contact_card', 'file', 'music', 'ask9'];
+    var richTypes = ['image', 'image_bundle', 'transfer', 'transfer_tip', 'gift', 'gift_tip', 'location', 'contact_card', 'file', 'ask9'];
     box.querySelectorAll('.ct-msg-group[data-msg-id]').forEach(function (group) {
       var mid = group.getAttribute('data-msg-id');
       var m = map[mid];
@@ -683,7 +666,7 @@
     }
   }
 
-  /* ---------------- 位置 / 收藏 / 名片 / 音乐弹窗 ---------------- */
+  /* ---------------- 位置 / 收藏 / 名片弹窗 ---------------- */
   function openLocationModal() {
     setDrawerOpen(false);
     document.getElementById('ctpLocTitleInp').value = '';
@@ -737,38 +720,6 @@
       }).join('');
     }
     document.getElementById('ctpCardMask').classList.add('open');
-  }
-
-  function openMusicModal() {
-    setDrawerOpen(false);
-    document.getElementById('ctpMusicTitleInp').value = '';
-    document.getElementById('ctpMusicArtistInp').value = '';
-    var tracks = [];
-    try {
-      if (window.PhoneMusic && typeof window.PhoneMusic.getTracks === 'function') {
-        tracks = window.PhoneMusic.getTracks() || [];
-      }
-    } catch (e) {}
-    if (!tracks.length) {
-      tracks = loadJSON('phone_music_tracks_v1', []);
-    }
-    var box = document.getElementById('ctpMusicList');
-    if (Array.isArray(tracks) && tracks.length) {
-      box.innerHTML = tracks.slice(0, 15).map(function (tr) {
-        var title = tr.title || tr.name || '未知歌曲';
-        var artist = tr.artist || tr.singer || '未知歌手';
-        return '<div class="ctp-pick-row" data-song-title="' + escapeHtml(title) + '" data-song-artist="' + escapeHtml(artist) + '">' +
-          '<div class="ctp-pick-av">' + SVG_MUSIC_TILE + '</div>' +
-          '<div class="ctp-pick-info">' +
-            '<div class="ctp-pick-title">' + escapeHtml(title) + '</div>' +
-            '<div class="ctp-pick-sub">' + escapeHtml(artist) + '</div>' +
-          '</div>' +
-        '</div>';
-      }).join('');
-    } else {
-      box.innerHTML = '';
-    }
-    document.getElementById('ctpMusicMask').classList.add('open');
   }
 
   /* ---------------- 照片 / 礼物 / 转账 ---------------- */
@@ -1064,7 +1015,8 @@
     drawer.innerHTML =
       '<div class="ctp-drawer-track" id="ctpDrawerTrack">' +
         '<div class="ctp-drawer-page">' +
-          '<div class="ctp-grid-fixed" id="ctpGridPage1">' +
+          /* 预留 7 格 + chat-listen.js 自动插入「一起听」= 正好 8 格 */
+          '<div class="ctp-grid" id="ctpGridPage1">' +
             '<button class="ctp-item" id="ctpBtnPhoto"><div class="ctp-item-icon">' + SVG_PHOTO + '</div><div class="ctp-item-label">照片</div></button>' +
             '<button class="ctp-item" id="ctpBtnTransfer"><div class="ctp-item-icon">' + SVG_TRANSFER_TILE + '</div><div class="ctp-item-label">转账</div></button>' +
             '<button class="ctp-item" id="ctpBtnGift"><div class="ctp-item-icon">' + SVG_GIFT_TILE + '</div><div class="ctp-item-label">礼物</div></button>' +
@@ -1072,11 +1024,10 @@
             '<button class="ctp-item" id="ctpBtnLoc"><div class="ctp-item-icon">' + SVG_LOC_TILE + '</div><div class="ctp-item-label">位置</div></button>' +
             '<button class="ctp-item" id="ctpBtnFav"><div class="ctp-item-icon">' + SVG_FAV_TILE + '</div><div class="ctp-item-label">收藏</div></button>' +
             '<button class="ctp-item" id="ctpBtnCard"><div class="ctp-item-icon">' + SVG_CARD_TILE + '</div><div class="ctp-item-label">个人名片</div></button>' +
-            '<button class="ctp-item" id="ctpBtnMusic"><div class="ctp-item-icon">' + SVG_MUSIC_TILE + '</div><div class="ctp-item-label">音乐</div></button>' +
           '</div>' +
         '</div>' +
         '<div class="ctp-drawer-page">' +
-          '<div class="ctp-grid" id="ctpGridPage2">' +
+          '<div class="ctp-grid-fixed" id="ctpGridPage2">' +
             '<button class="ctp-item" id="ctpBtnFile"><div class="ctp-item-icon">' + SVG_FILE_TILE + '</div><div class="ctp-item-label">文件</div></button>' +
           '</div>' +
         '</div>' +
@@ -1151,21 +1102,6 @@
             '<button class="ctp-sheet-close" id="ctpCardClose" type="button">×</button>' +
           '</div>' +
           '<div class="ctp-sheet-body" id="ctpCardList"></div>' +
-        '</div>' +
-      '</div>' +
-
-      '<div class="ctp-sheet-mask" id="ctpMusicMask">' +
-        '<div class="ctp-sheet-panel">' +
-          '<div class="ctp-sheet-head">' +
-            '<div class="ctp-sheet-title">分享音乐</div>' +
-            '<button class="ctp-sheet-close" id="ctpMusicClose" type="button">×</button>' +
-          '</div>' +
-          '<div class="ctp-sheet-body">' +
-            '<div id="ctpMusicList" style="display:flex;flex-direction:column;gap:8px;"></div>' +
-            '<input class="ctp-sheet-inp" id="ctpMusicTitleInp" placeholder="手动输入歌名">' +
-            '<input class="ctp-sheet-inp" id="ctpMusicArtistInp" placeholder="歌手名（选填）">' +
-            '<button class="ctp-sheet-btn is-green" id="ctpMusicSendBtn" type="button">分享歌曲</button>' +
-          '</div>' +
         '</div>' +
       '</div>' +
 
@@ -1470,39 +1406,6 @@
           text: '[个人名片] ' + name
         }, '[个人名片] ' + name);
       }
-    });
-
-    // 音乐事件
-    document.getElementById('ctpBtnMusic').addEventListener('click', openMusicModal);
-    document.getElementById('ctpMusicClose').addEventListener('click', function () {
-      document.getElementById('ctpMusicMask').classList.remove('open');
-    });
-    document.getElementById('ctpMusicMask').addEventListener('click', function (e) {
-      if (e.target === this) this.classList.remove('open');
-      var row = e.target.closest('[data-song-title]');
-      if (row) {
-        var title = row.getAttribute('data-song-title');
-        var artist = row.getAttribute('data-song-artist') || '';
-        document.getElementById('ctpMusicMask').classList.remove('open');
-        appendCustomMessage({
-          type: 'music',
-          songTitle: title,
-          songArtist: artist,
-          text: '[分享音乐] ' + title + (artist ? (' - ' + artist) : '')
-        }, '[音乐] ' + title);
-      }
-    });
-    document.getElementById('ctpMusicSendBtn').addEventListener('click', function () {
-      var title = (document.getElementById('ctpMusicTitleInp').value || '').trim();
-      if (!title) return;
-      var artist = (document.getElementById('ctpMusicArtistInp').value || '').trim();
-      document.getElementById('ctpMusicMask').classList.remove('open');
-      appendCustomMessage({
-        type: 'music',
-        songTitle: title,
-        songArtist: artist,
-        text: '[分享音乐] ' + title + (artist ? (' - ' + artist) : '')
-      }, '[音乐] ' + title);
     });
 
     // 文件事件（第 2 页）
