@@ -4,7 +4,7 @@
    - 读取 PhoneArchive（Char 人设）+ PhoneChatMe / PhoneMask（当前账号与面具）
    - 读取 PhoneChatDetails（显示思维链开关 / 自定义思维链 / 上下文条数 / 表情包设置）
    - 仅在空输入框点 ↑（phone:chat-request-reply）时触发，支持对方继续接着说
-   - 全模型通用思维链（[COT]...[/COT] + 原生 reasoning/thinking/<think> 全兼容）
+   - 全模型通用思维链（优先 [COT]...[/COT]，不与原生英文思考叠加，自动剥离 Markdown 符号）
    - 支持顶部纯黑「对方正在输入中…」与 AI 临场决定的「打字又删除」（[RETYPE] / [GIVEUP]）
    - 接入 reverse/takeover.js：Char 自主决定是否顶号（[TAKEOVER:...]）并在结束后延续记忆
    - 接入表情包 AI：Char 识图（stickerVision）、挂载包发表情（[STICKER:名称]）、偷图（[STEAL_STICKER]）
@@ -287,8 +287,8 @@
             prompt +=
                 `\n【通用思考过程格式（每一轮必须输出，不可省略）】\n` +
                 (customCot
-                    ? `回复的最开头必须先用 [COT]...[/COT] 写出你的内心思考，要求：${customCot}\n`
-                    : `回复的最开头必须先用 [COT]...[/COT] 写一段简短真实的第一人称内心想法（情绪、斟酌措辞、没说出口的话等）。\n`) +
+                    ? `回复的最开头必须先用 [COT]...[/COT] 写出你的内心思考（纯文本自然书写，禁止使用 **、# 等 Markdown 符号），要求：${customCot}\n`
+                    : `回复的最开头必须先用 [COT]...[/COT] 写一段简短真实的第一人称内心想法（情绪、斟酌措辞、没说出口的话等，纯文本自然书写，禁止使用 **、# 等 Markdown 符号）。\n`) +
                 `示例：\n[COT]她怎么突然这么问，有点开心又不想表现得太明显。[/COT]\n怎么啦|||突然问这个干嘛`;
         }
 
@@ -342,9 +342,6 @@
             }
 
             const role = m.sender === 'me' ? 'user' : 'assistant';
-            if (role === 'assistant' && showCot && m.cot) {
-                text = `[COT]${String(m.cot).trim()}[/COT]\n${text}`;
-            }
 
             let imgPayload = null;
             if (visionIndices.has(i)) {
@@ -381,7 +378,7 @@
         }
 
         if (showCot && out.length && out[out.length - 1].role === 'user') {
-            out[out.length - 1].content += '\n\n(系统提醒：请务必在回复最开头先用 [COT]...[/COT] 写简短内心思考，再换行写微信回复正文)';
+            out[out.length - 1].content += '\n\n(系统提醒：请在回复最开头先用 [COT]...[/COT] 写简短纯文本内心思考，不要用 Markdown 符号，再换行写微信回复正文)';
         }
 
         return { history: out, hasUserSticker };
@@ -389,6 +386,15 @@
 
     function stripImagesFromHistory(history) {
         return (history || []).map(h => ({ role: h.role, content: h.content }));
+    }
+
+    function cleanCotText(str) {
+        return String(str || '')
+            .replace(/\*\*([^*]+)\*\*/g, '$1')
+            .replace(/__([^_]+)__/g, '$1')
+            .replace(/^#{1,6}\s+/gm, '')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
     }
 
     function normalizeBaseUrl(raw, type) {
@@ -554,7 +560,6 @@
             return await callSingleSlot(slot, temperature, systemPrompt, history);
         } catch (err) {
             if (hasImages) {
-                // 若当前模型不支持识图，自动回退纯文本重试一次避免卡死对话
                 return await callSingleSlot(slot, temperature, systemPrompt, stripImagesFromHistory(history));
             }
             throw err;
@@ -618,33 +623,47 @@
 
     function parseReplyPayload(rawText, initialCot, charId, mountedStickers) {
         let text = String(rawText || '').trim();
-        let cot = String(initialCot || '').trim();
+        const nativeCot = String(initialCot || '').trim();
+        let tagCot = '';
         let retypeCount = 0;
         let giveUp = false;
         let takeover = false;
         let takeoverLines = [];
         let stealSticker = false;
 
-        text = text.replace(/[\[【]COT[\]】]([\s\S]*?)[\[【]\/COT[\]】]/gi, (_, inner) => {
+        text = text.replace(/[\[【]COT[\]】]([\s\S]*?)[\[【]\s*[\/／]\s*COT[\]】]/gi, (_, inner) => {
             const clean = String(inner || '').trim();
-            if (clean) cot = cot ? (cot + '\n' + clean) : clean;
+            if (clean) tagCot = tagCot ? (tagCot + '\n' + clean) : clean;
             return '';
         }).trim();
 
         text = text.replace(/<(think|thinking|thought|cot)>([\s\S]*?)<\/\1>/gi, (_, _tag, inner) => {
             const clean = String(inner || '').trim();
-            if (clean) cot = cot ? (cot + '\n' + clean) : clean;
+            if (clean) tagCot = tagCot ? (tagCot + '\n' + clean) : clean;
             return '';
         }).trim();
+
+        // 兜底：仅有结尾 [/COT] 或 </think> 时，把前半段收进思维链，避免标签露进气泡
+        const orphanEnd = text.match(/^([\s\S]*?)(?:[\[【]\s*[\/／]\s*COT[\]】]|<\/(?:think|thinking|thought|cot)>)\s*/i);
+        if (orphanEnd) {
+            const clean = String(orphanEnd[1] || '').replace(/^[\[【]COT[\]】]/i, '').trim();
+            if (clean) tagCot = tagCot ? (tagCot + '\n' + clean) : clean;
+            text = text.slice(orphanEnd[0].length).trim();
+        }
 
         if (/^[\[【]COT[\]】]/i.test(text)) {
             const nl = text.indexOf('\n');
             if (nl !== -1) {
                 const head = text.slice(0, nl).replace(/^[\[【]COT[\]】]/i, '').trim();
-                if (head) cot = cot ? (cot + '\n' + head) : head;
+                if (head) tagCot = tagCot ? (tagCot + '\n' + head) : head;
                 text = text.slice(nl + 1).trim();
+            } else {
+                text = text.replace(/^[\[【]COT[\]】]/i, '').trim();
             }
         }
+
+        // 若存在角色视角的 [COT] 标签思考，优先展示它；否则回退到剥离 Markdown 符号的原生思考
+        const cot = cleanCotText(tagCot || nativeCot);
 
         text = text.replace(/\[RETYPE(?::(\d+))?\]/gi, (_, n) => {
             const add = n ? Math.min(3, Math.max(1, parseInt(n, 10) || 1)) : 1;
