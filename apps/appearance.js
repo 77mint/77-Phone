@@ -37,6 +37,21 @@
         '<div class="lg-card">' +
           '<div class="lg-row">' +
             '<div class="lg-row-main">' +
+              '<div class="lg-label">外观模式</div>' +
+              '<div class="lg-sub" id="themeModeSub">跟随系统</div>' +
+            '</div>' +
+            '<div class="lg-row-right">' +
+              '<select id="selectThemeMode" class="lg-select" aria-label="外观模式" style="border:none;background:transparent;color:#8e8e93;font-family:inherit;font-size:var(--app-font-size, 15px);text-align:right;outline:none;padding:4px 2px;">' +
+                '<option value="auto">跟随系统</option>' +
+                '<option value="light">浅色模式</option>' +
+                '<option value="dark">深色模式</option>' +
+              '</select>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="lg-card">' +
+          '<div class="lg-row">' +
+            '<div class="lg-row-main">' +
               '<div class="lg-label">开屏动画</div>' +
               '<div class="lg-sub" id="splashStatusSub">已开启</div>' +
             '</div>' +
@@ -190,6 +205,36 @@
   }, { passive: true });
   root.addEventListener('touchend', clearPressed, { passive: true });
   root.addEventListener('touchcancel', clearPressed, { passive: true });
+
+  /* ===== 外观模式切换（跟随系统 / 浅色 / 深色） ===== */
+  var selectThemeMode = document.getElementById('selectThemeMode');
+  var themeModeSub = document.getElementById('themeModeSub');
+
+  function syncThemeModeUI() {
+    var mode = window.PhoneTheme ? window.PhoneTheme.getMode() : (localStorage.getItem('phone_theme_mode') || 'auto');
+    var dark = window.PhoneTheme ? window.PhoneTheme.isDark() : false;
+    if (selectThemeMode) selectThemeMode.value = mode;
+    if (themeModeSub) {
+      if (mode === 'light') themeModeSub.textContent = '始终浅色';
+      else if (mode === 'dark') themeModeSub.textContent = '始终深色';
+      else themeModeSub.textContent = '跟随系统（当前' + (dark ? '深色' : '浅色') + '）';
+    }
+  }
+
+  syncThemeModeUI();
+
+  if (selectThemeMode) {
+    selectThemeMode.addEventListener('change', function () {
+      if (window.PhoneTheme && typeof window.PhoneTheme.setMode === 'function') {
+        window.PhoneTheme.setMode(this.value);
+      } else {
+        localStorage.setItem('phone_theme_mode', this.value);
+      }
+      syncThemeModeUI();
+    });
+  }
+
+  window.addEventListener('phone:theme-changed', syncThemeModeUI);
 
   var bottomBar = document.getElementById('lgBottomBar');
   var backBtn = root.querySelector('.app-back');
