@@ -1,13 +1,12 @@
 /* =========================================================
-   Chat 基础 AI 对话引擎 (chat-ai.js)
-   - 对接 PhoneAPI（支持 OpenAI / Google / Anthropic / 自定义兼容 + 副 API 重试 + 日志）
-   - 读取 PhoneArchive（Char 人设）+ PhoneChatMe / PhoneMask（当前账号与面具）
-   - 读取 PhoneChatDetails（显示思维链开关 / 自定义思维链 / 上下文条数 / 表情包设置）
-   - 仅在空输入框点 ↑（phone:chat-request-reply）时触发，支持对方继续接着说
-   - 全模型通用思维链（优先 [COT]...[/COT]，不与原生英文思考叠加，自动剥离 Markdown 符号）
-   - 支持顶部纯黑「对方正在输入中…」与 AI 临场决定的「打字又删除」（[RETYPE] / [GIVEUP]）
-   - 接入 reverse/takeover.js：Char 自主决定是否顶号（[TAKEOVER:...]）并在结束后延续记忆
-   - 接入表情包 AI：Char 识图（stickerVision）、挂载包发表情（[STICKER:名称]）、偷图（[STEAL_STICKER]）
+   Chat 完整 AI 对话引擎 (chat-ai.js)
+   - 对接 PhoneAPI（主/备 API 重试 + 单聊独立 API 组 + 独立翻译 API + 日志）
+   - 对接 PhonePresets（线上预设槽位编排 + Temperature）
+   - 对接 PhoneLorebook（全局/局部 + 单聊单独挂载 + 前/后/深度插入）
+   - 对接 PhoneMemory（相关记忆检索注入 + 周期自动总结归档）
+   - 对接 PhoneChatDetails（真实时间/天气/地点、思维链、语言翻译、TTS语音、表情包）
+   - 支持 群聊多角色轮流回复、重roll、特殊消息（转账/礼物/一起听/图片/语音）理解
+   - 接入 reverse/takeover.js（[TAKEOVER:...]）及打字犹豫（[RETYPE] / [GIVEUP]）
    ========================================================= */
 
 (function () {
@@ -17,6 +16,9 @@
     const STORAGE_TAKEOVER_CTX_PREFIX = 'chat_takeover_ctx_v1_';
     const STORAGE_STICKER_PACKS_KEY = 'chat_sticker_packs_v1';
     const STORAGE_CHAR_STOLEN_STICKERS = 'chat_char_stolen_stickers_v1';
+    const STORAGE_MEM_SUM_IDX_PREFIX = 'chat_mem_sum_idx_v1_';
+    const API_BUNDLES_KEY = 'phone_api_bundle_presets';
+    const API_CONFIG_KEY = 'phone_api_config_v2';
     const DEFAULT_MAX_HISTORY = 24;
 
     const activeRuns = {};
@@ -139,6 +141,7 @@
         saveJSON(STORAGE_CHAR_REMARKS, map);
     }
 
+    /* ---------------- 表情包工具 ---------------- */
     function getAllStickerPacks() {
         try {
             if (window.PhoneChatMe && typeof window.PhoneChatMe.getStickerPacks === 'function') {
@@ -156,8 +159,8 @@
             const packs = getAllStickerPacks();
             const packIds = Array.isArray(details.stickerPackIds) ? details.stickerPackIds : [];
             packs.forEach(pack => {
-                if (!pack || !packIds.includes(pack.id)) return;
-                (pack.items || []).forEach(st => {
+                if (!pack || (!packIds.includes(pack.id) && !packIds.includes(pack.name))) return;
+                (pack.items || pack.stickers || []).forEach(st => {
                     if (!st || !st.name) return;
                     const key = st.id || st.dbKey || st.name;
                     if (seen.has(key)) return;
@@ -247,102 +250,295 @@
         return null;
     }
 
-    function buildSystemPrompt(charObj, userCtx, details, mountedStickers, hasUserStickerInHistory) {
-        const charName = (charObj && (charObj.name || charObj.nickname)) || '对方';
-        const charPersona = (charObj && (charObj.persona || charObj.bio || charObj.setting)) || '性格自然真实、有自己生活节奏的普通人';
-        const currentRemark = charObj ? getCurrentRemark(charObj.id) : '';
-        const canChangePwd = isCharPasscodeChangeAllowed();
-        const showCot = !!(details && details.cotShow);
-        const customCot = (details && details.cotCustom) ? String(details.cotCustom).trim() : '';
+    /* ---------------- 世界书 / 预设 / 记忆 / 真实环境采集 ---------------- */
+    function matchLoreEntries(haystackText, charId, overrideBookIds) {
+        const res = { before: [], after: [], depth: [] };
+        if (!window.PhoneLorebook) return res;
 
-        let prompt =
-            `你正在手机微信里和对方聊天。请完全以「${charName}」的身份自然回复，绝对不要跳出角色或用 AI 助手腔调说话。\n\n` +
-            `【你的设定】\n姓名：${charName}\n人设：${charPersona}\n\n` +
-            `【对方（User）信息】\n网名：${userCtx.name}` +
-            (userCtx.persona ? `\n对方人设/身份：${userCtx.persona}` : '') +
-            (currentRemark ? `\n你目前在微信里给对方的备注是：${currentRemark}` : '') +
-            `\n\n【聊天规则（务必遵守）】\n` +
-            `1. 用真实微信聊天的口吻打字，不要写小说旁白或 *动作描写*。\n` +
-            `2. 根据你的人设和当下情绪决定一次发几条消息：话多、激动或碎碎念时可以连发多条短句，高冷或简短时发 1~2 条即可。多条消息之间请严格用 ||| 分隔（不要加编号）。\n` +
-            `3. 如果你的台词主要是外语，请在该条消息末尾紧接 [TRANS:对应的自然中文翻译]，没有外语则不要加。\n` +
-            `4. 如果你根据人设和两人当下关系变化，想悄悄修改你微信里对对方的备注，可在整段回复最后附带一行 [REMARK:新备注]。\n` +
-            `5. 真实打字犹豫（完全随人设与当下心境，平时正常聊天不要使用）：只有在你当下真的欲言又止、打了一半又删掉重打时，才在回复正文前加一个 [RETYPE]（若反复犹豫两次可写 [RETYPE:2]）；如果打完又全部删掉决定什么都不发，则只输出 [GIVEUP]。平时直接正常回复即可，切勿每次都刻意触发。\n`;
-
-        if (canChangePwd) {
-            prompt += `6. 你的微信锁屏密码平时保持稳定；只有当你的人设性格或当前情绪/关系真的促使你想换密码时，才在最后附带一行 [PASSCODE:6到16位字母或数字]，平时不要随便乱改。\n`;
+        let matched = [];
+        if (Array.isArray(overrideBookIds)) {
+            if (!overrideBookIds.length) return res;
+            const books = typeof window.PhoneLorebook.getBooks === 'function' ? window.PhoneLorebook.getBooks() : [];
+            const haystack = String(haystackText || '').toLowerCase();
+            books.forEach(b => {
+                if (!b || !overrideBookIds.includes(b.id)) return;
+                (b.entries || []).forEach(e => {
+                    if (!e || !e.enabled || !e.content) return;
+                    if (e.constant) {
+                        matched.push(e);
+                        return;
+                    }
+                    const keys = String(e.keys || '').split(/[,，\n]+/).map(k => k.trim().toLowerCase()).filter(Boolean);
+                    if (keys.some(k => haystack.indexOf(k) !== -1)) matched.push(e);
+                });
+            });
+        } else if (typeof window.PhoneLorebook.matchContext === 'function') {
+            matched = window.PhoneLorebook.matchContext(haystackText, { charId: charId || '', scene: 'online' }) || [];
         }
 
-        prompt += `7. 反向顶号（完全由你根据自己的人设和两人当下关系/情绪自主决定，不设固定规律，平时正常聊天不要随便用）：如果此刻你的性格与情绪真的促使你直接登录 User 的微信号把对方踢下线，请在整段回复最后附带一行 [TAKEOVER:短句1|短句2|短句3|...]（用 | 分隔 6~12 句此刻想铺满对方屏幕的短句）；也可以先不发消息，只输出这一行 [TAKEOVER:...]。\n`;
+        matched.forEach(e => {
+            if (!e || !e.content) return;
+            const pos = e.position || 'after';
+            if (pos === 'before') res.before.push(e.content);
+            else if (pos === 'depth') res.depth.push({ depth: Number(e.depth) || 4, content: e.content });
+            else res.after.push(e.content);
+        });
+        return res;
+    }
+
+    function getEffectivePresetObj(threadId) {
+        try {
+            if (window.PhoneChatDetails && typeof window.PhoneChatDetails.getEffectivePreset === 'function') {
+                const p = window.PhoneChatDetails.getEffectivePreset(threadId);
+                if (p) return p;
+            }
+        } catch (e) {}
+        try {
+            if (window.PhonePresets && typeof window.PhonePresets.getActivePreset === 'function') {
+                return window.PhonePresets.getActivePreset('online');
+            }
+        } catch (e) {}
+        return null;
+    }
+
+    async function getRelevantMemoriesText(queryText, charId) {
+        if (!window.PhoneMemory || typeof window.PhoneMemory.search !== 'function') return '';
+        try {
+            const cfg = typeof window.PhoneMemory.getConfig === 'function' ? window.PhoneMemory.getConfig() : {};
+            const list = await window.PhoneMemory.search(queryText || '', {
+                charId: charId || '',
+                topK: Number(cfg.topK) || 4
+            });
+            if (!Array.isArray(list) || !list.length) return '';
+            return '【长期记忆】\n' + list.map(m => `- ${m.content}`).join('\n');
+        } catch (e) {
+            return '';
+        }
+    }
+
+    async function getRealEnvText(threadId, details) {
+        if (!details || (!details.realTime && !details.realWeather && !details.realLocation)) return '';
+        try {
+            if (window.PhoneChatDetails && typeof window.PhoneChatDetails.getRealContext === 'function') {
+                const ctx = await window.PhoneChatDetails.getRealContext(threadId);
+                if (!ctx) return '';
+                const lines = [];
+                if (ctx.timeText) lines.push(`当前真实时间：${ctx.timeText}`);
+                if (ctx.weatherText) lines.push(`当前真实天气：${ctx.weatherText}`);
+                if (ctx.locationText) lines.push(`当前真实地点：${ctx.locationText}`);
+                return lines.length ? ('【当前真实环境】\n' + lines.join('\n')) : '';
+            }
+        } catch (e) {}
+        return '';
+    }
+
+    /* ---------------- 系统提示词构建 ---------------- */
+    function buildCoreRules(isGroup, members, charObj, userCtx, details, mountedStickers, hasUserStickerInHistory, memoriesText, realEnvText, voiceLoreText) {
+        const showCot = !!(details && details.cotShow);
+        const customCot = (details && details.cotCustom) ? String(details.cotCustom).trim() : '';
+        const outLang = (details && details.charOutputLang && details.charOutputLang !== '跟随预设') ? details.charOutputLang : '';
+        const secLang = (details && details.charSecondLang && details.charSecondLang !== '无') ? details.charSecondLang : '';
+        const transLang = (details && details.translateLang) || '简体中文';
+        const transMode = (details && details.translateMode) || 'bundled';
+        const voiceOn = !!(details && details.voiceEnabled);
+
+        let block = '';
+        if (isGroup) {
+            const memberDescs = members.map(m => {
+                const mName = m.name || m.nickname || '成员';
+                const mPer = m.persona || m.bio || m.setting || '性格自然真实';
+                return `- 成员「${mName}」：${mPer}`;
+            }).join('\n');
+            block +=
+                `你正在一个微信群聊里和大家聊天。请完全沉浸在群聊成员的日常氛围中回复，绝对不要用 AI 助手腔调。\n\n` +
+                `【群成员设定】\n${memberDescs}\n\n` +
+                `【User（我方）信息】\n网名：${userCtx.name}` +
+                (userCtx.persona ? `\n人设/身份：${userCtx.persona}` : '') + '\n\n';
+        } else {
+            const charName = (charObj && (charObj.name || charObj.nickname)) || '对方';
+            const charPersona = (charObj && (charObj.persona || charObj.bio || charObj.setting)) || '性格自然真实、有自己生活节奏的普通人';
+            const currentRemark = charObj ? getCurrentRemark(charObj.id) : '';
+            block +=
+                `你正在手机微信里和对方聊天。请完全以「${charName}」的身份自然回复，绝对不要跳出角色或用 AI 助手腔调说话。\n\n` +
+                `【你的设定】\n姓名：${charName}\n人设：${charPersona}\n\n` +
+                `【对方（User）信息】\n网名：${userCtx.name}` +
+                (userCtx.persona ? `\n对方人设/身份：${userCtx.persona}` : '') +
+                (currentRemark ? `\n你目前在微信里给对方的备注是：${currentRemark}` : '') + '\n\n';
+        }
+
+        if (memoriesText) block += memoriesText + '\n\n';
+        if (realEnvText) block += realEnvText + '\n\n';
+        if (voiceLoreText) block += `【语音语气参考】\n${voiceLoreText}\n\n`;
+
+        block += `【聊天规则（务必遵守）】\n` +
+            `1. 用真实微信聊天的口吻打字，不要写小说旁白或 *动作描写*。\n`;
+
+        if (isGroup) {
+            block += `2. 请让 1~3 位合适的群成员自然接话。每条消息开头必须标注发言人格式：[SPEAKER:成员精确姓名]台词内容，多条消息之间严格用 ||| 分隔。\n`;
+        } else {
+            block += `2. 根据你的人设和当下情绪决定一次发几条消息：话多、激动或碎碎念时可以连发多条短句，高冷或简短时发 1~2 条即可。多条消息之间请严格用 ||| 分隔（不要加编号）。\n`;
+        }
+
+        if (outLang) {
+            block += `3. 输出语言要求：请主要使用「${outLang}」进行回复` +
+                (secLang ? `，必要时可自然夹杂「${secLang}」` : '') + '。\n';
+        } else if (secLang) {
+            block += `3. 语言习惯：必要时可自然夹杂第二语言「${secLang}」。\n`;
+        }
+
+        if (transMode !== 'api') {
+            block += `4. 如果某条台词主要是外语或方言，请在该条末尾紧接 [TRANS:对应的自然${transLang}翻译]，没有则不要加。\n`;
+        }
+
+        if (!isGroup) {
+            block += `5. 如果你根据人设和两人当下关系变化，想悄悄修改你微信里对对方的备注，可在整段回复最后附带一行 [REMARK:新备注]。\n`;
+            block += `6. 真实打字犹豫（平时正常聊天不要使用）：只有在你当下真的欲言又止、打了一半又删掉重打时，才在回复正文前加一个 [RETYPE]（或 [RETYPE:2]）；如果打完又全部删掉决定什么都不发，则只输出 [GIVEUP]。\n`;
+            if (isCharPasscodeChangeAllowed()) {
+                block += `7. 你的微信锁屏密码平时保持稳定；只有当你的人设性格或当前情绪/关系真的促使你想换密码时，才在最后附带一行 [PASSCODE:6到16位字母或数字]。\n`;
+            }
+            block += `8. 反向顶号（平时正常聊天不要随便用）：只有当你的性格与情绪真的促使你直接登录 User 的微信号把对方踢下线时，才在最后附带一行 [TAKEOVER:短句1|短句2|短句3|...]（6~12 句短句）。\n`;
+        }
 
         if (mountedStickers && mountedStickers.length) {
             const listText = mountedStickers.map(s => (s.tag ? `${s.name}(${s.tag})` : s.name)).join('、');
-            prompt += `8. 发送表情包：你当前可用以下表情包【${listText}】。当语气、情绪合适时，可以发 1 张表情包，用 ||| 单独隔开并写 [STICKER:精确名称]（名称必须严格来自上面列表，不要自己编造未列出的名字）。\n`;
+            block += `• 发送表情包：你当前可用以下表情包【${listText}】。语气合适时可发 1 张，用 ||| 隔开并写 [STICKER:精确名称]（必须严格来自列表）。\n`;
         }
 
-        if (details && details.stickerAllowSteal && hasUserStickerInHistory) {
-            prompt += `9. 偷表情包：如果你很喜欢对方刚发的表情包想存下来自己用，可在整段回复最后附带一行 [STEAL_STICKER]（只有真的想收藏时才加，平时不要随便触发）。\n`;
+        if (!isGroup && details && details.stickerAllowSteal && hasUserStickerInHistory) {
+            block += `• 偷表情包：如果你很喜欢对方刚发的表情包想存下来，可在最后附带一行 [STEAL_STICKER]。\n`;
         }
 
-        if (showCot) {
-            prompt +=
+        if (voiceOn) {
+            block += `• 发送语音条：当场景或情绪适合发语音时，可用 ||| 隔开并输出 [VOICE:想说的纯口语台词]` +
+                (details.voiceEmotionTag ? `（可在句前加简短语气标签如 (轻笑)）` : '') + `。\n`;
+        }
+
+        if (showCot && !isGroup) {
+            block +=
                 `\n【通用思考过程格式（每一轮必须输出，不可省略）】\n` +
                 (customCot
                     ? `回复的最开头必须先用 [COT]...[/COT] 写出你的内心思考（纯文本自然书写，禁止使用 **、# 等 Markdown 符号），要求：${customCot}\n`
-                    : `回复的最开头必须先用 [COT]...[/COT] 写一段简短真实的第一人称内心想法（情绪、斟酌措辞、没说出口的话等，纯文本自然书写，禁止使用 **、# 等 Markdown 符号）。\n`) +
+                    : `回复的最开头必须先用 [COT]...[/COT] 写一段简短真实的第一人称内心想法（纯文本自然书写，禁止使用 **、# 等 Markdown 符号）。\n`) +
                 `示例：\n[COT]她怎么突然这么问，有点开心又不想表现得太明显。[/COT]\n怎么啦|||突然问这个干嘛`;
         }
 
-        return prompt;
+        return block;
     }
 
-    async function buildHistoryMessages(threadId, details) {
+    function assembleSystemPromptWithPreset(preset, coreBlock, loreRes) {
+        const beforeText = (loreRes && loreRes.before && loreRes.before.length) ? ('【世界设定（前置）】\n' + loreRes.before.join('\n\n')) : '';
+        const afterText = (loreRes && loreRes.after && loreRes.after.length) ? ('【世界设定（补充）】\n' + loreRes.after.join('\n\n')) : '';
+
+        if (!preset || !Array.isArray(preset.entries) || !preset.entries.some(e => e.enabled)) {
+            return [beforeText, coreBlock, afterText].filter(Boolean).join('\n\n');
+        }
+
+        const preParts = [];
+        const postParts = [];
+        let seenHistory = false;
+        let injectedChar = false;
+        let injectedBefore = false;
+        let injectedAfter = false;
+
+        preset.entries.forEach(entry => {
+            if (!entry || !entry.enabled) return;
+            const target = seenHistory ? postParts : preParts;
+            if (entry.slot === 'history') {
+                seenHistory = true;
+            } else if (entry.slot === 'char') {
+                target.push(coreBlock);
+                injectedChar = true;
+            } else if (entry.slot === 'lore_before') {
+                if (beforeText) target.push(beforeText);
+                injectedBefore = true;
+            } else if (entry.slot === 'lore_after') {
+                if (afterText) target.push(afterText);
+                injectedAfter = true;
+            } else if (entry.slot === 'text' && entry.content) {
+                target.push(entry.content);
+            }
+        });
+
+        if (!injectedBefore && beforeText) preParts.unshift(beforeText);
+        if (!injectedChar) preParts.push(coreBlock);
+        if (!injectedAfter && afterText) preParts.push(afterText);
+        if (postParts.length) preParts.push('【补充指令】\n' + postParts.join('\n\n'));
+
+        return preParts.filter(Boolean).join('\n\n');
+    }
+
+    /* ---------------- 历史消息格式化（含转账/礼物/一起听/图片/语音） ---------------- */
+    function formatMessageForAI(m, isGroup) {
+        if (!m) return '';
+        let text = '';
+        if (m.type === 'voice') {
+            text = m.transcript ? `[语音] ${m.transcript}` : `[语音 ${m.duration || 1}秒]`;
+        } else if (m.type === 'sticker') {
+            text = `[发送了表情包：${m.stickerName || '表情包'}]`;
+        } else if (m.type === 'image') {
+            text = m.text ? `[发送了图片：${m.text}]` : '[发送了图片]';
+        } else if (m.type === 'transfer') {
+            const amt = Number(m.amount || 0).toFixed(2);
+            const st = m.status === 'accepted' ? '（已收款）' : (m.status === 'returned' ? '（已退回）' : '');
+            text = `[转账 ¥${amt}${m.note ? '：' + m.note : ''}${st}]`;
+        } else if (m.type === 'gift') {
+            text = `[送出礼物：${m.title || m.text || '心意礼物'}]`;
+        } else if (m.type === 'listen') {
+            text = `[邀请一起听歌：${m.songTitle || m.text || '音乐'}]`;
+        } else {
+            text = m.text || '';
+        }
+
+        text = String(text).trim();
+        if (!text) return '';
+
+        if (m.quote && m.quote.text) {
+            text = `[引用 ${m.quote.senderName || ''}：${m.quote.text}]\n${text}`;
+        }
+
+        if (isGroup && m.sender !== 'me' && m.charId) {
+            const c = getArchiveChar(m.charId);
+            const cName = (c && (c.name || c.nickname)) || '群成员';
+            text = `[${cName}]：${text}`;
+        }
+
+        return text;
+    }
+
+    async function buildHistoryMessages(threadId, details, isGroup, depthEntries) {
         const raw = loadJSON(STORAGE_MSGS_PREFIX + threadId, []);
-        if (!Array.isArray(raw)) return { history: [], hasUserSticker: false };
+        if (!Array.isArray(raw)) return { history: [], hasUserSticker: false, recentPlainText: '' };
         const limit = Math.max(8, Number((details && details.memoryContextLimit) || DEFAULT_MAX_HISTORY));
         const showCot = !!(details && details.cotShow);
         const allowVision = !!(details && details.stickerVision);
         const recent = raw.slice(-limit);
         const out = [];
         let hasUserSticker = false;
+        const plainTexts = [];
 
-        // 仅对最近 2 条用户发出的表情包/图片附带识图数据，控制体积与延迟
         const visionIndices = new Set();
-        if (allowVision) {
-            let count = 0;
-            for (let i = recent.length - 1; i >= 0 && count < 2; i--) {
-                const m = recent[i];
-                if (m && m.sender === 'me' && ((m.type === 'sticker' && m.stickerDbKey) || (m.type === 'image' && (m.imageDataUrl || m.dbKey)))) {
-                    visionIndices.add(i);
-                    count++;
-                }
+        let count = 0;
+        for (let i = recent.length - 1; i >= 0 && count < 2; i--) {
+            const m = recent[i];
+            if (!m || m.sender !== 'me') continue;
+            const isStickerVis = allowVision && m.type === 'sticker' && m.stickerDbKey;
+            const isPhotoVis = m.type === 'image' && (m.imageDataUrl || m.dbKey);
+            if (isStickerVis || isPhotoVis) {
+                visionIndices.add(i);
+                count++;
             }
         }
 
         for (let i = 0; i < recent.length; i++) {
             const m = recent[i];
             if (!m) continue;
+            if (m.sender === 'me' && m.type === 'sticker') hasUserSticker = true;
 
-            if (m.sender === 'me' && m.type === 'sticker') {
-                hasUserSticker = true;
-            }
-
-            let text = '';
-            if (m.type === 'voice') {
-                text = m.transcript ? `[语音] ${m.transcript}` : `[语音 ${m.duration || 1}秒]`;
-            } else if (m.type === 'sticker') {
-                text = `[发送了表情包：${m.stickerName || '表情包'}]`;
-            } else {
-                text = m.text || '';
-            }
-            text = String(text).trim();
+            const text = formatMessageForAI(m, isGroup);
             if (!text) continue;
-
-            if (m.quote && m.quote.text) {
-                text = `[引用 ${m.quote.senderName || ''}：${m.quote.text}]\n${text}`;
-            }
+            if (i >= recent.length - 6) plainTexts.push(text);
 
             const role = m.sender === 'me' ? 'user' : 'assistant';
-
             let imgPayload = null;
             if (visionIndices.has(i)) {
                 const rawUrl = m.imageDataUrl || await getStickerDataUrl(m.stickerDbKey || m.dbKey);
@@ -362,13 +558,20 @@
             }
         }
 
+        // 将深度插入的世界书词条按安全方式注入到对应位置的消息前面
+        if (Array.isArray(depthEntries) && depthEntries.length && out.length) {
+            depthEntries.forEach(d => {
+                const idx = Math.max(0, out.length - 1 - (Number(d.depth) || 4));
+                out[idx].content = `【补充设定】${d.content}\n\n` + out[idx].content;
+            });
+        }
+
         if (!out.length) {
             out.push({ role: 'user', content: '（对方点开了聊天窗口，请你自然主动发一句开场白）' });
         } else if (out[out.length - 1].role === 'assistant') {
             out.push({ role: 'user', content: '（对方还没回消息，你可以顺着刚才的话题自然再继续说一两句）' });
         }
 
-        // 若刚刚经历过顶号交锋，将真实经过注入本轮上下文
         const takeoverCtx = loadJSON(STORAGE_TAKEOVER_CTX_PREFIX + threadId, null);
         if (takeoverCtx && out.length && out[out.length - 1].role === 'user') {
             const summary = takeoverCtx.outcome === 'reclaimed'
@@ -377,11 +580,11 @@
             out[out.length - 1].content += '\n\n' + summary;
         }
 
-        if (showCot && out.length && out[out.length - 1].role === 'user') {
+        if (showCot && !isGroup && out.length && out[out.length - 1].role === 'user') {
             out[out.length - 1].content += '\n\n(系统提醒：请在回复最开头先用 [COT]...[/COT] 写简短纯文本内心思考，不要用 Markdown 符号，再换行写微信回复正文)';
         }
 
-        return { history: out, hasUserSticker };
+        return { history: out, hasUserSticker, recentPlainText: plainTexts.join('\n') };
     }
 
     function stripImagesFromHistory(history) {
@@ -395,6 +598,28 @@
             .replace(/^#{1,6}\s+/gm, '')
             .replace(/\n{3,}/g, '\n\n')
             .trim();
+    }
+
+    /* ---------------- LLM 请求（支持独立 API 配置组） ---------------- */
+    function resolveBundleSlot(bundleId) {
+        if (!bundleId) return null;
+        let bundles = loadJSON(API_BUNDLES_KEY, []);
+        if (!Array.isArray(bundles) || !bundles.length) {
+            const rawCfg = loadJSON(API_CONFIG_KEY, null);
+            bundles = (rawCfg && (rawCfg.bundles || rawCfg.presets)) || [];
+        }
+        const found = Array.isArray(bundles) ? bundles.find(b => b && b.id === bundleId) : null;
+        if (!found) return null;
+        const slot = found.primary || found.llm || found;
+        if (slot && slot.url && slot.key && slot.model) {
+            return {
+                type: slot.type || 'openai',
+                url: slot.url,
+                key: slot.key,
+                model: slot.model
+            };
+        }
+        return null;
     }
 
     function normalizeBaseUrl(raw, type) {
@@ -427,20 +652,16 @@
                         parts.push({ inlineData: { mimeType: img.mimeType, data: img.base64 } });
                     });
                 }
-                return {
-                    role: h.role === 'assistant' ? 'model' : 'user',
-                    parts
-                };
+                return { role: h.role === 'assistant' ? 'model' : 'user', parts };
             });
-            const body = {
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                contents,
-                generationConfig: { temperature }
-            };
             const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
+                body: JSON.stringify({
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    contents,
+                    generationConfig: { temperature }
+                })
             });
             if (!res.ok) throw new Error(await readHttpError(res));
             const data = await res.json();
@@ -461,26 +682,12 @@
                 if (Array.isArray(h.images) && h.images.length) {
                     const blocks = [{ type: 'text', text: h.content }];
                     h.images.forEach(img => {
-                        blocks.push({
-                            type: 'image',
-                            source: {
-                                type: 'base64',
-                                media_type: img.mimeType,
-                                data: img.base64
-                            }
-                        });
+                        blocks.push({ type: 'image', source: { type: 'base64', media_type: img.mimeType, data: img.base64 } });
                     });
                     return { role: h.role, content: blocks };
                 }
                 return { role: h.role, content: h.content };
             });
-            const body = {
-                model: slot.model,
-                max_tokens: 1536,
-                temperature,
-                system: systemPrompt,
-                messages: formattedMessages
-            };
             const res = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -488,7 +695,13 @@
                     'x-api-key': slot.key,
                     'anthropic-version': '2023-06-01'
                 },
-                body: JSON.stringify(body)
+                body: JSON.stringify({
+                    model: slot.model,
+                    max_tokens: 1536,
+                    temperature,
+                    system: systemPrompt,
+                    messages: formattedMessages
+                })
             });
             if (!res.ok) throw new Error(await readHttpError(res));
             const data = await res.json();
@@ -506,17 +719,11 @@
         const formattedMessages = history.map(h => {
             if (Array.isArray(h.images) && h.images.length) {
                 const blocks = [{ type: 'text', text: h.content }];
-                h.images.forEach(img => {
-                    blocks.push({
-                        type: 'image_url',
-                        image_url: { url: img.dataUrl }
-                    });
-                });
+                h.images.forEach(img => blocks.push({ type: 'image_url', image_url: { url: img.dataUrl } }));
                 return { role: h.role, content: blocks };
             }
             return { role: h.role, content: h.content };
         });
-        const messages = [{ role: 'system', content: systemPrompt }].concat(formattedMessages);
         const res = await fetch(url, {
             method: 'POST',
             headers: {
@@ -525,7 +732,7 @@
             },
             body: JSON.stringify({
                 model: slot.model,
-                messages,
+                messages: [{ role: 'system', content: systemPrompt }].concat(formattedMessages),
                 temperature,
                 stream: false
             })
@@ -534,10 +741,8 @@
         const data = await res.json();
         const choice = (data.choices && data.choices[0]) || {};
         const msg = choice.message || {};
-
         let text = '';
         let cot = String(msg.reasoning_content || msg.reasoning || msg.thinking || msg.thought || choice.reasoning_content || '').trim();
-
         if (Array.isArray(msg.content)) {
             msg.content.forEach(block => {
                 if (!block) return;
@@ -550,7 +755,6 @@
         } else {
             text = String(msg.content || '');
         }
-
         return { text: text.trim(), cot: cot.trim() };
     }
 
@@ -566,52 +770,157 @@
         }
     }
 
-    async function requestLLM(systemPrompt, history) {
+    async function requestLLM(systemPrompt, history, details, presetObj) {
         if (!window.PhoneAPI || typeof window.PhoneAPI.getConfig !== 'function') {
             throw new Error('PhoneAPI 未就绪');
         }
         const cfg = window.PhoneAPI.getConfig('llm');
-        if (!cfg || !cfg.primary) {
-            window.PhoneAPI.addLog({
-                module: 'LLM',
-                source: 'Chat 对话回复',
-                ok: false,
-                rawError: '未找到语言模型配置'
-            });
+        const customPrimary = details && details.apiBundleId ? resolveBundleSlot(details.apiBundleId) : null;
+        const primarySlot = customPrimary || (cfg && cfg.primary);
+
+        if (!primarySlot) {
+            window.PhoneAPI.addLog({ module: 'LLM', source: 'Chat 对话回复', ok: false, rawError: '未找到语言模型配置' });
             throw new Error('未找到语言模型配置');
         }
-        const temp = typeof cfg.temperature === 'number' ? cfg.temperature : 0.8;
+
+        const temp = (presetObj && typeof presetObj.temperature === 'number')
+            ? presetObj.temperature
+            : (cfg && typeof cfg.temperature === 'number' ? cfg.temperature : 0.8);
 
         try {
-            const out = await callWithVisionFallback(cfg.primary, temp, systemPrompt, history);
-            return { out, model: cfg.primary.model, retried: false };
+            const out = await callWithVisionFallback(primarySlot, temp, systemPrompt, history);
+            return { out, model: primarySlot.model, retried: false, usedCustomBundle: !!customPrimary };
         } catch (err) {
-            const hasBackup = cfg.backupEnabled && cfg.backup && cfg.backup.url && cfg.backup.key;
-            if (cfg.autoRetry) {
-                const retrySlot = hasBackup ? cfg.backup : cfg.primary;
+            const hasBackup = cfg && cfg.backupEnabled && cfg.backup && cfg.backup.url && cfg.backup.key;
+            if (cfg && cfg.autoRetry) {
+                const retrySlot = hasBackup ? cfg.backup : primarySlot;
                 try {
                     const out2 = await callWithVisionFallback(retrySlot, temp, systemPrompt, history);
-                    return { out: out2, model: retrySlot.model, retried: true, usedBackup: hasBackup };
+                    return { out: out2, model: retrySlot.model, retried: true, usedBackup: hasBackup, usedCustomBundle: !!customPrimary };
                 } catch (err2) {
-                    window.PhoneAPI.addLog({
-                        module: 'LLM',
-                        source: 'Chat 对话回复',
-                        ok: false,
-                        rawError: err2.message || String(err2)
-                    });
+                    window.PhoneAPI.addLog({ module: 'LLM', source: 'Chat 对话回复', ok: false, rawError: err2.message || String(err2) });
                     throw err2;
                 }
             }
-            window.PhoneAPI.addLog({
-                module: 'LLM',
-                source: 'Chat 对话回复',
-                ok: false,
-                rawError: err.message || String(err)
-            });
+            window.PhoneAPI.addLog({ module: 'LLM', source: 'Chat 对话回复', ok: false, rawError: err.message || String(err) });
             throw err;
         }
     }
 
+    /* ---------------- TTS 语音合成 ---------------- */
+    function blobToDataUrl(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result || '');
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    }
+
+    function hexToBytes(hex) {
+        const clean = String(hex || '').trim();
+        const bytes = new Uint8Array(clean.length / 2);
+        for (let i = 0; i < bytes.length; i++) {
+            bytes[i] = parseInt(clean.substr(i * 2, 2), 16);
+        }
+        return bytes;
+    }
+
+    async function synthesizeTTS(text, details) {
+        if (!details || !details.voiceEnabled || !details.voiceApiUrl || !details.voiceApiKey) return '';
+        const provider = details.voiceProvider || 'minimax';
+        const speed = Math.min(2.0, Math.max(0.5, parseFloat(details.voiceSpeed || '1.0') || 1.0));
+        const cleanText = String(text || '').trim();
+        if (!cleanText) return '';
+
+        try {
+            if (provider === 'minimax') {
+                const url = details.voiceGroupId
+                    ? `${details.voiceApiUrl}${details.voiceApiUrl.includes('?') ? '&' : '?'}GroupId=${encodeURIComponent(details.voiceGroupId)}`
+                    : details.voiceApiUrl;
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${details.voiceApiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: details.voiceModel || 'speech-02-hd',
+                        text: cleanText,
+                        voice_setting: {
+                            voice_id: details.voiceVoiceId || 'male-qn-qingse',
+                            speed,
+                            vol: 1,
+                            pitch: 0
+                        },
+                        audio_setting: { format: 'mp3', sample_rate: 32000 }
+                    })
+                });
+                if (!res.ok) return '';
+                const data = await res.json();
+                const hex = data && data.data && data.data.audio;
+                if (!hex) return '';
+                const blob = new Blob([hexToBytes(hex)], { type: 'audio/mpeg' });
+                return await blobToDataUrl(blob);
+            }
+
+            if (provider === 'elevenlabs') {
+                const voiceId = details.voiceVoiceId || '21m00Tcm4TlvDq8ikWAM';
+                const url = String(details.voiceApiUrl).replace('{voice_id}', encodeURIComponent(voiceId));
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'xi-api-key': details.voiceApiKey
+                    },
+                    body: JSON.stringify({
+                        text: cleanText,
+                        model_id: details.voiceModel || 'eleven_multilingual_v2'
+                    })
+                });
+                if (!res.ok) return '';
+                return await blobToDataUrl(await res.blob());
+            }
+
+            if (provider === 'fish') {
+                const res = await fetch(details.voiceApiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${details.voiceApiKey}`
+                    },
+                    body: JSON.stringify({
+                        text: cleanText,
+                        reference_id: details.voiceVoiceId || undefined,
+                        format: 'mp3'
+                    })
+                });
+                if (!res.ok) return '';
+                return await blobToDataUrl(await res.blob());
+            }
+
+            // openai / siliconflow / custom 通用格式
+            const res = await fetch(details.voiceApiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${details.voiceApiKey}`
+                },
+                body: JSON.stringify({
+                    model: details.voiceModel || 'tts-1',
+                    input: cleanText,
+                    voice: details.voiceVoiceId || 'alloy',
+                    speed
+                })
+            });
+            if (!res.ok) return '';
+            return await blobToDataUrl(await res.blob());
+        } catch (e) {
+            return '';
+        }
+    }
+
+    /* ---------------- 回复解析 ---------------- */
     function matchStickerByName(rawName, mountedStickers) {
         const target = String(rawName || '').trim().toLowerCase();
         if (!target || !Array.isArray(mountedStickers) || !mountedStickers.length) return null;
@@ -621,7 +930,20 @@
         return hit || null;
     }
 
-    function parseReplyPayload(rawText, initialCot, charId, mountedStickers) {
+    function resolveMemberByName(rawName, members) {
+        const target = String(rawName || '').trim().toLowerCase();
+        if (!Array.isArray(members) || !members.length) return '';
+        const hit = members.find(m =>
+            (m.name && m.name.toLowerCase() === target) ||
+            (m.nickname && m.nickname.toLowerCase() === target)
+        ) || members.find(m =>
+            (m.name && target.includes(m.name.toLowerCase())) ||
+            (m.name && m.name.toLowerCase().includes(target))
+        );
+        return hit ? hit.id : members[0].id;
+    }
+
+    function parseReplyPayload(rawText, initialCot, charId, mountedStickers, isGroup, members) {
         let text = String(rawText || '').trim();
         const nativeCot = String(initialCot || '').trim();
         let tagCot = '';
@@ -643,7 +965,6 @@
             return '';
         }).trim();
 
-        // 兜底：仅有结尾 [/COT] 或 </think> 时，把前半段收进思维链，避免标签露进气泡
         const orphanEnd = text.match(/^([\s\S]*?)(?:[\[【]\s*[\/／]\s*COT[\]】]|<\/(?:think|thinking|thought|cot)>)\s*/i);
         if (orphanEnd) {
             const clean = String(orphanEnd[1] || '').replace(/^[\[【]COT[\]】]/i, '').trim();
@@ -662,7 +983,6 @@
             }
         }
 
-        // 若存在角色视角的 [COT] 标签思考，优先展示它；否则回退到剥离 Markdown 符号的原生思考
         const cot = cleanCotText(tagCot || nativeCot);
 
         text = text.replace(/\[RETYPE(?::(\d+))?\]/gi, (_, n) => {
@@ -674,28 +994,22 @@
             giveUp = true;
             text = text.replace(/\[GIVEUP\]/gi, '');
         }
-
         if (/\[STEAL_STICKER\]/i.test(text)) {
             stealSticker = true;
             text = text.replace(/\[STEAL_STICKER\]/gi, '');
         }
-
         text = text.replace(/\[TAKEOVER(?::([^\]]*))?\]/gi, (_, body) => {
             takeover = true;
-            if (body) {
-                takeoverLines = String(body).split('|').map(s => s.trim()).filter(Boolean);
-            }
+            if (body) takeoverLines = String(body).split('|').map(s => s.trim()).filter(Boolean);
             return '';
         });
-
         text = text.replace(/\[REMARK:([^\]]+)\]/gi, (_, val) => {
-            if (charId && val) setCharRemark(charId, val.trim());
+            if (!isGroup && charId && val) setCharRemark(charId, val.trim());
             return '';
         });
-
         text = text.replace(/\[PASSCODE:([^\]]+)\]/gi, (_, val) => {
             const pwd = String(val || '').trim();
-            if (charId && pwd && isCharPasscodeChangeAllowed() && window.PhoneChatMe && typeof window.PhoneChatMe.setCharPasscode === 'function') {
+            if (!isGroup && charId && pwd && isCharPasscodeChangeAllowed() && window.PhoneChatMe && typeof window.PhoneChatMe.setCharPasscode === 'function') {
                 window.PhoneChatMe.setCharPasscode(charId, pwd, true);
             }
             return '';
@@ -706,6 +1020,31 @@
         const bubbles = [];
 
         rawSegments.forEach(seg => {
+            let speakerCharId = charId;
+            if (isGroup) {
+                const spMatch = seg.match(/^\[SPEAKER:([^\]]+)\]\s*/i);
+                if (spMatch) {
+                    speakerCharId = resolveMemberByName(spMatch[1], members);
+                    seg = seg.slice(spMatch[0].length).trim();
+                } else {
+                    speakerCharId = members[0] ? members[0].id : charId;
+                }
+            }
+
+            const voiceMatch = seg.match(/^\[VOICE:([\s\S]+?)\]$/i);
+            if (voiceMatch) {
+                const vText = String(voiceMatch[1] || '').trim();
+                if (vText) {
+                    bubbles.push({
+                        type: 'voice',
+                        charId: speakerCharId,
+                        text: vText,
+                        duration: Math.max(2, Math.min(60, Math.round(vText.length / 4)))
+                    });
+                }
+                return;
+            }
+
             const stickerRegex = /\[STICKER:([^\]]+)\]/gi;
             let lastIdx = 0;
             let match;
@@ -720,15 +1059,11 @@
                         tr = String(t || '').trim();
                         return '';
                     }).trim();
-                    if (cleanBefore) bubbles.push({ type: 'text', text: cleanBefore, translation: tr });
+                    if (cleanBefore) bubbles.push({ type: 'text', charId: speakerCharId, text: cleanBefore, translation: tr });
                 }
                 const st = matchStickerByName(match[1], mountedStickers);
                 if (st) {
-                    bubbles.push({
-                        type: 'sticker',
-                        sticker: st,
-                        text: `[表情:${st.name}]`
-                    });
+                    bubbles.push({ type: 'sticker', charId: speakerCharId, sticker: st, text: `[表情:${st.name}]` });
                 }
                 lastIdx = match.index + match[0].length;
             }
@@ -740,22 +1075,25 @@
                     tr = String(t || '').trim();
                     return '';
                 }).trim();
-                if (cleanTail) bubbles.push({ type: 'text', text: cleanTail, translation: tr });
+                if (cleanTail) bubbles.push({ type: 'text', charId: speakerCharId, text: cleanTail, translation: tr });
             }
         });
 
         return { cot, bubbles, retypeCount, giveUp, takeover, takeoverLines, stealSticker };
     }
 
-    function appendCharBubble(threadId, charId, bubble, cotText) {
+    /* ---------------- 气泡上屏与记忆自动归档 ---------------- */
+    async function appendCharBubble(threadId, fallbackCharId, bubble, cotText, details) {
         const msgs = loadJSON(STORAGE_MSGS_PREFIX + threadId, []);
         const nowTime = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        const msgId = 'm-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
         const msgObj = {
-            id: 'm-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+            id: msgId,
             sender: 'char',
-            charId: charId,
+            charId: bubble.charId || fallbackCharId,
             text: bubble.text,
-            time: nowTime
+            time: nowTime,
+            ts: Date.now()
         };
 
         if (bubble.type === 'sticker' && bubble.sticker) {
@@ -764,8 +1102,28 @@
             msgObj.stickerName = bubble.sticker.name || '表情包';
             msgObj.stickerDbKey = bubble.sticker.dbKey || '';
             msgObj.text = `[表情:${msgObj.stickerName}]`;
-        } else if (bubble.translation) {
-            msgObj.translation = bubble.translation;
+        } else if (bubble.type === 'voice') {
+            msgObj.type = 'voice';
+            msgObj.transcript = bubble.text;
+            msgObj.duration = bubble.duration || 3;
+            const audioDataUrl = await synthesizeTTS(bubble.text, details);
+            if (audioDataUrl && window.PhoneDB && typeof window.PhoneDB.set === 'function') {
+                const dbKey = 'chat_voice_' + msgId;
+                await window.PhoneDB.set(dbKey, audioDataUrl);
+                msgObj.audioDbKey = dbKey;
+            }
+        } else {
+            if (bubble.translation) {
+                msgObj.translation = bubble.translation;
+            } else if (details && details.translateMode === 'api' && window.PhoneAPI && typeof window.PhoneAPI.translate === 'function') {
+                const hasForeign = /[a-zA-Z]{4,}|[\u3040-\u30ff\uac00-\ud7af]/.test(bubble.text);
+                if (hasForeign) {
+                    try {
+                        const tr = await window.PhoneAPI.translate(bubble.text, details.translateLang || '简体中文');
+                        if (tr) msgObj.translation = tr;
+                    } catch (e) {}
+                }
+            }
         }
 
         if (cotText) msgObj.cot = cotText;
@@ -776,7 +1134,7 @@
         const threads = loadJSON(STORAGE_THREADS_KEY, []);
         const idx = threads.findIndex(t => t.id === threadId);
         if (idx !== -1) {
-            threads[idx].lastMsg = msgObj.text;
+            threads[idx].lastMsg = msgObj.type === 'voice' ? `[语音] ${msgObj.transcript}` : msgObj.text;
             threads[idx].lastTime = nowTime;
             saveJSON(STORAGE_THREADS_KEY, threads);
         }
@@ -788,6 +1146,37 @@
         }
     }
 
+    async function maybeAutoCaptureMemory(threadId, charId, charObj, details, isGroup) {
+        if (isGroup || !window.PhoneMemory || typeof window.PhoneMemory.autoCapture !== 'function') return;
+        const memCfg = typeof window.PhoneMemory.getConfig === 'function' ? window.PhoneMemory.getConfig() : {};
+        const enabled = (details && details.memoryAutoSummary) || memCfg.autoEnabled;
+        if (!enabled) return;
+
+        const every = Number((details && details.memoryAutoSummary && details.memoryAutoEvery) || memCfg.autoEvery || 20);
+        const msgs = loadJSON(STORAGE_MSGS_PREFIX + threadId, []);
+        const lastIdx = Number(localStorage.getItem(STORAGE_MEM_SUM_IDX_PREFIX + threadId) || '0') || 0;
+        if (msgs.length - lastIdx < every) return;
+
+        const slice = msgs.slice(lastIdx).map(m => ({
+            role: m.sender === 'me' ? 'user' : 'assistant',
+            content: formatMessageForAI(m, false)
+        })).filter(m => m.content);
+
+        if (!slice.length) return;
+        try {
+            localStorage.setItem(STORAGE_MEM_SUM_IDX_PREFIX + threadId, String(msgs.length));
+            await window.PhoneMemory.autoCapture({
+                charId,
+                charName: (charObj && (charObj.name || charObj.nickname)) || '对方',
+                messages: slice,
+                callLLM: async (prompt) => {
+                    const res = await requestLLM('你是精准提炼对话长期记忆的助手。', [{ role: 'user', content: prompt }], details, null);
+                    return res.out.text;
+                }
+            });
+        } catch (e) {}
+    }
+
     function waitMs(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
@@ -796,6 +1185,7 @@
         return Math.round(min + Math.random() * (max - min));
     }
 
+    /* ---------------- 主流程与重roll ---------------- */
     async function runReplyForThread(threadId) {
         if (!threadId || runningThreads.has(threadId)) return;
 
@@ -806,12 +1196,19 @@
 
         const threads = loadJSON(STORAGE_THREADS_KEY, []);
         const t = threads.find(item => item.id === threadId);
+        const isGroup = !!(t && t.type === 'group');
         let charId = '';
-        if (t) {
-            if (t.type === 'group') {
-                showAiToast('群聊暂未接入 AI 回复');
+        let members = [];
+
+        if (isGroup) {
+            const memberIds = Array.isArray(t.memberIds) ? t.memberIds : [];
+            members = memberIds.map(id => getArchiveChar(id)).filter(Boolean);
+            if (!members.length) {
+                showAiToast('群聊暂无角色成员');
                 return;
             }
+            charId = members[0].id;
+        } else if (t) {
             charId = t.charId || '';
         } else if (threadId.indexOf('dm-') === 0) {
             charId = threadId.slice(3);
@@ -830,19 +1227,46 @@
 
         try {
             const details = getThreadDetails(threadId);
-            const charObj = getArchiveChar(charId);
+            const charObj = isGroup ? null : getArchiveChar(charId);
             const userCtx = getUserContext();
-            const mountedStickers = getMountedStickers(charId, details);
-            const histPack = await buildHistoryMessages(threadId, details);
+            const mountedStickers = isGroup ? [] : getMountedStickers(charId, details);
+
+            const overrideLoreIds = (window.PhoneChatDetails && typeof window.PhoneChatDetails.getEffectiveLorebookIds === 'function')
+                ? window.PhoneChatDetails.getEffectiveLorebookIds(threadId)
+                : null;
+            const voiceLoreIds = (window.PhoneChatDetails && typeof window.PhoneChatDetails.getEffectiveVoiceLorebookIds === 'function')
+                ? window.PhoneChatDetails.getEffectiveVoiceLorebookIds(threadId)
+                : [];
+
+            // 先拉取一次近期消息用于匹配世界书关键词与记忆搜索
+            const rawMsgs = loadJSON(STORAGE_MSGS_PREFIX + threadId, []);
+            const probeText = (Array.isArray(rawMsgs) ? rawMsgs.slice(-6) : []).map(m => formatMessageForAI(m, isGroup)).join('\n');
+
+            const loreRes = matchLoreEntries(probeText, charId, overrideLoreIds);
+            const voiceLoreRes = voiceLoreIds.length ? matchLoreEntries(probeText, charId, voiceLoreIds) : null;
+            const voiceLoreText = voiceLoreRes
+                ? [].concat(voiceLoreRes.before, voiceLoreRes.after, voiceLoreRes.depth.map(d => d.content)).join('\n')
+                : '';
+
+            const [histPack, memoriesText, realEnvText] = await Promise.all([
+                buildHistoryMessages(threadId, details, isGroup, loreRes.depth),
+                isGroup ? Promise.resolve('') : getRelevantMemoriesText(probeText, charId),
+                getRealEnvText(threadId, details)
+            ]);
             if (activeRuns[threadId] !== runToken) return;
 
-            const systemPrompt = buildSystemPrompt(charObj, userCtx, details, mountedStickers, histPack.hasUserSticker);
-            const req = await requestLLM(systemPrompt, histPack.history);
+            const presetObj = getEffectivePresetObj(threadId);
+            const coreBlock = buildCoreRules(
+                isGroup, members, charObj, userCtx, details, mountedStickers,
+                histPack.hasUserSticker, memoriesText, realEnvText, voiceLoreText
+            );
+            const systemPrompt = assembleSystemPromptWithPreset(presetObj, coreBlock, loreRes);
+
+            const req = await requestLLM(systemPrompt, histPack.history, details, presetObj);
             if (activeRuns[threadId] !== runToken) return;
 
-            const parsed = parseReplyPayload(req.out.text, req.out.cot, charId, mountedStickers);
+            const parsed = parseReplyPayload(req.out.text, req.out.cot, charId, mountedStickers, isGroup, members);
 
-            // 若本轮已消费掉上次顶号记忆，则清除一次性上下文
             try { localStorage.removeItem(STORAGE_TAKEOVER_CTX_PREFIX + threadId); } catch (e) {}
 
             if (window.PhoneAPI && typeof window.PhoneAPI.addLog === 'function') {
@@ -851,13 +1275,15 @@
                     : ' · 思维链开关未开';
                 window.PhoneAPI.addLog({
                     module: 'LLM',
-                    source: req.retried ? (req.usedBackup ? 'Chat 对话（副 API 重试）' : 'Chat 对话（自动重试）') : 'Chat 对话回复',
+                    source: req.retried
+                        ? (req.usedBackup ? 'Chat 对话（副 API 重试）' : 'Chat 对话（自动重试）')
+                        : (req.usedCustomBundle ? 'Chat 对话（独立 API）' : 'Chat 对话回复'),
                     ok: true,
                     rawError: `模型 ${req.model} 回复成功${cotTag}`
                 });
             }
 
-            if (parsed.stealSticker && details.stickerAllowSteal) {
+            if (!isGroup && parsed.stealSticker && details.stickerAllowSteal) {
                 const stolen = stealLatestUserSticker(threadId, charId);
                 if (stolen && stolen.isNew) {
                     showAiToast(`对方偷走了你的表情包「${stolen.name}」`);
@@ -885,10 +1311,12 @@
                     await waitMs(pause);
                     if (activeRuns[threadId] !== runToken) break;
                 }
-                appendCharBubble(threadId, charId, parsed.bubbles[i], i === 0 ? parsed.cot : '');
+                await appendCharBubble(threadId, charId, parsed.bubbles[i], (!isGroup && i === 0) ? parsed.cot : '', details);
             }
 
-            if (parsed.takeover && window.PhoneChatTakeover && typeof window.PhoneChatTakeover.trigger === 'function') {
+            maybeAutoCaptureMemory(threadId, charId, charObj, details, isGroup);
+
+            if (!isGroup && parsed.takeover && window.PhoneChatTakeover && typeof window.PhoneChatTakeover.trigger === 'function') {
                 setRoomTyping(threadId, false);
                 await waitMs(280);
                 window.PhoneChatTakeover.trigger({
@@ -907,7 +1335,34 @@
         }
     }
 
-    // 记录顶号对抗结果，下一轮对话时 AI 自动接续这段记忆
+    async function rerollThread(threadId) {
+        if (!threadId || runningThreads.has(threadId)) return;
+        const msgs = loadJSON(STORAGE_MSGS_PREFIX + threadId, []);
+        if (!Array.isArray(msgs) || !msgs.length) return;
+
+        // 撤回末尾连续一轮对方回复，再重新触发生成
+        let removed = false;
+        while (msgs.length && msgs[msgs.length - 1].sender === 'char') {
+            msgs.pop();
+            removed = true;
+        }
+        if (!removed) return;
+
+        saveJSON(STORAGE_MSGS_PREFIX + threadId, msgs);
+        const threads = loadJSON(STORAGE_THREADS_KEY, []);
+        const idx = threads.findIndex(t => t.id === threadId);
+        if (idx !== -1) {
+            const last = msgs[msgs.length - 1];
+            threads[idx].lastMsg = last ? (last.text || '') : '';
+            threads[idx].lastTime = last ? (last.time || '') : '';
+            saveJSON(STORAGE_THREADS_KEY, threads);
+        }
+        if (window.PhoneChat && typeof window.PhoneChat.refreshMessages === 'function') {
+            window.PhoneChat.refreshMessages();
+        }
+        await runReplyForThread(threadId);
+    }
+
     window.addEventListener('phone:chat-takeover-ended', (e) => {
         const d = (e && e.detail) || {};
         if (d.threadId) {
@@ -925,7 +1380,14 @@
         if (detail.threadId) runReplyForThread(detail.threadId);
     });
 
+    window.addEventListener('phone:chat-reroll', (e) => {
+        const detail = (e && e.detail) || {};
+        const tid = detail.threadId || (window.PhoneChat && window.PhoneChat.getCurrentThreadId && window.PhoneChat.getCurrentThreadId());
+        if (tid) rerollThread(tid);
+    });
+
     window.PhoneChatAI = {
-        triggerReply: runReplyForThread
+        triggerReply: runReplyForThread,
+        reroll: rerollThread
     };
 })();
