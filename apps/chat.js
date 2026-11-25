@@ -9,6 +9,7 @@
    - 支持顶部备注位「对方正在输入中…」（停字立刻恢复备注名并保留免打扰铃铛）
    - 支持实时同步「我的 / 面具」的用户头像到聊天窗口我方气泡
    - 发送逻辑：回车 / 有字点 ↑ 仅上屏；空输入框再点 ↑ 才触发 AI 回复
+   - 打开聊天窗口及表情包/图片加载后自动定位到最底部最新消息
    ========================================================= */
 
 (function () {
@@ -419,6 +420,20 @@
         return !!tid && typingThreads.has(tid);
     }
 
+    function scrollRoomToBottom(withImageDelay) {
+        const box = document.getElementById('ctRoomMessages');
+        if (!box) return;
+        const snap = () => {
+            box.scrollTop = box.scrollHeight;
+        };
+        snap();
+        requestAnimationFrame(snap);
+        if (withImageDelay) {
+            setTimeout(snap, 60);
+            setTimeout(snap, 220);
+        }
+    }
+
     function syncRoomViewport() {
         const room = document.getElementById('ctRoomView');
         const app = document.querySelector('#app-chat .ct-app');
@@ -441,8 +456,7 @@
             room.style.height = availH + 'px';
             room.classList.add('is-kb-open');
 
-            const box = document.getElementById('ctRoomMessages');
-            if (box) box.scrollTop = box.scrollHeight;
+            scrollRoomToBottom(false);
         } else {
             resetRoomViewport();
         }
@@ -1282,9 +1296,10 @@
         if (moreBtn) moreBtn.style.visibility = pov.isChar ? 'hidden' : '';
 
         resetRoomViewport();
-        renderRoomMessages();
         document.getElementById('ctRoomView').classList.add('open');
+        renderRoomMessages();
         syncRoomViewport();
+        scrollRoomToBottom(true);
     }
 
     function stopPlayingVoiceUI() {
@@ -1529,7 +1544,7 @@
             });
         });
 
-        box.scrollTop = box.scrollHeight;
+        scrollRoomToBottom(true);
     }
 
     function sendTextMessage(text) {
