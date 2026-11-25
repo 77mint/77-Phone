@@ -1,8 +1,8 @@
 /* =========================================================
    Chat 输入扩展面板、发照片、转账、礼物 & 问小九模块 (apps/chat-panels.js)
-   - 2 页可滑动抽屉：照片、转账、礼物、问小九（双椭圆眼睛）、位置、收藏、个人名片、音乐、文件
+   - 单页 8 格：照片、转账、礼物、问小九（双椭圆眼睛）、位置、收藏、个人名片、音乐
    - 「问小九」默认私密弹窗（总结/出主意/提问），可一键填入输入框或发到聊天里
-   - 位置、个人名片、收藏、音乐、文件均发送可预览的微信样式卡片
+   - 位置、个人名片、收藏、音乐均发送可预览的微信样式卡片
    ========================================================= */
 (function () {
   var STORAGE_THREADS_KEY = 'chat_threads_v1';
@@ -18,7 +18,6 @@
   var SVG_FAV_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
   var SVG_CARD_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c0-3.8 3.3-6 7.5-6s7.5 2.2 7.5 6"/></svg>';
   var SVG_MUSIC_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M9 17.5a2.5 2.5 0 1 1-1.5-2.3V6l11-2v11.5a2.5 2.5 0 1 1-1.5-2.3V7.6l-8 1.5v8.4z"/></svg>';
-  var SVG_FILE_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 
   var SVG_GIFT_BOW = '<svg width="34" height="34" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 19C17 12.5 12.2 10.5 9.2 12.5C6.5 14.3 7.2 18.8 11.2 19.6C14.2 20.2 17.5 19.6 20 19Z"/><path d="M20 19C23 12.5 27.8 10.5 30.8 12.5C33.5 14.3 32.8 18.8 28.8 19.6C25.8 20.2 22.5 19.6 20 19Z"/><path d="M20 19L10.5 30.5"/><path d="M20 19L29.5 30.5"/></svg>';
   var SVG_TR_ARROWS = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9h12l-3.5-3.5"/><path d="M18 15H6l3.5 3.5"/></svg>';
@@ -170,13 +169,6 @@
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
-  }
-
-  function formatFileSize(bytes) {
-    var n = Number(bytes) || 0;
-    if (n < 1024) return n + ' B';
-    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
-    return (n / (1024 * 1024)).toFixed(1) + ' MB';
   }
 
   function bindPressFeedback(container, selector) {
@@ -391,22 +383,6 @@
       return;
     }
 
-    if (msg.type === 'file') {
-      bubble.classList.remove('ctp-img-bubble', 'ctp-transfer-bubble', 'is-faded', 'ctp-gift-bubble', 'is-claimed');
-      bubble.classList.add('ctp-rich-card');
-      bubble.dataset.ctpRendered = '1';
-      bubble.innerHTML =
-        '<div class="ctp-rc-head">' +
-          '<div class="ctp-rc-meta">' +
-            '<div class="ctp-rc-title">' + escapeHtml(msg.fileName || '未命名文件') + '</div>' +
-            '<div class="ctp-rc-sub">' + escapeHtml(msg.fileSize || '') + '</div>' +
-          '</div>' +
-          '<div class="ctp-rc-icon">' + SVG_FILE_TILE + '</div>' +
-        '</div>' +
-        '<div class="ctp-rc-foot">文件</div>';
-      return;
-    }
-
     if (msg.type === 'music') {
       bubble.classList.remove('ctp-img-bubble', 'ctp-transfer-bubble', 'is-faded', 'ctp-gift-bubble', 'is-claimed');
       bubble.classList.add('ctp-rich-card');
@@ -553,7 +529,7 @@
     var map = {};
     msgs.forEach(function (m) { map[m.id] = m; });
 
-    var richTypes = ['image', 'image_bundle', 'transfer', 'transfer_tip', 'gift', 'gift_tip', 'location', 'contact_card', 'file', 'music', 'ask9'];
+    var richTypes = ['image', 'image_bundle', 'transfer', 'transfer_tip', 'gift', 'gift_tip', 'location', 'contact_card', 'music', 'ask9'];
     box.querySelectorAll('.ct-msg-group[data-msg-id]').forEach(function (group) {
       var mid = group.getAttribute('data-msg-id');
       var m = map[mid];
@@ -1054,37 +1030,22 @@
     drawer.className = 'ctp-drawer';
     drawer.id = 'ctpDrawer';
     drawer.innerHTML =
-      '<div class="ctp-drawer-track" id="ctpDrawerTrack">' +
-        '<div class="ctp-drawer-page">' +
-          '<div class="ctp-grid">' +
-            '<button class="ctp-item" id="ctpBtnPhoto"><div class="ctp-item-icon">' + SVG_PHOTO + '</div><div class="ctp-item-label">照片</div></button>' +
-            '<button class="ctp-item" id="ctpBtnTransfer"><div class="ctp-item-icon">' + SVG_TRANSFER_TILE + '</div><div class="ctp-item-label">转账</div></button>' +
-            '<button class="ctp-item" id="ctpBtnGift"><div class="ctp-item-icon">' + SVG_GIFT_TILE + '</div><div class="ctp-item-label">礼物</div></button>' +
-            '<button class="ctp-item" id="ctpBtnAsk9"><div class="ctp-item-icon">' + SVG_ASK9_TILE + '</div><div class="ctp-item-label">问小九</div></button>' +
-            '<button class="ctp-item" id="ctpBtnLoc"><div class="ctp-item-icon">' + SVG_LOC_TILE + '</div><div class="ctp-item-label">位置</div></button>' +
-            '<button class="ctp-item" id="ctpBtnFav"><div class="ctp-item-icon">' + SVG_FAV_TILE + '</div><div class="ctp-item-label">收藏</div></button>' +
-            '<button class="ctp-item" id="ctpBtnCard"><div class="ctp-item-icon">' + SVG_CARD_TILE + '</div><div class="ctp-item-label">个人名片</div></button>' +
-            '<button class="ctp-item" id="ctpBtnMusic"><div class="ctp-item-icon">' + SVG_MUSIC_TILE + '</div><div class="ctp-item-label">音乐</div></button>' +
-          '</div>' +
-        '</div>' +
-        '<div class="ctp-drawer-page">' +
-          '<div class="ctp-grid">' +
-            '<button class="ctp-item" id="ctpBtnFile"><div class="ctp-item-icon">' + SVG_FILE_TILE + '</div><div class="ctp-item-label">文件</div></button>' +
-          '</div>' +
-        '</div>' +
-      '</div>' +
-      '<div class="ctp-drawer-dots">' +
-        '<span class="ctp-drawer-dot active" id="ctpDot0"></span>' +
-        '<span class="ctp-drawer-dot" id="ctpDot1"></span>' +
+      '<div class="ctp-grid">' +
+        '<button class="ctp-item" id="ctpBtnPhoto"><div class="ctp-item-icon">' + SVG_PHOTO + '</div><div class="ctp-item-label">照片</div></button>' +
+        '<button class="ctp-item" id="ctpBtnTransfer"><div class="ctp-item-icon">' + SVG_TRANSFER_TILE + '</div><div class="ctp-item-label">转账</div></button>' +
+        '<button class="ctp-item" id="ctpBtnGift"><div class="ctp-item-icon">' + SVG_GIFT_TILE + '</div><div class="ctp-item-label">礼物</div></button>' +
+        '<button class="ctp-item" id="ctpBtnAsk9"><div class="ctp-item-icon">' + SVG_ASK9_TILE + '</div><div class="ctp-item-label">问小九</div></button>' +
+        '<button class="ctp-item" id="ctpBtnLoc"><div class="ctp-item-icon">' + SVG_LOC_TILE + '</div><div class="ctp-item-label">位置</div></button>' +
+        '<button class="ctp-item" id="ctpBtnFav"><div class="ctp-item-icon">' + SVG_FAV_TILE + '</div><div class="ctp-item-label">收藏</div></button>' +
+        '<button class="ctp-item" id="ctpBtnCard"><div class="ctp-item-icon">' + SVG_CARD_TILE + '</div><div class="ctp-item-label">个人名片</div></button>' +
+        '<button class="ctp-item" id="ctpBtnMusic"><div class="ctp-item-icon">' + SVG_MUSIC_TILE + '</div><div class="ctp-item-label">音乐</div></button>' +
       '</div>';
     room.appendChild(drawer);
 
     var extra = document.createElement('div');
     extra.innerHTML =
       '<input type="file" id="ctpPhotoInput" accept="image/*" multiple style="display:none;">' +
-      '<input type="file" id="ctpFileInput" style="display:none;">' +
 
-      /* 问小九面板 */
       '<div class="ctp-sheet-mask" id="ctpAsk9Mask">' +
         '<div class="ctp-sheet-panel">' +
           '<div class="ctp-sheet-head">' +
@@ -1108,7 +1069,6 @@
         '</div>' +
       '</div>' +
 
-      /* 位置面板 */
       '<div class="ctp-sheet-mask" id="ctpLocMask">' +
         '<div class="ctp-sheet-panel">' +
           '<div class="ctp-sheet-head">' +
@@ -1124,7 +1084,6 @@
         '</div>' +
       '</div>' +
 
-      /* 收藏面板 */
       '<div class="ctp-sheet-mask" id="ctpFavMask">' +
         '<div class="ctp-sheet-panel">' +
           '<div class="ctp-sheet-head">' +
@@ -1139,7 +1098,6 @@
         '</div>' +
       '</div>' +
 
-      /* 个人名片面板 */
       '<div class="ctp-sheet-mask" id="ctpCardMask">' +
         '<div class="ctp-sheet-panel">' +
           '<div class="ctp-sheet-head">' +
@@ -1150,7 +1108,6 @@
         '</div>' +
       '</div>' +
 
-      /* 音乐分享面板 */
       '<div class="ctp-sheet-mask" id="ctpMusicMask">' +
         '<div class="ctp-sheet-panel">' +
           '<div class="ctp-sheet-head">' +
@@ -1166,7 +1123,6 @@
         '</div>' +
       '</div>' +
 
-      /* 原有礼物、转账、支付、多图、大图预览 */
       '<div class="ctp-gift-mask" id="ctpGiftSendMask">' +
         '<div class="ctp-gift-modal">' +
           '<div class="ctp-gift-banner">' +
@@ -1233,7 +1189,6 @@
     var backBtn = document.getElementById('ctRoomBackBtn');
     var msgBox = document.getElementById('ctRoomMessages');
     var mainScroll = document.getElementById('ctMainScroll');
-    var track = document.getElementById('ctpDrawerTrack');
 
     bindPressFeedback(document.getElementById('ctpDrawer'), '.ctp-item');
     bindPressFeedback(document.getElementById('ctpKeypad'), '.ctp-key');
@@ -1243,16 +1198,6 @@
     bindPressFeedback(document.getElementById('ctpGiftDetailMask'), '.ctp-gift-btn');
     bindPressFeedback(room, '.ctp-chip-btn, .ctp-sheet-btn, .ctp-pick-row');
     bindPressFeedback(msgBox, '.ctp-transfer-bubble, .ctp-gift-bubble, .ctp-rich-card, .ctp-expand-pill');
-
-    if (track) {
-      track.addEventListener('scroll', function () {
-        var page = Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
-        var d0 = document.getElementById('ctpDot0');
-        var d1 = document.getElementById('ctpDot1');
-        if (d0) d0.classList.toggle('active', page === 0);
-        if (d1) d1.classList.toggle('active', page === 1);
-      }, { passive: true });
-    }
 
     if (mainScroll) {
       mainScroll.addEventListener('click', function (e) {
@@ -1501,24 +1446,6 @@
         songArtist: artist,
         text: '[分享音乐] ' + title + (artist ? (' - ' + artist) : '')
       }, '[音乐] ' + title);
-    });
-
-    // 文件事件
-    document.getElementById('ctpBtnFile').addEventListener('click', function () {
-      setDrawerOpen(false);
-      document.getElementById('ctpFileInput').click();
-    });
-    document.getElementById('ctpFileInput').addEventListener('change', function () {
-      var f = this.files && this.files[0];
-      this.value = '';
-      if (!f) return;
-      var sizeStr = formatFileSize(f.size);
-      appendCustomMessage({
-        type: 'file',
-        fileName: f.name,
-        fileSize: sizeStr,
-        text: '[文件] ' + f.name + ' (' + sizeStr + ')'
-      }, '[文件] ' + f.name);
     });
 
     // 礼物事件
