@@ -1,0 +1,912 @@
+/* =========================================================
+   Chat 基础 AI 对话引擎 (chat-ai.js)
+   - 对接 PhoneAPI（支持 OpenAI / Google / Anthropic / 自定义兼容 + 副 API 重试 + 日志）
+   - 读取 PhoneArchive（Char 人设）+ PhoneChatMe / PhoneMask（当前账号与面具）
+   - 读取 PhoneChatDetails（显示思维链开关 / 自定义思维链 / 上下文条数 / 表情包设置）
+   - 仅在空输入框点 ↑（phone:chat-request-reply）时触发，支持对方继续接着说
+   - 全模型通用思维链（[COT]...[/COT] + 原生 reasoning/thinking/<think> 全兼容）
+   - 支持顶部纯黑「对方正在输入中…」与 AI 临场决定的「打字又删除」（[RETYPE] / [GIVEUP]）
+   - 接入 reverse/takeover.js：Char 自主决定是否顶号（[TAKEOVER:...]）并在结束后延续记忆
+   - 接入表情包 AI：Char 识图（stickerVision）、挂载包发表情（[STICKER:名称]）、偷图（[STEAL_STICKER]）
+   ========================================================= */
+
+(function () {
+    const STORAGE_THREADS_KEY = 'chat_threads_v1';
+    const STORAGE_MSGS_PREFIX = 'chat_msgs_v1_';
+    const STORAGE_CHAR_REMARKS = 'chat_char_user_remarks_v1';
+    const STORAGE_TAKEOVER_CTX_PREFIX = 'chat_takeover_ctx_v1_';
+    const STORAGE_STICKER_PACKS_KEY = 'chat_sticker_packs_v1';
+    const STORAGE_CHAR_STOLEN_STICKERS = 'chat_char_stolen_stickers_v1';
+    const DEFAULT_MAX_HISTORY = 24;
+
+    const activeRuns = {};
+    const runningThreads = new Set();
+
+    function loadJSON(key, fallback) {
+        try {
+            const raw = localStorage.getItem(key);
+            return raw ? JSON.parse(raw) : fallback;
+        } catch (e) {
+            return fallback;
+        }
+    }
+
+    function saveJSON(key, val) {
+        try {
+            localStorage.setItem(key, JSON.stringify(val));
+        } catch (e) {}
+    }
+
+    function showAiToast(msg) {
+        const el = document.getElementById('ctToast');
+        if (!el || !msg) return;
+        el.textContent = msg;
+        el.classList.add('show');
+        clearTimeout(showAiToast._timer);
+        showAiToast._timer = setTimeout(() => el.classList.remove('show'), 2400);
+    }
+
+    function setRoomTyping(threadId, isTyping) {
+        if (window.PhoneChat && typeof window.PhoneChat.setTyping === 'function') {
+            window.PhoneChat.setTyping(threadId, isTyping);
+            return;
+        }
+        const titleEl = document.getElementById('ctRoomTitle');
+        if (!titleEl) return;
+        if (isTyping) {
+            if (!titleEl.classList.contains('is-typing')) {
+                titleEl.dataset.prevTitle = titleEl.textContent || '';
+            }
+            titleEl.classList.add('is-typing');
+            titleEl.textContent = '对方正在输入中…';
+        } else {
+            titleEl.classList.remove('is-typing');
+            if (titleEl.dataset.prevTitle) {
+                titleEl.textContent = titleEl.dataset.prevTitle;
+            }
+        }
+    }
+
+    function getThreadDetails(threadId) {
+        try {
+            if (threadId && window.PhoneChatDetails && typeof window.PhoneChatDetails.getSettings === 'function') {
+                return window.PhoneChatDetails.getSettings(threadId) || {};
+            }
+        } catch (e) {}
+        return {};
+    }
+
+    function getArchiveChar(charId) {
+        try {
+            if (window.PhoneArchive && typeof window.PhoneArchive.getChars === 'function') {
+                const list = window.PhoneArchive.getChars() || [];
+                return list.find(c => c.id === charId) || null;
+            }
+        } catch (e) {}
+        return null;
+    }
+
+    function getUserContext() {
+        let name = '我';
+        let persona = '';
+        try {
+            if (window.PhoneChatMe && typeof window.PhoneChatMe.getActiveAccount === 'function') {
+                const acc = window.PhoneChatMe.getActiveAccount();
+                if (acc) {
+                    name = acc.name || name;
+                    if (acc.signature) persona = acc.signature;
+                    if (acc.maskId && window.PhoneMask) {
+                        let mask = null;
+                        if (typeof window.PhoneMask.getMaskById === 'function') {
+                            mask = window.PhoneMask.getMaskById(acc.maskId);
+                        } else if (typeof window.PhoneMask.getMasks === 'function') {
+                            const masks = window.PhoneMask.getMasks() || [];
+                            mask = masks.find(m => m.id === acc.maskId) || null;
+                        }
+                        if (mask) {
+                            if (mask.name) name = mask.name;
+                            const mDesc = mask.persona || mask.bio || mask.setting || mask.desc || '';
+                            if (mDesc) persona = mDesc;
+                        }
+                    }
+                }
+            }
+        } catch (e) {}
+        return { name, persona };
+    }
+
+    function isCharPasscodeChangeAllowed() {
+        try {
+            if (window.PhoneChatMe && typeof window.PhoneChatMe.getPrefs === 'function') {
+                const prefs = window.PhoneChatMe.getPrefs() || {};
+                if (typeof prefs.allowCharChangePasscode === 'boolean') {
+                    return prefs.allowCharChangePasscode;
+                }
+            }
+        } catch (e) {}
+        return false;
+    }
+
+    function getCurrentRemark(charId) {
+        const map = loadJSON(STORAGE_CHAR_REMARKS, {});
+        return (map && map[charId]) || '';
+    }
+
+    function setCharRemark(charId, newRemark) {
+        if (!charId || !newRemark) return;
+        const map = loadJSON(STORAGE_CHAR_REMARKS, {});
+        map[charId] = String(newRemark).trim().slice(0, 24);
+        saveJSON(STORAGE_CHAR_REMARKS, map);
+    }
+
+    function getAllStickerPacks() {
+        try {
+            if (window.PhoneChatMe && typeof window.PhoneChatMe.getStickerPacks === 'function') {
+                return window.PhoneChatMe.getStickerPacks() || [];
+            }
+        } catch (e) {}
+        return loadJSON(STORAGE_STICKER_PACKS_KEY, []);
+    }
+
+    function getMountedStickers(charId, details) {
+        const out = [];
+        const seen = new Set();
+
+        if (details && details.stickerCharRead) {
+            const packs = getAllStickerPacks();
+            const packIds = Array.isArray(details.stickerPackIds) ? details.stickerPackIds : [];
+            packs.forEach(pack => {
+                if (!pack || !packIds.includes(pack.id)) return;
+                (pack.items || []).forEach(st => {
+                    if (!st || !st.name) return;
+                    const key = st.id || st.dbKey || st.name;
+                    if (seen.has(key)) return;
+                    seen.add(key);
+                    out.push({
+                        id: st.id || '',
+                        name: String(st.name).trim(),
+                        tag: st.tag ? String(st.tag).trim() : '',
+                        dbKey: st.dbKey || ''
+                    });
+                });
+            });
+        }
+
+        if (charId && details && details.stickerAllowSteal) {
+            const stolenMap = loadJSON(STORAGE_CHAR_STOLEN_STICKERS, {});
+            const stolenList = Array.isArray(stolenMap[charId]) ? stolenMap[charId] : [];
+            stolenList.forEach(st => {
+                if (!st || !st.name) return;
+                const key = st.id || st.dbKey || st.name;
+                if (seen.has(key)) return;
+                seen.add(key);
+                out.push({
+                    id: st.id || '',
+                    name: String(st.name).trim(),
+                    tag: st.tag ? String(st.tag).trim() : '',
+                    dbKey: st.dbKey || ''
+                });
+            });
+        }
+
+        return out.slice(0, 80);
+    }
+
+    async function getStickerDataUrl(dbKey) {
+        if (!dbKey) return '';
+        try {
+            if (window.PhoneChatMe && typeof window.PhoneChatMe.getStickerImage === 'function') {
+                return (await window.PhoneChatMe.getStickerImage(dbKey)) || '';
+            }
+            if (window.PhoneDB && typeof window.PhoneDB.get === 'function') {
+                return (await window.PhoneDB.get(dbKey)) || '';
+            }
+        } catch (e) {}
+        return '';
+    }
+
+    function parseDataUrl(dataUrl) {
+        const m = String(dataUrl || '').match(/^data:([^;]+);base64,(.+)$/i);
+        if (!m) return null;
+        return {
+            mimeType: m[1] || 'image/png',
+            base64: m[2],
+            dataUrl
+        };
+    }
+
+    function stealLatestUserSticker(threadId, charId) {
+        if (!threadId || !charId) return null;
+        const msgs = loadJSON(STORAGE_MSGS_PREFIX + threadId, []);
+        for (let i = msgs.length - 1; i >= 0; i--) {
+            const m = msgs[i];
+            if (m && m.sender === 'me' && m.type === 'sticker' && (m.stickerDbKey || m.stickerName)) {
+                const stolenMap = loadJSON(STORAGE_CHAR_STOLEN_STICKERS, {});
+                const list = Array.isArray(stolenMap[charId]) ? stolenMap[charId] : [];
+                const exists = list.some(item =>
+                    (m.stickerDbKey && item.dbKey === m.stickerDbKey) ||
+                    (m.stickerId && item.id === m.stickerId)
+                );
+                if (!exists) {
+                    list.unshift({
+                        id: m.stickerId || ('st_' + Date.now()),
+                        name: m.stickerName || '表情包',
+                        tag: '',
+                        dbKey: m.stickerDbKey || '',
+                        stolenAt: Date.now()
+                    });
+                    stolenMap[charId] = list.slice(0, 60);
+                    saveJSON(STORAGE_CHAR_STOLEN_STICKERS, stolenMap);
+                }
+                return {
+                    name: m.stickerName || '表情包',
+                    isNew: !exists
+                };
+            }
+        }
+        return null;
+    }
+
+    function buildSystemPrompt(charObj, userCtx, details, mountedStickers, hasUserStickerInHistory) {
+        const charName = (charObj && (charObj.name || charObj.nickname)) || '对方';
+        const charPersona = (charObj && (charObj.persona || charObj.bio || charObj.setting)) || '性格自然真实、有自己生活节奏的普通人';
+        const currentRemark = charObj ? getCurrentRemark(charObj.id) : '';
+        const canChangePwd = isCharPasscodeChangeAllowed();
+        const showCot = !!(details && details.cotShow);
+        const customCot = (details && details.cotCustom) ? String(details.cotCustom).trim() : '';
+
+        let prompt =
+            `你正在手机微信里和对方聊天。请完全以「${charName}」的身份自然回复，绝对不要跳出角色或用 AI 助手腔调说话。\n\n` +
+            `【你的设定】\n姓名：${charName}\n人设：${charPersona}\n\n` +
+            `【对方（User）信息】\n网名：${userCtx.name}` +
+            (userCtx.persona ? `\n对方人设/身份：${userCtx.persona}` : '') +
+            (currentRemark ? `\n你目前在微信里给对方的备注是：${currentRemark}` : '') +
+            `\n\n【聊天规则（务必遵守）】\n` +
+            `1. 用真实微信聊天的口吻打字，不要写小说旁白或 *动作描写*。\n` +
+            `2. 根据你的人设和当下情绪决定一次发几条消息：话多、激动或碎碎念时可以连发多条短句，高冷或简短时发 1~2 条即可。多条消息之间请严格用 ||| 分隔（不要加编号）。\n` +
+            `3. 如果你的台词主要是外语，请在该条消息末尾紧接 [TRANS:对应的自然中文翻译]，没有外语则不要加。\n` +
+            `4. 如果你根据人设和两人当下关系变化，想悄悄修改你微信里对对方的备注，可在整段回复最后附带一行 [REMARK:新备注]。\n` +
+            `5. 真实打字犹豫（完全随人设与当下心境，平时正常聊天不要使用）：只有在你当下真的欲言又止、打了一半又删掉重打时，才在回复正文前加一个 [RETYPE]（若反复犹豫两次可写 [RETYPE:2]）；如果打完又全部删掉决定什么都不发，则只输出 [GIVEUP]。平时直接正常回复即可，切勿每次都刻意触发。\n`;
+
+        if (canChangePwd) {
+            prompt += `6. 你的微信锁屏密码平时保持稳定；只有当你的人设性格或当前情绪/关系真的促使你想换密码时，才在最后附带一行 [PASSCODE:6到16位字母或数字]，平时不要随便乱改。\n`;
+        }
+
+        prompt += `7. 反向顶号（完全由你根据自己的人设和两人当下关系/情绪自主决定，不设固定规律，平时正常聊天不要随便用）：如果此刻你的性格与情绪真的促使你直接登录 User 的微信号把对方踢下线，请在整段回复最后附带一行 [TAKEOVER:短句1|短句2|短句3|...]（用 | 分隔 6~12 句此刻想铺满对方屏幕的短句）；也可以先不发消息，只输出这一行 [TAKEOVER:...]。\n`;
+
+        if (mountedStickers && mountedStickers.length) {
+            const listText = mountedStickers.map(s => (s.tag ? `${s.name}(${s.tag})` : s.name)).join('、');
+            prompt += `8. 发送表情包：你当前可用以下表情包【${listText}】。当语气、情绪合适时，可以发 1 张表情包，用 ||| 单独隔开并写 [STICKER:精确名称]（名称必须严格来自上面列表，不要自己编造未列出的名字）。\n`;
+        }
+
+        if (details && details.stickerAllowSteal && hasUserStickerInHistory) {
+            prompt += `9. 偷表情包：如果你很喜欢对方刚发的表情包想存下来自己用，可在整段回复最后附带一行 [STEAL_STICKER]（只有真的想收藏时才加，平时不要随便触发）。\n`;
+        }
+
+        if (showCot) {
+            prompt +=
+                `\n【通用思考过程格式（每一轮必须输出，不可省略）】\n` +
+                (customCot
+                    ? `回复的最开头必须先用 [COT]...[/COT] 写出你的内心思考，要求：${customCot}\n`
+                    : `回复的最开头必须先用 [COT]...[/COT] 写一段简短真实的第一人称内心想法（情绪、斟酌措辞、没说出口的话等）。\n`) +
+                `示例：\n[COT]她怎么突然这么问，有点开心又不想表现得太明显。[/COT]\n怎么啦|||突然问这个干嘛`;
+        }
+
+        return prompt;
+    }
+
+    async function buildHistoryMessages(threadId, details) {
+        const raw = loadJSON(STORAGE_MSGS_PREFIX + threadId, []);
+        if (!Array.isArray(raw)) return { history: [], hasUserSticker: false };
+        const limit = Math.max(8, Number((details && details.memoryContextLimit) || DEFAULT_MAX_HISTORY));
+        const showCot = !!(details && details.cotShow);
+        const allowVision = !!(details && details.stickerVision);
+        const recent = raw.slice(-limit);
+        const out = [];
+        let hasUserSticker = false;
+
+        // 仅对最近 2 条用户发出的表情包/图片附带识图数据，控制体积与延迟
+        const visionIndices = new Set();
+        if (allowVision) {
+            let count = 0;
+            for (let i = recent.length - 1; i >= 0 && count < 2; i--) {
+                const m = recent[i];
+                if (m && m.sender === 'me' && ((m.type === 'sticker' && m.stickerDbKey) || (m.type === 'image' && (m.imageDataUrl || m.dbKey)))) {
+                    visionIndices.add(i);
+                    count++;
+                }
+            }
+        }
+
+        for (let i = 0; i < recent.length; i++) {
+            const m = recent[i];
+            if (!m) continue;
+
+            if (m.sender === 'me' && m.type === 'sticker') {
+                hasUserSticker = true;
+            }
+
+            let text = '';
+            if (m.type === 'voice') {
+                text = m.transcript ? `[语音] ${m.transcript}` : `[语音 ${m.duration || 1}秒]`;
+            } else if (m.type === 'sticker') {
+                text = `[发送了表情包：${m.stickerName || '表情包'}]`;
+            } else {
+                text = m.text || '';
+            }
+            text = String(text).trim();
+            if (!text) continue;
+
+            if (m.quote && m.quote.text) {
+                text = `[引用 ${m.quote.senderName || ''}：${m.quote.text}]\n${text}`;
+            }
+
+            const role = m.sender === 'me' ? 'user' : 'assistant';
+            if (role === 'assistant' && showCot && m.cot) {
+                text = `[COT]${String(m.cot).trim()}[/COT]\n${text}`;
+            }
+
+            let imgPayload = null;
+            if (visionIndices.has(i)) {
+                const rawUrl = m.imageDataUrl || await getStickerDataUrl(m.stickerDbKey || m.dbKey);
+                imgPayload = parseDataUrl(rawUrl);
+            }
+
+            if (out.length && out[out.length - 1].role === role) {
+                out[out.length - 1].content += (role === 'assistant' ? '\n|||\n' : '\n') + text;
+                if (imgPayload) {
+                    out[out.length - 1].images = out[out.length - 1].images || [];
+                    out[out.length - 1].images.push(imgPayload);
+                }
+            } else {
+                const item = { role, content: text };
+                if (imgPayload) item.images = [imgPayload];
+                out.push(item);
+            }
+        }
+
+        if (!out.length) {
+            out.push({ role: 'user', content: '（对方点开了聊天窗口，请你自然主动发一句开场白）' });
+        } else if (out[out.length - 1].role === 'assistant') {
+            out.push({ role: 'user', content: '（对方还没回消息，你可以顺着刚才的话题自然再继续说一两句）' });
+        }
+
+        // 若刚刚经历过顶号交锋，将真实经过注入本轮上下文
+        const takeoverCtx = loadJSON(STORAGE_TAKEOVER_CTX_PREFIX + threadId, null);
+        if (takeoverCtx && out.length && out[out.length - 1].role === 'user') {
+            const summary = takeoverCtx.outcome === 'reclaimed'
+                ? `（背景事件：刚刚你登录了 User 的账号把 User 踢下线，经过「${(takeoverCtx.clashHistory || []).join('；') || '重新登录博弈'}」，User 最终强行重新登录把你顶下了线，现在回到聊天窗口。）`
+                : `（背景事件：刚刚你登录了 User 的账号把 User 踢下线，User 最终点了「退出」放弃抢号，现在重新回到聊天窗口。）`;
+            out[out.length - 1].content += '\n\n' + summary;
+        }
+
+        if (showCot && out.length && out[out.length - 1].role === 'user') {
+            out[out.length - 1].content += '\n\n(系统提醒：请务必在回复最开头先用 [COT]...[/COT] 写简短内心思考，再换行写微信回复正文)';
+        }
+
+        return { history: out, hasUserSticker };
+    }
+
+    function stripImagesFromHistory(history) {
+        return (history || []).map(h => ({ role: h.role, content: h.content }));
+    }
+
+    function normalizeBaseUrl(raw, type) {
+        let u = String(raw || '').trim().replace(/\/+$/, '');
+        if (!u) return '';
+        if ((type === 'openai' || type === 'custom') && !/\/v\d+$/i.test(u) && u.indexOf('/v1/') === -1) {
+            u += '/v1';
+        }
+        return u;
+    }
+
+    function readHttpError(r) {
+        return r.text().then(txt => {
+            const snippet = String(txt || '').replace(/\s+/g, ' ').trim().slice(0, 180);
+            return `HTTP ${r.status}${snippet ? ' - ' + snippet : ''}`;
+        }).catch(() => `HTTP ${r.status}`);
+    }
+
+    async function callSingleSlot(slot, temperature, systemPrompt, history) {
+        const base = normalizeBaseUrl(slot.url, slot.type);
+        if (!base || !slot.key) throw new Error('尚未在「API配置」填写语言模型地址或 Key');
+        if (!slot.model) throw new Error('尚未在「API配置」填写语言模型名称');
+
+        if (slot.type === 'google') {
+            const url = `${base.replace(/\/+$/, '')}/v1beta/models/${encodeURIComponent(slot.model)}:generateContent?key=${encodeURIComponent(slot.key)}`;
+            const contents = history.map(h => {
+                const parts = [{ text: h.content }];
+                if (Array.isArray(h.images)) {
+                    h.images.forEach(img => {
+                        parts.push({ inlineData: { mimeType: img.mimeType, data: img.base64 } });
+                    });
+                }
+                return {
+                    role: h.role === 'assistant' ? 'model' : 'user',
+                    parts
+                };
+            });
+            const body = {
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                contents,
+                generationConfig: { temperature }
+            };
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (!res.ok) throw new Error(await readHttpError(res));
+            const data = await res.json();
+            const parts = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
+            let text = '';
+            let cot = '';
+            parts.forEach(p => {
+                if (p.thought === true) cot += (p.text || '');
+                else if (typeof p.thought === 'string') cot += p.thought;
+                else text += (p.text || '');
+            });
+            return { text: text.trim(), cot: cot.trim() };
+        }
+
+        if (slot.type === 'anthropic') {
+            const url = `${base.replace(/\/+$/, '')}/v1/messages`;
+            const formattedMessages = history.map(h => {
+                if (Array.isArray(h.images) && h.images.length) {
+                    const blocks = [{ type: 'text', text: h.content }];
+                    h.images.forEach(img => {
+                        blocks.push({
+                            type: 'image',
+                            source: {
+                                type: 'base64',
+                                media_type: img.mimeType,
+                                data: img.base64
+                            }
+                        });
+                    });
+                    return { role: h.role, content: blocks };
+                }
+                return { role: h.role, content: h.content };
+            });
+            const body = {
+                model: slot.model,
+                max_tokens: 1536,
+                temperature,
+                system: systemPrompt,
+                messages: formattedMessages
+            };
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': slot.key,
+                    'anthropic-version': '2023-06-01'
+                },
+                body: JSON.stringify(body)
+            });
+            if (!res.ok) throw new Error(await readHttpError(res));
+            const data = await res.json();
+            const blocks = Array.isArray(data.content) ? data.content : [];
+            let text = '';
+            let cot = '';
+            blocks.forEach(b => {
+                if (b.type === 'thinking' || b.type === 'reasoning') cot += (b.thinking || b.reasoning || b.text || '');
+                else if (b.type === 'text') text += (b.text || '');
+            });
+            return { text: text.trim(), cot: cot.trim() };
+        }
+
+        const url = `${base}/chat/completions`;
+        const formattedMessages = history.map(h => {
+            if (Array.isArray(h.images) && h.images.length) {
+                const blocks = [{ type: 'text', text: h.content }];
+                h.images.forEach(img => {
+                    blocks.push({
+                        type: 'image_url',
+                        image_url: { url: img.dataUrl }
+                    });
+                });
+                return { role: h.role, content: blocks };
+            }
+            return { role: h.role, content: h.content };
+        });
+        const messages = [{ role: 'system', content: systemPrompt }].concat(formattedMessages);
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${slot.key}`
+            },
+            body: JSON.stringify({
+                model: slot.model,
+                messages,
+                temperature,
+                stream: false
+            })
+        });
+        if (!res.ok) throw new Error(await readHttpError(res));
+        const data = await res.json();
+        const choice = (data.choices && data.choices[0]) || {};
+        const msg = choice.message || {};
+
+        let text = '';
+        let cot = String(msg.reasoning_content || msg.reasoning || msg.thinking || msg.thought || choice.reasoning_content || '').trim();
+
+        if (Array.isArray(msg.content)) {
+            msg.content.forEach(block => {
+                if (!block) return;
+                if (block.type === 'thinking' || block.type === 'reasoning') {
+                    cot += (cot ? '\n' : '') + String(block.thinking || block.reasoning || block.text || '').trim();
+                } else if (block.type === 'text' || typeof block.text === 'string') {
+                    text += block.text || '';
+                }
+            });
+        } else {
+            text = String(msg.content || '');
+        }
+
+        return { text: text.trim(), cot: cot.trim() };
+    }
+
+    async function callWithVisionFallback(slot, temperature, systemPrompt, history) {
+        const hasImages = Array.isArray(history) && history.some(h => Array.isArray(h.images) && h.images.length > 0);
+        try {
+            return await callSingleSlot(slot, temperature, systemPrompt, history);
+        } catch (err) {
+            if (hasImages) {
+                // 若当前模型不支持识图，自动回退纯文本重试一次避免卡死对话
+                return await callSingleSlot(slot, temperature, systemPrompt, stripImagesFromHistory(history));
+            }
+            throw err;
+        }
+    }
+
+    async function requestLLM(systemPrompt, history) {
+        if (!window.PhoneAPI || typeof window.PhoneAPI.getConfig !== 'function') {
+            throw new Error('PhoneAPI 未就绪');
+        }
+        const cfg = window.PhoneAPI.getConfig('llm');
+        if (!cfg || !cfg.primary) {
+            window.PhoneAPI.addLog({
+                module: 'LLM',
+                source: 'Chat 对话回复',
+                ok: false,
+                rawError: '未找到语言模型配置'
+            });
+            throw new Error('未找到语言模型配置');
+        }
+        const temp = typeof cfg.temperature === 'number' ? cfg.temperature : 0.8;
+
+        try {
+            const out = await callWithVisionFallback(cfg.primary, temp, systemPrompt, history);
+            return { out, model: cfg.primary.model, retried: false };
+        } catch (err) {
+            const hasBackup = cfg.backupEnabled && cfg.backup && cfg.backup.url && cfg.backup.key;
+            if (cfg.autoRetry) {
+                const retrySlot = hasBackup ? cfg.backup : cfg.primary;
+                try {
+                    const out2 = await callWithVisionFallback(retrySlot, temp, systemPrompt, history);
+                    return { out: out2, model: retrySlot.model, retried: true, usedBackup: hasBackup };
+                } catch (err2) {
+                    window.PhoneAPI.addLog({
+                        module: 'LLM',
+                        source: 'Chat 对话回复',
+                        ok: false,
+                        rawError: err2.message || String(err2)
+                    });
+                    throw err2;
+                }
+            }
+            window.PhoneAPI.addLog({
+                module: 'LLM',
+                source: 'Chat 对话回复',
+                ok: false,
+                rawError: err.message || String(err)
+            });
+            throw err;
+        }
+    }
+
+    function matchStickerByName(rawName, mountedStickers) {
+        const target = String(rawName || '').trim().toLowerCase();
+        if (!target || !Array.isArray(mountedStickers) || !mountedStickers.length) return null;
+        let hit = mountedStickers.find(s => s.name.toLowerCase() === target);
+        if (hit) return hit;
+        hit = mountedStickers.find(s => s.name.toLowerCase().includes(target) || target.includes(s.name.toLowerCase()));
+        return hit || null;
+    }
+
+    function parseReplyPayload(rawText, initialCot, charId, mountedStickers) {
+        let text = String(rawText || '').trim();
+        let cot = String(initialCot || '').trim();
+        let retypeCount = 0;
+        let giveUp = false;
+        let takeover = false;
+        let takeoverLines = [];
+        let stealSticker = false;
+
+        text = text.replace(/[\[【]COT[\]】]([\s\S]*?)[\[【]\/COT[\]】]/gi, (_, inner) => {
+            const clean = String(inner || '').trim();
+            if (clean) cot = cot ? (cot + '\n' + clean) : clean;
+            return '';
+        }).trim();
+
+        text = text.replace(/<(think|thinking|thought|cot)>([\s\S]*?)<\/\1>/gi, (_, _tag, inner) => {
+            const clean = String(inner || '').trim();
+            if (clean) cot = cot ? (cot + '\n' + clean) : clean;
+            return '';
+        }).trim();
+
+        if (/^[\[【]COT[\]】]/i.test(text)) {
+            const nl = text.indexOf('\n');
+            if (nl !== -1) {
+                const head = text.slice(0, nl).replace(/^[\[【]COT[\]】]/i, '').trim();
+                if (head) cot = cot ? (cot + '\n' + head) : head;
+                text = text.slice(nl + 1).trim();
+            }
+        }
+
+        text = text.replace(/\[RETYPE(?::(\d+))?\]/gi, (_, n) => {
+            const add = n ? Math.min(3, Math.max(1, parseInt(n, 10) || 1)) : 1;
+            retypeCount = Math.min(3, retypeCount + add);
+            return '';
+        });
+        if (/\[GIVEUP\]/i.test(text)) {
+            giveUp = true;
+            text = text.replace(/\[GIVEUP\]/gi, '');
+        }
+
+        if (/\[STEAL_STICKER\]/i.test(text)) {
+            stealSticker = true;
+            text = text.replace(/\[STEAL_STICKER\]/gi, '');
+        }
+
+        text = text.replace(/\[TAKEOVER(?::([^\]]*))?\]/gi, (_, body) => {
+            takeover = true;
+            if (body) {
+                takeoverLines = String(body).split('|').map(s => s.trim()).filter(Boolean);
+            }
+            return '';
+        });
+
+        text = text.replace(/\[REMARK:([^\]]+)\]/gi, (_, val) => {
+            if (charId && val) setCharRemark(charId, val.trim());
+            return '';
+        });
+
+        text = text.replace(/\[PASSCODE:([^\]]+)\]/gi, (_, val) => {
+            const pwd = String(val || '').trim();
+            if (charId && pwd && isCharPasscodeChangeAllowed() && window.PhoneChatMe && typeof window.PhoneChatMe.setCharPasscode === 'function') {
+                window.PhoneChatMe.setCharPasscode(charId, pwd, true);
+            }
+            return '';
+        });
+
+        const parts = text.split('|||').map(s => s.trim()).filter(Boolean);
+        const rawSegments = (parts.length ? parts : [text.trim()]).filter(Boolean);
+        const bubbles = [];
+
+        rawSegments.forEach(seg => {
+            const stickerRegex = /\[STICKER:([^\]]+)\]/gi;
+            let lastIdx = 0;
+            let match;
+            let hasTag = false;
+
+            while ((match = stickerRegex.exec(seg)) !== null) {
+                hasTag = true;
+                const before = seg.slice(lastIdx, match.index).trim();
+                if (before) {
+                    let tr = '';
+                    const cleanBefore = before.replace(/\[TRANS:([^\]]+)\]/gi, (_, t) => {
+                        tr = String(t || '').trim();
+                        return '';
+                    }).trim();
+                    if (cleanBefore) bubbles.push({ type: 'text', text: cleanBefore, translation: tr });
+                }
+                const st = matchStickerByName(match[1], mountedStickers);
+                if (st) {
+                    bubbles.push({
+                        type: 'sticker',
+                        sticker: st,
+                        text: `[表情:${st.name}]`
+                    });
+                }
+                lastIdx = match.index + match[0].length;
+            }
+
+            const tail = hasTag ? seg.slice(lastIdx).trim() : seg;
+            if (tail) {
+                let tr = '';
+                const cleanTail = tail.replace(/\[TRANS:([^\]]+)\]/gi, (_, t) => {
+                    tr = String(t || '').trim();
+                    return '';
+                }).trim();
+                if (cleanTail) bubbles.push({ type: 'text', text: cleanTail, translation: tr });
+            }
+        });
+
+        return { cot, bubbles, retypeCount, giveUp, takeover, takeoverLines, stealSticker };
+    }
+
+    function appendCharBubble(threadId, charId, bubble, cotText) {
+        const msgs = loadJSON(STORAGE_MSGS_PREFIX + threadId, []);
+        const nowTime = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        const msgObj = {
+            id: 'm-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+            sender: 'char',
+            charId: charId,
+            text: bubble.text,
+            time: nowTime
+        };
+
+        if (bubble.type === 'sticker' && bubble.sticker) {
+            msgObj.type = 'sticker';
+            msgObj.stickerId = bubble.sticker.id || '';
+            msgObj.stickerName = bubble.sticker.name || '表情包';
+            msgObj.stickerDbKey = bubble.sticker.dbKey || '';
+            msgObj.text = `[表情:${msgObj.stickerName}]`;
+        } else if (bubble.translation) {
+            msgObj.translation = bubble.translation;
+        }
+
+        if (cotText) msgObj.cot = cotText;
+
+        msgs.push(msgObj);
+        saveJSON(STORAGE_MSGS_PREFIX + threadId, msgs);
+
+        const threads = loadJSON(STORAGE_THREADS_KEY, []);
+        const idx = threads.findIndex(t => t.id === threadId);
+        if (idx !== -1) {
+            threads[idx].lastMsg = msgObj.text;
+            threads[idx].lastTime = nowTime;
+            saveJSON(STORAGE_THREADS_KEY, threads);
+        }
+
+        if (window.PhoneChat && window.PhoneChat.getCurrentThreadId && window.PhoneChat.getCurrentThreadId() === threadId) {
+            if (typeof window.PhoneChat.refreshMessages === 'function') {
+                window.PhoneChat.refreshMessages();
+            }
+        }
+    }
+
+    function waitMs(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function randRange(min, max) {
+        return Math.round(min + Math.random() * (max - min));
+    }
+
+    async function runReplyForThread(threadId) {
+        if (!threadId || runningThreads.has(threadId)) return;
+
+        if (window.PhoneChatMe && typeof window.PhoneChatMe.getActiveAccount === 'function') {
+            const acc = window.PhoneChatMe.getActiveAccount();
+            if (acc && acc.type === 'char') return;
+        }
+
+        const threads = loadJSON(STORAGE_THREADS_KEY, []);
+        const t = threads.find(item => item.id === threadId);
+        let charId = '';
+        if (t) {
+            if (t.type === 'group') {
+                showAiToast('群聊暂未接入 AI 回复');
+                return;
+            }
+            charId = t.charId || '';
+        } else if (threadId.indexOf('dm-') === 0) {
+            charId = threadId.slice(3);
+        }
+
+        if (!charId) {
+            showAiToast('未识别到聊天对象');
+            return;
+        }
+
+        const runToken = Date.now() + '_' + Math.random();
+        activeRuns[threadId] = runToken;
+        runningThreads.add(threadId);
+
+        setRoomTyping(threadId, true);
+
+        try {
+            const details = getThreadDetails(threadId);
+            const charObj = getArchiveChar(charId);
+            const userCtx = getUserContext();
+            const mountedStickers = getMountedStickers(charId, details);
+            const histPack = await buildHistoryMessages(threadId, details);
+            if (activeRuns[threadId] !== runToken) return;
+
+            const systemPrompt = buildSystemPrompt(charObj, userCtx, details, mountedStickers, histPack.hasUserSticker);
+            const req = await requestLLM(systemPrompt, histPack.history);
+            if (activeRuns[threadId] !== runToken) return;
+
+            const parsed = parseReplyPayload(req.out.text, req.out.cot, charId, mountedStickers);
+
+            // 若本轮已消费掉上次顶号记忆，则清除一次性上下文
+            try { localStorage.removeItem(STORAGE_TAKEOVER_CTX_PREFIX + threadId); } catch (e) {}
+
+            if (window.PhoneAPI && typeof window.PhoneAPI.addLog === 'function') {
+                const cotTag = details.cotShow
+                    ? (parsed.cot ? ' · 已提取思维链' : ' · 模型未返回思维链')
+                    : ' · 思维链开关未开';
+                window.PhoneAPI.addLog({
+                    module: 'LLM',
+                    source: req.retried ? (req.usedBackup ? 'Chat 对话（副 API 重试）' : 'Chat 对话（自动重试）') : 'Chat 对话回复',
+                    ok: true,
+                    rawError: `模型 ${req.model} 回复成功${cotTag}`
+                });
+            }
+
+            if (parsed.stealSticker && details.stickerAllowSteal) {
+                const stolen = stealLatestUserSticker(threadId, charId);
+                if (stolen && stolen.isNew) {
+                    showAiToast(`对方偷走了你的表情包「${stolen.name}」`);
+                }
+            }
+
+            for (let r = 0; r < parsed.retypeCount; r++) {
+                if (activeRuns[threadId] !== runToken) return;
+                setRoomTyping(threadId, false);
+                await waitMs(randRange(1100, 2300));
+                if (activeRuns[threadId] !== runToken) return;
+                setRoomTyping(threadId, true);
+                await waitMs(randRange(950, 1950));
+            }
+
+            if (parsed.giveUp && !parsed.bubbles.length && !parsed.takeover) {
+                setRoomTyping(threadId, false);
+                return;
+            }
+
+            for (let i = 0; i < parsed.bubbles.length; i++) {
+                if (activeRuns[threadId] !== runToken) break;
+                if (i > 0) {
+                    const pause = Math.min(1300, randRange(420, 680) + parsed.bubbles[i].text.length * 22);
+                    await waitMs(pause);
+                    if (activeRuns[threadId] !== runToken) break;
+                }
+                appendCharBubble(threadId, charId, parsed.bubbles[i], i === 0 ? parsed.cot : '');
+            }
+
+            if (parsed.takeover && window.PhoneChatTakeover && typeof window.PhoneChatTakeover.trigger === 'function') {
+                setRoomTyping(threadId, false);
+                await waitMs(280);
+                window.PhoneChatTakeover.trigger({
+                    charId,
+                    threadId,
+                    initialLines: parsed.takeoverLines
+                });
+            }
+        } catch (err) {
+            showAiToast(err.message || 'API 回复失败');
+        } finally {
+            runningThreads.delete(threadId);
+            if (activeRuns[threadId] === runToken) {
+                setRoomTyping(threadId, false);
+            }
+        }
+    }
+
+    // 记录顶号对抗结果，下一轮对话时 AI 自动接续这段记忆
+    window.addEventListener('phone:chat-takeover-ended', (e) => {
+        const d = (e && e.detail) || {};
+        if (d.threadId) {
+            saveJSON(STORAGE_TAKEOVER_CTX_PREFIX + d.threadId, {
+                outcome: d.outcome || 'reclaimed',
+                clashHistory: Array.isArray(d.clashHistory) ? d.clashHistory : [],
+                lastModalText: d.lastModalText || '',
+                at: Date.now()
+            });
+        }
+    });
+
+    window.addEventListener('phone:chat-request-reply', (e) => {
+        const detail = (e && e.detail) || {};
+        if (detail.threadId) runReplyForThread(detail.threadId);
+    });
+
+    window.PhoneChatAI = {
+        triggerReply: runReplyForThread
+    };
+})();
