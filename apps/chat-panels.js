@@ -1,7 +1,8 @@
 /* =========================================================
    Chat 输入扩展面板、发照片、转账、礼物 & 问小九模块 (apps/chat-panels.js)
-   - 第 1 页（ctp-grid）：预设 7 格 + chat-listen.js 自动插入「一起听」= 正好 8 格
-   - 第 2 页（ctp-grid-fixed）：文件
+   - 第 1 页固定 8 格：照片、转账、礼物、问小九、位置、收藏、个人名片、一起听
+   - 第 2 页：文件
+   - 「一起听」直接调用 window.PhoneChatListen.openSongModal()，不依赖克隆注入
    ========================================================= */
 (function () {
   var STORAGE_THREADS_KEY = 'chat_threads_v1';
@@ -16,6 +17,7 @@
   var SVG_LOC_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>';
   var SVG_FAV_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
   var SVG_CARD_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c0-3.8 3.3-6 7.5-6s7.5 2.2 7.5 6"/></svg>';
+  var SVG_LISTEN_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>';
   var SVG_FILE_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 
   var SVG_GIFT_BOW = '<svg width="34" height="34" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 19C17 12.5 12.2 10.5 9.2 12.5C6.5 14.3 7.2 18.8 11.2 19.6C14.2 20.2 17.5 19.6 20 19Z"/><path d="M20 19C23 12.5 27.8 10.5 30.8 12.5C33.5 14.3 32.8 18.8 28.8 19.6C25.8 20.2 22.5 19.6 20 19Z"/><path d="M20 19L10.5 30.5"/><path d="M20 19L29.5 30.5"/></svg>';
@@ -1015,7 +1017,6 @@
     drawer.innerHTML =
       '<div class="ctp-drawer-track" id="ctpDrawerTrack">' +
         '<div class="ctp-drawer-page">' +
-          /* 预留 7 格 + chat-listen.js 自动插入「一起听」= 正好 8 格 */
           '<div class="ctp-grid" id="ctpGridPage1">' +
             '<button class="ctp-item" id="ctpBtnPhoto"><div class="ctp-item-icon">' + SVG_PHOTO + '</div><div class="ctp-item-label">照片</div></button>' +
             '<button class="ctp-item" id="ctpBtnTransfer"><div class="ctp-item-icon">' + SVG_TRANSFER_TILE + '</div><div class="ctp-item-label">转账</div></button>' +
@@ -1024,6 +1025,7 @@
             '<button class="ctp-item" id="ctpBtnLoc"><div class="ctp-item-icon">' + SVG_LOC_TILE + '</div><div class="ctp-item-label">位置</div></button>' +
             '<button class="ctp-item" id="ctpBtnFav"><div class="ctp-item-icon">' + SVG_FAV_TILE + '</div><div class="ctp-item-label">收藏</div></button>' +
             '<button class="ctp-item" id="ctpBtnCard"><div class="ctp-item-icon">' + SVG_CARD_TILE + '</div><div class="ctp-item-label">个人名片</div></button>' +
+            '<button class="ctp-item" id="ctpBtnListen" data-ctl-listen="1"><div class="ctp-item-icon">' + SVG_LISTEN_TILE + '</div><div class="ctp-item-label">一起听</div></button>' +
           '</div>' +
         '</div>' +
         '<div class="ctp-drawer-page">' +
@@ -1275,6 +1277,15 @@
       var observer = new MutationObserver(decorateRoomMessages);
       observer.observe(msgBox, { childList: true });
     }
+
+    // 一起听：直接同步收起抽屉并打开选歌弹窗
+    document.getElementById('ctpBtnListen').addEventListener('click', function (e) {
+      e.stopPropagation();
+      setDrawerOpen(false);
+      if (window.PhoneChatListen && typeof window.PhoneChatListen.openSongModal === 'function') {
+        window.PhoneChatListen.openSongModal();
+      }
+    });
 
     // 问小九事件
     document.getElementById('ctpBtnAsk9').addEventListener('click', openAsk9Modal);
