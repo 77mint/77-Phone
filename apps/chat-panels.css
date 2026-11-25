@@ -14,26 +14,77 @@
   --ctp-transfer-faded: #f7ce9d;
 }
 
-/* 底部加号抽屉（单页 8 格，平滑推起输入栏） */
+/* 底部加号抽屉（一页 8 个，多余放第 2 页，横向翻页） */
 .ctp-drawer {
   height: 0;
   overflow: hidden;
   background: var(--ctp-drawer-bg);
   border-top: 0 solid rgba(0, 0, 0, 0.08);
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
   transition: height 0.26s cubic-bezier(0.32, 0.72, 0, 1), border-top-width 0.2s ease;
 }
 
 .ctp-drawer.open {
-  height: calc(228px + env(safe-area-inset-bottom));
+  height: calc(242px + env(safe-area-inset-bottom));
   border-top-width: 0.5px;
+}
+
+.ctp-drawer-track {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  flex: 1;
+  min-height: 0;
+}
+
+.ctp-drawer-track::-webkit-scrollbar {
+  display: none;
+}
+
+.ctp-drawer-page {
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 100%;
+  height: 100%;
+  overflow: hidden;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
 
 .ctp-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 18px 12px;
-  padding: 22px 20px calc(16px + env(safe-area-inset-bottom));
+  gap: 16px 12px;
+  padding: 20px 20px 6px;
+}
+
+.ctp-drawer-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0 calc(12px + env(safe-area-inset-bottom));
+  flex-shrink: 0;
+}
+
+.ctp-drawer-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.18);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.ctp-drawer-dot.active {
+  background: rgba(0, 0, 0, 0.55);
+  transform: scale(1.15);
 }
 
 .ctp-item {
@@ -294,7 +345,7 @@
   line-height: 1.2;
 }
 
-/* 通用扩展卡片气泡（位置 / 个人名片 / 音乐 / 问小九） */
+/* 通用扩展卡片气泡（位置 / 个人名片 / 文件 / 音乐 / 问小九） */
 #app-chat .ct-msg-bubble.ctp-rich-card {
   width: 234px;
   max-width: 234px;
@@ -1730,6 +1781,14 @@ html[data-theme="dark"] #app-chat {
   --ctp-pill-color: #f2f2f7;
 }
 
+html[data-theme="dark"] .ctp-drawer-dot {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+html[data-theme="dark"] .ctp-drawer-dot.active {
+  background: rgba(255, 255, 255, 0.72);
+}
+
 html[data-theme="dark"] .ctp-item.is-pressed .ctp-item-icon,
 html[data-theme="dark"] .ctp-item:active .ctp-item-icon {
   background: #3a3a3c;
@@ -1740,37 +1799,14 @@ html[data-theme="dark"] #app-chat .ct-msg-bubble.ctp-rich-card {
   color: #f2f2f7 !important;
 }
 
-html[data-theme="dark"] .ctp-rc-title {
-  color: #f2f2f7;
-}
-
-html[data-theme="dark"] .ctp-rc-body {
-  color: #d1d1d6;
-}
-
-html[data-theme="dark"] .ctp-rc-icon {
-  background: #3a3a3c;
-  color: #f2f2f7;
-}
-
-html[data-theme="dark"] .ctp-rc-foot {
-  border-top-color: rgba(255, 255, 255, 0.08);
-}
-
-html[data-theme="dark"] .ctp-sheet-panel {
-  background: #1c1c1e;
-  color: #f2f2f7;
-}
-
-html[data-theme="dark"] .ctp-sheet-head {
-  border-bottom-color: rgba(255, 255, 255, 0.1);
-}
-
+html[data-theme="dark"] .ctp-rc-title { color: #f2f2f7; }
+html[data-theme="dark"] .ctp-rc-body { color: #d1d1d6; }
+html[data-theme="dark"] .ctp-rc-icon { background: #3a3a3c; color: #f2f2f7; }
+html[data-theme="dark"] .ctp-rc-foot { border-top-color: rgba(255, 255, 255, 0.08); }
+html[data-theme="dark"] .ctp-sheet-panel { background: #1c1c1e; color: #f2f2f7; }
+html[data-theme="dark"] .ctp-sheet-head { border-bottom-color: rgba(255, 255, 255, 0.1); }
 html[data-theme="dark"] .ctp-sheet-title,
-html[data-theme="dark"] .ctp-pick-title {
-  color: #f2f2f7;
-}
-
+html[data-theme="dark"] .ctp-pick-title { color: #f2f2f7; }
 html[data-theme="dark"] .ctp-sheet-close,
 html[data-theme="dark"] .ctp-chip-btn,
 html[data-theme="dark"] .ctp-sheet-inp,
@@ -1782,11 +1818,7 @@ html[data-theme="dark"] .ctp-pick-av {
   background: #2c2c2e;
   color: #f2f2f7;
 }
-
-html[data-theme="dark"] .ctp-sheet-btn.is-primary {
-  background: #f2f2f7;
-  color: #111111;
-}
+html[data-theme="dark"] .ctp-sheet-btn.is-primary { background: #f2f2f7; color: #111111; }
 
 @media (prefers-color-scheme: dark) {
   html:not([data-theme="light"]) #app-chat {
@@ -1797,12 +1829,12 @@ html[data-theme="dark"] .ctp-sheet-btn.is-primary {
     --ctp-pill-bg: #2c2c2e;
     --ctp-pill-color: #f2f2f7;
   }
-
+  html:not([data-theme="light"]) .ctp-drawer-dot { background: rgba(255, 255, 255, 0.22); }
+  html:not([data-theme="light"]) .ctp-drawer-dot.active { background: rgba(255, 255, 255, 0.72); }
   html:not([data-theme="light"]) #app-chat .ct-msg-bubble.ctp-rich-card {
     background: #2c2c2e !important;
     color: #f2f2f7 !important;
   }
-
   html:not([data-theme="light"]) .ctp-rc-title { color: #f2f2f7; }
   html:not([data-theme="light"]) .ctp-rc-body { color: #d1d1d6; }
   html:not([data-theme="light"]) .ctp-rc-icon { background: #3a3a3c; color: #f2f2f7; }
