@@ -67,6 +67,59 @@ window.PhoneDB = (function () {
   };
 })();
 
+window.PhoneTheme = (function () {
+  var KEY_MODE = 'phone_theme_mode';
+  var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+  function getMode() {
+    var m = localStorage.getItem(KEY_MODE);
+    return (m === 'light' || m === 'dark' || m === 'auto') ? m : 'auto';
+  }
+
+  function isDark() {
+    var m = getMode();
+    if (m === 'dark') return true;
+    if (m === 'light') return false;
+    return !!(mq && mq.matches);
+  }
+
+  function apply() {
+    var m = getMode();
+    var dark = isDark();
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme-mode', m);
+    try {
+      window.dispatchEvent(new CustomEvent('phone:theme-changed', {
+        detail: { mode: m, isDark: dark }
+      }));
+    } catch (e) {}
+    return dark;
+  }
+
+  function setMode(mode) {
+    var next = (mode === 'light' || mode === 'dark' || mode === 'auto') ? mode : 'auto';
+    localStorage.setItem(KEY_MODE, next);
+    apply();
+  }
+
+  if (mq) {
+    var onSysChange = function () {
+      if (getMode() === 'auto') apply();
+    };
+    if (mq.addEventListener) mq.addEventListener('change', onSysChange);
+    else if (mq.addListener) mq.addListener(onSysChange);
+  }
+
+  apply();
+
+  return {
+    getMode: getMode,
+    setMode: setMode,
+    isDark: isDark,
+    apply: apply
+  };
+})();
+
 window.applyHomeWallpaper = function (url) {
   var wp = document.getElementById('wallpaper');
   if (wp) wp.style.backgroundImage = url ? 'url("' + url + '")' : '';
