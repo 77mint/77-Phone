@@ -1,9 +1,8 @@
 /* =========================================================
    Chat 输入扩展面板、发照片、转账、礼物 & 问小九模块 (apps/chat-panels.js)
-   - 一页 8 个，多余放第 2 页：
-     第 1 页：照片、转账、礼物、问小九、位置、收藏、个人名片、音乐
-     第 2 页：文件
-   - 内置横向翻页兜底样式，防止旧 CSS 缓存导致第 2 页掉到下面露边
+   - 一页严格 8 个，多余的（含 chat-listen.js 动态插入的「一起听」）自动分流到第 2 页
+   - 第 1 页：照片、转账、礼物、问小九、位置、收藏、个人名片、音乐
+   - 第 2 页：文件 + 自动溢出项（如一起听）
    ========================================================= */
 (function () {
   var STORAGE_THREADS_KEY = 'chat_threads_v1';
@@ -49,12 +48,21 @@
   var lastAsk9Answer = '';
   var ask9Busy = false;
 
+  /* 严格保持第 1 页最多 8 格，多出来的（如一起听）自动挪进第 2 页 */
+  function rebalanceDrawerPages() {
+    var g1 = document.getElementById('ctpGridPage1');
+    var g2 = document.getElementById('ctpGridPage2');
+    if (!g1 || !g2) return;
+    while (g1.children.length > 8) {
+      g2.appendChild(g1.children[8]);
+    }
+  }
+
   function ensureGiftExtraStyles() {
     if (document.getElementById('ctpGiftExtraStyle')) return;
     var st = document.createElement('style');
     st.id = 'ctpGiftExtraStyle';
     st.textContent =
-      /* 兜底横向翻页样式，防止旧 CSS 缓存时第 2 页掉到下面露边 */
       '.ctp-drawer { display: flex !important; flex-direction: column !important; }' +
       '.ctp-drawer.open { height: calc(242px + env(safe-area-inset-bottom)) !important; }' +
       '.ctp-drawer-track { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; overflow-x: auto !important; overflow-y: hidden !important; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; flex: 1; min-height: 0; scrollbar-width: none; }' +
@@ -306,6 +314,7 @@
 
   function setDrawerOpen(open) {
     drawerOpen = !!open;
+    if (drawerOpen) rebalanceDrawerPages();
     var drawer = document.getElementById('ctpDrawer');
     if (drawer) drawer.classList.toggle('open', drawerOpen);
     if (drawerOpen) {
@@ -1066,7 +1075,7 @@
     drawer.innerHTML =
       '<div class="ctp-drawer-track" id="ctpDrawerTrack">' +
         '<div class="ctp-drawer-page">' +
-          '<div class="ctp-grid">' +
+          '<div class="ctp-grid" id="ctpGridPage1">' +
             '<button class="ctp-item" id="ctpBtnPhoto"><div class="ctp-item-icon">' + SVG_PHOTO + '</div><div class="ctp-item-label">照片</div></button>' +
             '<button class="ctp-item" id="ctpBtnTransfer"><div class="ctp-item-icon">' + SVG_TRANSFER_TILE + '</div><div class="ctp-item-label">转账</div></button>' +
             '<button class="ctp-item" id="ctpBtnGift"><div class="ctp-item-icon">' + SVG_GIFT_TILE + '</div><div class="ctp-item-label">礼物</div></button>' +
@@ -1078,7 +1087,7 @@
           '</div>' +
         '</div>' +
         '<div class="ctp-drawer-page">' +
-          '<div class="ctp-grid">' +
+          '<div class="ctp-grid" id="ctpGridPage2">' +
             '<button class="ctp-item" id="ctpBtnFile"><div class="ctp-item-icon">' + SVG_FILE_TILE + '</div><div class="ctp-item-label">文件</div></button>' +
           '</div>' +
         '</div>' +
@@ -1225,6 +1234,15 @@
       '<div class="ctp-multi-mask" id="ctpMultiMask"><div class="ctp-multi-sheet"><div class="ctp-multi-thumbs" id="ctpMultiThumbs"></div><div class="ctp-multi-toggle" id="ctpMultiToggle"><div class="ctp-multi-check on" id="ctpMultiCheck">' + SVG_CHECK + '</div><span>发送后合并展示</span></div><div class="ctp-multi-foot"><button class="ctp-multi-cancel" id="ctpMultiCancel">取消</button><button class="ctp-multi-send" id="ctpMultiSend">发送</button></div></div></div>' +
       '<div class="ctp-lightbox" id="ctpLightbox"><img id="ctpLightboxImg" src="" alt=""></div>';
     while (extra.firstChild) room.appendChild(extra.firstChild);
+
+    /* 监听第 1 页格子：一旦外部模块（如一起听）插入第 9 个按钮，立刻搬去第 2 页 */
+    var g1 = document.getElementById('ctpGridPage1');
+    if (g1) {
+      var gridObs = new MutationObserver(rebalanceDrawerPages);
+      gridObs.observe(g1, { childList: true });
+      setTimeout(rebalanceDrawerPages, 150);
+      setTimeout(rebalanceDrawerPages, 600);
+    }
 
     bindEvents();
   }
@@ -1745,7 +1763,10 @@
     if (room) {
       var roomObs = new MutationObserver(function () {
         if (!room.classList.contains('open') && drawerOpen) setDrawerOpen(false);
-        if (room.classList.contains('open')) applyWechatSmileIcon();
+        if (room.classList.contains('open')) {
+          applyWechatSmileIcon();
+          rebalanceDrawerPages();
+        }
       });
       roomObs.observe(room, { attributes: true, attributeFilter: ['class'] });
     }
