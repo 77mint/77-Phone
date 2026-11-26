@@ -3,7 +3,7 @@
    - 第 1 页固定 8 格：照片、转账、礼物、问小九、位置、收藏、个人名片、一起听
    - 第 2 页：文件
    - 「一起听」window 捕获级坐标命中直达 window.PhoneChatListen.openSongModal()
-   - 名片/收藏列表全部改用原生 <button> 直接绑定点击，修复 iOS Safari 卡死无响应
+   - 名片弹窗最高层级 + touchend/click 双通道直接响应，防 iOS Safari 卡死
    - 接入 window.PhoneChatMe.getActiveAvatarDataUrl() 实时同步用户头像
    ========================================================= */
 (function () {
@@ -62,13 +62,49 @@
   var ask9Busy = false;
   var cachedMyAvatar = '';
 
+  function bindFastTap(el, handler) {
+    if (!el || typeof handler !== 'function') return;
+    var sx = 0, sy = 0, moved = false, lastFire = 0;
+    function fire(e) {
+      var now = Date.now();
+      if (now - lastFire < 350) return;
+      lastFire = now;
+      handler(e);
+    }
+    el.addEventListener('touchstart', function (e) {
+      var t = e.touches && e.touches[0];
+      if (!t) return;
+      sx = t.clientX;
+      sy = t.clientY;
+      moved = false;
+    }, { passive: true });
+    el.addEventListener('touchmove', function (e) {
+      var t = e.touches && e.touches[0];
+      if (!t) return;
+      if (Math.abs(t.clientX - sx) > 14 || Math.abs(t.clientY - sy) > 14) {
+        moved = true;
+      }
+    }, { passive: true });
+    el.addEventListener('touchend', function (e) {
+      if (moved) return;
+      e.preventDefault();
+      e.stopPropagation();
+      fire(e);
+    });
+    el.addEventListener('click', function (e) {
+      e.stopPropagation();
+      fire(e);
+    });
+  }
+
   function ensureGiftExtraStyles() {
     if (document.getElementById('ctpGiftExtraStyle')) return;
     var st = document.createElement('style');
     st.id = 'ctpGiftExtraStyle';
     st.textContent =
       '.ctp-sheet-mask { cursor: pointer; }' +
-      '.ctp-pick-row { width: 100%; text-align: left; font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }' +
+      '.ctp-sheet-mask.open { z-index: 9990 !important; pointer-events: auto !important; }' +
+      '.ctp-pick-row { width: 100%; text-align: left; font-family: inherit; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }' +
       '.ctp-gift-mask { position: absolute; inset: 0; z-index: 66; background: rgba(0, 0, 0, 0.42); display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.24s cubic-bezier(0.32, 0.72, 0, 1); }' +
       '.ctp-gift-mask.open { opacity: 1; pointer-events: auto; }' +
       '.ctp-gift-modal { width: 100%; max-width: 312px; border-radius: 24px; overflow: hidden; background: #ffffff; color: #111111; box-shadow: 0 22px 48px rgba(0, 0, 0, 0.24); font-family: var(--app-font, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif); transform: translateY(14px) scale(0.92); transition: transform 0.3s cubic-bezier(0.34, 1.38, 0.64, 1); }' +
@@ -366,52 +402,54 @@
   }
 
   function appendCustomMessage(msgObj, previewText) {
-    var tid = resolveCurrentThreadId();
-    if (!tid) return;
-    var nowTime = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-    msgObj.id = msgObj.id || ('m-' + Date.now() + '-' + Math.floor(Math.random() * 1000));
-    msgObj.sender = msgObj.sender || 'me';
-    msgObj.time = msgObj.time || nowTime;
+    try {
+      var tid = resolveCurrentThreadId();
+      if (!tid) return;
+      var nowTime = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      msgObj.id = msgObj.id || ('m-' + Date.now() + '-' + Math.floor(Math.random() * 1000));
+      msgObj.sender = msgObj.sender || 'me';
+      msgObj.time = msgObj.time || nowTime;
 
-    var msgs = loadJSON(STORAGE_MSGS_PREFIX + tid, []);
-    msgs.push(msgObj);
-    saveJSON(STORAGE_MSGS_PREFIX + tid, msgs);
+      var msgs = loadJSON(STORAGE_MSGS_PREFIX + tid, []);
+      msgs.push(msgObj);
+      saveJSON(STORAGE_MSGS_PREFIX + tid, msgs);
 
-    var threads = loadJSON(STORAGE_THREADS_KEY, []);
-    var idx = threads.findIndex(function (t) { return t.id === tid; });
-    if (idx !== -1) {
-      threads[idx].lastMsg = previewText || msgObj.text || '';
-      threads[idx].lastTime = nowTime;
-      saveJSON(STORAGE_THREADS_KEY, threads);
-    }
+      var threads = loadJSON(STORAGE_THREADS_KEY, []);
+      var idx = threads.findIndex(function (t) { return t.id === tid; });
+      if (idx !== -1) {
+        threads[idx].lastMsg = previewText || msgObj.text || '';
+        threads[idx].lastTime = nowTime;
+        saveJSON(STORAGE_THREADS_KEY, threads);
+      }
 
-    var box = document.getElementById('ctRoomMessages');
-    if (!box) return;
-    var empty = box.querySelector('.ct-empty');
-    if (empty) empty.remove();
+      var box = document.getElementById('ctRoomMessages');
+      if (!box) return;
+      var empty = box.querySelector('.ct-empty');
+      if (empty) empty.remove();
 
-    var myAvInner = cachedMyAvatar ? ('<img src="' + escapeHtml(cachedMyAvatar) + '" alt="">') : '我';
+      var myAvInner = cachedMyAvatar ? ('<img src="' + escapeHtml(cachedMyAvatar) + '" alt="">') : '我';
 
-    var group = document.createElement('div');
-    group.className = 'ct-msg-group me';
-    group.setAttribute('data-msg-id', msgObj.id);
-    group.setAttribute('data-sender-name', '我');
-    group.innerHTML =
-      '<div class="ct-msg-row me">' +
-        '<div class="ct-msg-avatar">' + myAvInner + '</div>' +
-        '<div class="ct-msg-bubble"></div>' +
-      '</div>';
-    box.appendChild(group);
+      var group = document.createElement('div');
+      group.className = 'ct-msg-group me';
+      group.setAttribute('data-msg-id', msgObj.id);
+      group.setAttribute('data-sender-name', '我');
+      group.innerHTML =
+        '<div class="ct-msg-row me">' +
+          '<div class="ct-msg-avatar">' + myAvInner + '</div>' +
+          '<div class="ct-msg-bubble"></div>' +
+        '</div>';
+      box.appendChild(group);
 
-    var avBox = group.querySelector('.ct-msg-avatar');
-    if (!cachedMyAvatar && avBox) {
-      resolveMyAvatarAsync(function (url) {
-        if (url && avBox) avBox.innerHTML = '<img src="' + escapeHtml(url) + '" alt="">';
-      });
-    }
+      var avBox = group.querySelector('.ct-msg-avatar');
+      if (!cachedMyAvatar && avBox) {
+        resolveMyAvatarAsync(function (url) {
+          if (url && avBox) avBox.innerHTML = '<img src="' + escapeHtml(url) + '" alt="">';
+        });
+      }
 
-    renderBubbleEl(group.querySelector('.ct-msg-bubble'), msgObj);
-    box.scrollTop = box.scrollHeight;
+      renderBubbleEl(group.querySelector('.ct-msg-bubble'), msgObj);
+      box.scrollTop = box.scrollHeight;
+    } catch (err) {}
   }
 
   function renderBubbleEl(bubble, msg) {
@@ -797,8 +835,7 @@
           '<div class="ctp-pick-sub">' + escapeHtml(timeStr) + '</div>' +
         '</div>' +
         '<span class="ctp-pick-pill">发送</span>';
-      btn.addEventListener('click', function (e) {
-        e.stopPropagation();
+      bindFastTap(btn, function () {
         if (!txt) return;
         document.getElementById('ctpFavMask').classList.remove('open');
         appendCustomMessage({
@@ -812,46 +849,50 @@
   }
 
   function openCardModal() {
-    setDrawerOpen(false);
-    var chars = (window.PhoneArchive && typeof window.PhoneArchive.getChars === 'function')
-      ? (window.PhoneArchive.getChars() || [])
-      : [];
-    var box = document.getElementById('ctpCardList');
-    box.innerHTML = '';
-    if (!chars.length) {
-      box.innerHTML = '<div class="ctp-empty-card">暂无联系人，先去「档案」新建角色即可发送名片</div>';
-    } else {
-      chars.forEach(function (c) {
-        var cid = String(c.id || '');
-        var name = c.name || c.nickname || '未命名';
-        var sub = c.handle || cid || '';
-        var av = resolveContactAvatar(cid, name, '');
+    try {
+      setDrawerOpen(false);
+      var chars = (window.PhoneArchive && typeof window.PhoneArchive.getChars === 'function')
+        ? (window.PhoneArchive.getChars() || [])
+        : [];
+      var box = document.getElementById('ctpCardList');
+      if (!box) return;
+      box.innerHTML = '';
+      if (!chars.length) {
+        box.innerHTML = '<div class="ctp-empty-card">暂无联系人，先去「档案」新建角色即可发送名片</div>';
+      } else {
+        chars.forEach(function (c) {
+          if (!c) return;
+          var cid = String(c.id || '');
+          var name = c.name || c.nickname || '未命名';
+          var sub = c.handle || cid || '';
+          var av = resolveContactAvatar(cid, name, '');
 
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'ctp-pick-row';
-        btn.innerHTML =
-          '<div class="ctp-pick-av">' + (av ? '<img decoding="async" src="' + escapeHtml(av) + '" alt="">' : escapeHtml(name.slice(0, 1))) + '</div>' +
-          '<div class="ctp-pick-info">' +
-            '<div class="ctp-pick-title">' + escapeHtml(name) + '</div>' +
-            '<div class="ctp-pick-sub">' + escapeHtml(sub) + '</div>' +
-          '</div>' +
-          '<span class="ctp-pick-pill">发送</span>';
-        btn.addEventListener('click', function (e) {
-          e.stopPropagation();
-          document.getElementById('ctpCardMask').classList.remove('open');
-          appendCustomMessage({
-            type: 'contact_card',
-            cardId: cid,
-            cardName: name,
-            cardSub: sub,
-            text: '[个人名片] ' + name
-          }, '[个人名片] ' + name);
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'ctp-pick-row';
+          btn.innerHTML =
+            '<div class="ctp-pick-av">' + (av ? '<img decoding="async" src="' + escapeHtml(av) + '" alt="">' : escapeHtml(name.slice(0, 1))) + '</div>' +
+            '<div class="ctp-pick-info">' +
+              '<div class="ctp-pick-title">' + escapeHtml(name) + '</div>' +
+              '<div class="ctp-pick-sub">' + escapeHtml(sub) + '</div>' +
+            '</div>' +
+            '<span class="ctp-pick-pill">发送</span>';
+          bindFastTap(btn, function () {
+            document.getElementById('ctpCardMask').classList.remove('open');
+            appendCustomMessage({
+              type: 'contact_card',
+              cardId: cid,
+              cardName: name,
+              cardSub: sub,
+              text: '[个人名片] ' + name
+            }, '[个人名片] ' + name);
+          });
+          box.appendChild(btn);
         });
-        box.appendChild(btn);
-      });
-    }
-    document.getElementById('ctpCardMask').classList.add('open');
+      }
+      var mask = document.getElementById('ctpCardMask');
+      if (mask) mask.classList.add('open');
+    } catch (err) {}
   }
 
   /* ---------------- 照片 / 礼物 / 转账 ---------------- */
@@ -1504,7 +1545,7 @@
 
     // 问小九事件
     document.getElementById('ctpBtnAsk9').addEventListener('click', openAsk9Modal);
-    document.getElementById('ctpAsk9Close').addEventListener('click', function () {
+    bindFastTap(document.getElementById('ctpAsk9Close'), function () {
       document.getElementById('ctpAsk9Mask').classList.remove('open');
     });
     document.getElementById('ctpAsk9Mask').addEventListener('click', function (e) {
@@ -1540,7 +1581,7 @@
 
     // 位置事件
     document.getElementById('ctpBtnLoc').addEventListener('click', openLocationModal);
-    document.getElementById('ctpLocClose').addEventListener('click', function () {
+    bindFastTap(document.getElementById('ctpLocClose'), function () {
       document.getElementById('ctpLocMask').classList.remove('open');
     });
     document.getElementById('ctpLocMask').addEventListener('click', function (e) {
@@ -1584,7 +1625,7 @@
 
     // 收藏事件
     document.getElementById('ctpBtnFav').addEventListener('click', openFavModal);
-    document.getElementById('ctpFavClose').addEventListener('click', function () {
+    bindFastTap(document.getElementById('ctpFavClose'), function () {
       document.getElementById('ctpFavMask').classList.remove('open');
     });
     document.getElementById('ctpFavMask').addEventListener('click', function (e) {
@@ -1606,14 +1647,20 @@
       }, '[收藏] ' + txt);
     });
 
-    // 个人名片事件
+    // 个人名片事件（关闭按钮 + 遮罩层均支持 touchend/click 双通道）
     document.getElementById('ctpBtnCard').addEventListener('click', openCardModal);
-    document.getElementById('ctpCardClose').addEventListener('click', function (e) {
-      e.stopPropagation();
+    bindFastTap(document.getElementById('ctpCardClose'), function () {
       document.getElementById('ctpCardMask').classList.remove('open');
     });
-    document.getElementById('ctpCardMask').addEventListener('click', function (e) {
-      if (e.target === this) this.classList.remove('open');
+    var cardMaskEl = document.getElementById('ctpCardMask');
+    cardMaskEl.addEventListener('touchend', function (e) {
+      if (e.target === cardMaskEl) {
+        e.preventDefault();
+        cardMaskEl.classList.remove('open');
+      }
+    });
+    cardMaskEl.addEventListener('click', function (e) {
+      if (e.target === cardMaskEl) cardMaskEl.classList.remove('open');
     });
 
     // 文件事件（第 2 页）
