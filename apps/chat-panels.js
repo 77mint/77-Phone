@@ -3,7 +3,8 @@
    - 第 1 页固定 8 格：照片、转账、礼物、问小九、位置、收藏、个人名片、一起听
    - 第 2 页：文件
    - 「一起听」window 捕获级坐标命中直达 window.PhoneChatListen.openSongModal()
-   - 名片选择器移除 base64 DOM 属性与 localStorage 写入，彻底解决卡死
+   - 名片/收藏列表全部改用原生 <button> 直接绑定点击，修复 iOS Safari 卡死无响应
+   - 接入 window.PhoneChatMe.getActiveAvatarDataUrl() 实时同步用户头像
    ========================================================= */
 (function () {
   var STORAGE_THREADS_KEY = 'chat_threads_v1';
@@ -59,13 +60,15 @@
   var lastAsk9Question = '';
   var lastAsk9Answer = '';
   var ask9Busy = false;
-  var cardPickerMap = {};
+  var cachedMyAvatar = '';
 
   function ensureGiftExtraStyles() {
     if (document.getElementById('ctpGiftExtraStyle')) return;
     var st = document.createElement('style');
     st.id = 'ctpGiftExtraStyle';
     st.textContent =
+      '.ctp-sheet-mask { cursor: pointer; }' +
+      '.ctp-pick-row { width: 100%; text-align: left; font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }' +
       '.ctp-gift-mask { position: absolute; inset: 0; z-index: 66; background: rgba(0, 0, 0, 0.42); display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.24s cubic-bezier(0.32, 0.72, 0, 1); }' +
       '.ctp-gift-mask.open { opacity: 1; pointer-events: auto; }' +
       '.ctp-gift-modal { width: 100%; max-width: 312px; border-radius: 24px; overflow: hidden; background: #ffffff; color: #111111; box-shadow: 0 22px 48px rgba(0, 0, 0, 0.24); font-family: var(--app-font, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif); transform: translateY(14px) scale(0.92); transition: transform 0.3s cubic-bezier(0.34, 1.38, 0.64, 1); }' +
@@ -199,32 +202,27 @@
     return s.slice(idx + 1).slice(0, 4).toUpperCase();
   }
 
-  function getMyAvatarUrl() {
+  function resolveMyAvatarAsync(cb) {
     var domImg = document.querySelector('#ctRoomMessages .ct-msg-row.me .ct-msg-avatar img');
-    if (domImg && domImg.getAttribute('src')) return domImg.getAttribute('src');
-    var meImg = document.querySelector('#app-chat .ct-me-avatar img, #ctMeAvatar img');
-    if (meImg && meImg.getAttribute('src')) return meImg.getAttribute('src');
-    try {
-      if (window.PhoneChatMe && typeof window.PhoneChatMe.getAvatar === 'function') {
-        var a1 = window.PhoneChatMe.getAvatar();
-        if (a1) return a1;
-      }
-      if (window.PhoneMask && typeof window.PhoneMask.getActiveMask === 'function') {
-        var mk = window.PhoneMask.getActiveMask();
-        if (mk && mk.avatar) return mk.avatar;
-      }
-      var keys = ['chat_me_avatar_v1', 'chat_my_avatar', 'chat_me_v1', 'chat_profile_v1', 'phone_user_profile'];
-      for (var i = 0; i < keys.length; i++) {
-        var raw = localStorage.getItem(keys[i]);
-        if (!raw) continue;
-        if (raw.indexOf('data:image') === 0 || raw.indexOf('http') === 0 || raw.indexOf('icons/') === 0) return raw;
-        try {
-          var obj = JSON.parse(raw);
-          if (obj && obj.avatar) return obj.avatar;
-        } catch (e2) {}
-      }
-    } catch (e) {}
-    return '';
+    if (domImg && domImg.getAttribute('src')) {
+      cachedMyAvatar = domImg.getAttribute('src');
+      if (cb) cb(cachedMyAvatar);
+      return;
+    }
+    if (cachedMyAvatar) {
+      if (cb) cb(cachedMyAvatar);
+      return;
+    }
+    if (window.PhoneChatMe && typeof window.PhoneChatMe.getActiveAvatarDataUrl === 'function') {
+      Promise.resolve(window.PhoneChatMe.getActiveAvatarDataUrl()).then(function (url) {
+        if (url) cachedMyAvatar = url;
+        if (cb) cb(url || '');
+      }).catch(function () {
+        if (cb) cb('');
+      });
+      return;
+    }
+    if (cb) cb('');
   }
 
   function resolveContactAvatar(cardId, cardName, fallbackAv) {
@@ -392,8 +390,7 @@
     var empty = box.querySelector('.ct-empty');
     if (empty) empty.remove();
 
-    var myAv = getMyAvatarUrl();
-    var myAvInner = myAv ? ('<img src="' + escapeHtml(myAv) + '" alt="">') : '我';
+    var myAvInner = cachedMyAvatar ? ('<img src="' + escapeHtml(cachedMyAvatar) + '" alt="">') : '我';
 
     var group = document.createElement('div');
     group.className = 'ct-msg-group me';
@@ -405,6 +402,14 @@
         '<div class="ct-msg-bubble"></div>' +
       '</div>';
     box.appendChild(group);
+
+    var avBox = group.querySelector('.ct-msg-avatar');
+    if (!cachedMyAvatar && avBox) {
+      resolveMyAvatarAsync(function (url) {
+        if (url && avBox) avBox.innerHTML = '<img src="' + escapeHtml(url) + '" alt="">';
+      });
+    }
+
     renderBubbleEl(group.querySelector('.ct-msg-bubble'), msgObj);
     box.scrollTop = box.scrollHeight;
   }
@@ -779,15 +784,31 @@
       box.innerHTML = '<div class="ctp-empty-card">暂无收藏内容，可以在下方直接新增一条并发送</div>';
       return;
     }
-    box.innerHTML = list.map(function (item, idx) {
-      return '<div class="ctp-pick-row" data-fav-idx="' + idx + '">' +
+    box.innerHTML = '';
+    list.forEach(function (item) {
+      var txt = (item && (item.text || item.content)) || '';
+      var timeStr = (item && item.time) || '';
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ctp-pick-row';
+      btn.innerHTML =
         '<div class="ctp-pick-info">' +
-          '<div class="ctp-pick-title">' + escapeHtml(item.text || '') + '</div>' +
-          '<div class="ctp-pick-sub">' + escapeHtml(item.time || '') + '</div>' +
+          '<div class="ctp-pick-title">' + escapeHtml(txt) + '</div>' +
+          '<div class="ctp-pick-sub">' + escapeHtml(timeStr) + '</div>' +
         '</div>' +
-        '<span class="ctp-pick-pill">发送</span>' +
-      '</div>';
-    }).join('');
+        '<span class="ctp-pick-pill">发送</span>';
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (!txt) return;
+        document.getElementById('ctpFavMask').classList.remove('open');
+        appendCustomMessage({
+          type: 'favorite',
+          favText: txt,
+          text: '[收藏] ' + txt
+        }, '[收藏] ' + txt);
+      });
+      box.appendChild(btn);
+    });
   }
 
   function openCardModal() {
@@ -795,26 +816,40 @@
     var chars = (window.PhoneArchive && typeof window.PhoneArchive.getChars === 'function')
       ? (window.PhoneArchive.getChars() || [])
       : [];
-    cardPickerMap = {};
     var box = document.getElementById('ctpCardList');
+    box.innerHTML = '';
     if (!chars.length) {
       box.innerHTML = '<div class="ctp-empty-card">暂无联系人，先去「档案」新建角色即可发送名片</div>';
     } else {
-      box.innerHTML = chars.map(function (c) {
+      chars.forEach(function (c) {
         var cid = String(c.id || '');
         var name = c.name || c.nickname || '未命名';
         var sub = c.handle || cid || '';
         var av = resolveContactAvatar(cid, name, '');
-        cardPickerMap[cid] = { id: cid, name: name, sub: sub };
-        return '<div class="ctp-pick-row" data-card-id="' + escapeHtml(cid) + '">' +
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ctp-pick-row';
+        btn.innerHTML =
           '<div class="ctp-pick-av">' + (av ? '<img decoding="async" src="' + escapeHtml(av) + '" alt="">' : escapeHtml(name.slice(0, 1))) + '</div>' +
           '<div class="ctp-pick-info">' +
             '<div class="ctp-pick-title">' + escapeHtml(name) + '</div>' +
             '<div class="ctp-pick-sub">' + escapeHtml(sub) + '</div>' +
           '</div>' +
-          '<span class="ctp-pick-pill">发送</span>' +
-        '</div>';
-      }).join('');
+          '<span class="ctp-pick-pill">发送</span>';
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          document.getElementById('ctpCardMask').classList.remove('open');
+          appendCustomMessage({
+            type: 'contact_card',
+            cardId: cid,
+            cardName: name,
+            cardSub: sub,
+            text: '[个人名片] ' + name
+          }, '[个人名片] ' + name);
+        });
+        box.appendChild(btn);
+      });
     }
     document.getElementById('ctpCardMask').classList.add('open');
   }
@@ -1105,6 +1140,7 @@
     if (!room || document.getElementById('ctpDrawer')) return;
     ensureGiftExtraStyles();
     applyWechatSmileIcon();
+    resolveMyAvatarAsync();
 
     var drawer = document.createElement('div');
     drawer.className = 'ctp-drawer';
@@ -1282,6 +1318,15 @@
     bindPressFeedback(document.getElementById('ctpGiftDetailMask'), '.ctp-gift-btn');
     bindPressFeedback(room, '.ctp-chip-btn, .ctp-sheet-btn, .ctp-sheet-close, .ctp-pick-row');
     bindPressFeedback(msgBox, '.ctp-transfer-bubble, .ctp-gift-bubble, .ctp-rich-card, .ctp-expand-pill');
+
+    window.addEventListener('phone:chat-account-changed', function () {
+      cachedMyAvatar = '';
+      resolveMyAvatarAsync();
+    });
+    window.addEventListener('phone-mask-updated', function () {
+      cachedMyAvatar = '';
+      resolveMyAvatarAsync();
+    });
 
     if (track) {
       track.addEventListener('scroll', function () {
@@ -1544,19 +1589,6 @@
     });
     document.getElementById('ctpFavMask').addEventListener('click', function (e) {
       if (e.target === this) this.classList.remove('open');
-      var row = e.target.closest('[data-fav-idx]');
-      if (row) {
-        var list = loadJSON(STORAGE_FAVS_KEY, []);
-        var item = list[Number(row.getAttribute('data-fav-idx'))];
-        if (item && item.text) {
-          document.getElementById('ctpFavMask').classList.remove('open');
-          appendCustomMessage({
-            type: 'favorite',
-            favText: item.text,
-            text: '[收藏] ' + item.text
-          }, '[收藏] ' + item.text);
-        }
-      }
     });
     document.getElementById('ctpFavAddSendBtn').addEventListener('click', function () {
       var inp = document.getElementById('ctpFavNewInp');
@@ -1574,29 +1606,14 @@
       }, '[收藏] ' + txt);
     });
 
-    // 个人名片事件（只存轻量 cardId，不塞 base64 进属性和 localStorage）
+    // 个人名片事件
     document.getElementById('ctpBtnCard').addEventListener('click', openCardModal);
-    document.getElementById('ctpCardClose').addEventListener('click', function () {
+    document.getElementById('ctpCardClose').addEventListener('click', function (e) {
+      e.stopPropagation();
       document.getElementById('ctpCardMask').classList.remove('open');
     });
     document.getElementById('ctpCardMask').addEventListener('click', function (e) {
-      if (e.target === this) {
-        this.classList.remove('open');
-        return;
-      }
-      var row = e.target.closest('[data-card-id]');
-      if (row) {
-        var cid = row.getAttribute('data-card-id') || '';
-        var info = cardPickerMap[cid] || { id: cid, name: '联系人', sub: cid };
-        document.getElementById('ctpCardMask').classList.remove('open');
-        appendCustomMessage({
-          type: 'contact_card',
-          cardId: info.id,
-          cardName: info.name,
-          cardSub: info.sub,
-          text: '[个人名片] ' + info.name
-        }, '[个人名片] ' + info.name);
-      }
+      if (e.target === this) this.classList.remove('open');
     });
 
     // 文件事件（第 2 页）
