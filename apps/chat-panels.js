@@ -3,6 +3,7 @@
    - 第 1 页固定 8 格：照片、转账、礼物、问小九、位置、收藏、个人名片、一起听
    - 第 2 页：文件
    - 「一起听」window 捕获级坐标命中直达 window.PhoneChatListen.openSongModal()
+   - 名片选择器移除 base64 DOM 属性与 localStorage 写入，彻底解决卡死
    ========================================================= */
 (function () {
   var STORAGE_THREADS_KEY = 'chat_threads_v1';
@@ -58,6 +59,7 @@
   var lastAsk9Question = '';
   var lastAsk9Answer = '';
   var ask9Busy = false;
+  var cardPickerMap = {};
 
   function ensureGiftExtraStyles() {
     if (document.getElementById('ctpGiftExtraStyle')) return;
@@ -195,6 +197,46 @@
     var idx = s.lastIndexOf('.');
     if (idx <= 0 || idx === s.length - 1) return 'FILE';
     return s.slice(idx + 1).slice(0, 4).toUpperCase();
+  }
+
+  function getMyAvatarUrl() {
+    var domImg = document.querySelector('#ctRoomMessages .ct-msg-row.me .ct-msg-avatar img');
+    if (domImg && domImg.getAttribute('src')) return domImg.getAttribute('src');
+    var meImg = document.querySelector('#app-chat .ct-me-avatar img, #ctMeAvatar img');
+    if (meImg && meImg.getAttribute('src')) return meImg.getAttribute('src');
+    try {
+      if (window.PhoneChatMe && typeof window.PhoneChatMe.getAvatar === 'function') {
+        var a1 = window.PhoneChatMe.getAvatar();
+        if (a1) return a1;
+      }
+      if (window.PhoneMask && typeof window.PhoneMask.getActiveMask === 'function') {
+        var mk = window.PhoneMask.getActiveMask();
+        if (mk && mk.avatar) return mk.avatar;
+      }
+      var keys = ['chat_me_avatar_v1', 'chat_my_avatar', 'chat_me_v1', 'chat_profile_v1', 'phone_user_profile'];
+      for (var i = 0; i < keys.length; i++) {
+        var raw = localStorage.getItem(keys[i]);
+        if (!raw) continue;
+        if (raw.indexOf('data:image') === 0 || raw.indexOf('http') === 0 || raw.indexOf('icons/') === 0) return raw;
+        try {
+          var obj = JSON.parse(raw);
+          if (obj && obj.avatar) return obj.avatar;
+        } catch (e2) {}
+      }
+    } catch (e) {}
+    return '';
+  }
+
+  function resolveContactAvatar(cardId, cardName, fallbackAv) {
+    if (cardId && window.PhoneArchive && typeof window.PhoneArchive.getCharAvatar === 'function') {
+      try {
+        var av = window.PhoneArchive.getCharAvatar(cardId);
+        if (av) return av;
+      } catch (e) {}
+    }
+    if (fallbackAv) return fallbackAv;
+    if (cardName === '水小九') return 'icons/IMG_0288.jpeg';
+    return '';
   }
 
   function bindPressFeedback(container, selector) {
@@ -350,13 +392,16 @@
     var empty = box.querySelector('.ct-empty');
     if (empty) empty.remove();
 
+    var myAv = getMyAvatarUrl();
+    var myAvInner = myAv ? ('<img src="' + escapeHtml(myAv) + '" alt="">') : '我';
+
     var group = document.createElement('div');
     group.className = 'ct-msg-group me';
     group.setAttribute('data-msg-id', msgObj.id);
     group.setAttribute('data-sender-name', '我');
     group.innerHTML =
       '<div class="ct-msg-row me">' +
-        '<div class="ct-msg-avatar">我</div>' +
+        '<div class="ct-msg-avatar">' + myAvInner + '</div>' +
         '<div class="ct-msg-bubble"></div>' +
       '</div>';
     box.appendChild(group);
@@ -400,8 +445,9 @@
       bubble.classList.remove('ctp-img-bubble', 'ctp-transfer-bubble', 'is-faded', 'ctp-gift-bubble', 'is-claimed');
       bubble.classList.add('ctp-rich-card', 'ctp-contact-pill');
       bubble.dataset.ctpRendered = '1';
-      var avHtml = msg.cardAvatar
-        ? '<img src="' + escapeHtml(msg.cardAvatar) + '" alt="">'
+      var resolvedAv = resolveContactAvatar(msg.cardId, msg.cardName, msg.cardAvatar);
+      var avHtml = resolvedAv
+        ? '<img src="' + escapeHtml(resolvedAv) + '" alt="">'
         : escapeHtml((msg.cardName || '友').slice(0, 1));
       bubble.innerHTML =
         '<div class="ctp-cp-av">' + avHtml + '</div>' +
@@ -749,16 +795,19 @@
     var chars = (window.PhoneArchive && typeof window.PhoneArchive.getChars === 'function')
       ? (window.PhoneArchive.getChars() || [])
       : [];
+    cardPickerMap = {};
     var box = document.getElementById('ctpCardList');
     if (!chars.length) {
       box.innerHTML = '<div class="ctp-empty-card">暂无联系人，先去「档案」新建角色即可发送名片</div>';
     } else {
       box.innerHTML = chars.map(function (c) {
-        var av = (window.PhoneArchive && window.PhoneArchive.getCharAvatar) ? (window.PhoneArchive.getCharAvatar(c.id) || '') : '';
+        var cid = String(c.id || '');
         var name = c.name || c.nickname || '未命名';
-        var sub = c.handle || c.id || '';
-        return '<div class="ctp-pick-row" data-card-id="' + escapeHtml(c.id) + '" data-card-name="' + escapeHtml(name) + '" data-card-sub="' + escapeHtml(sub) + '" data-card-av="' + escapeHtml(av) + '">' +
-          '<div class="ctp-pick-av">' + (av ? '<img src="' + escapeHtml(av) + '" alt="">' : escapeHtml(name.slice(0, 1))) + '</div>' +
+        var sub = c.handle || cid || '';
+        var av = resolveContactAvatar(cid, name, '');
+        cardPickerMap[cid] = { id: cid, name: name, sub: sub };
+        return '<div class="ctp-pick-row" data-card-id="' + escapeHtml(cid) + '">' +
+          '<div class="ctp-pick-av">' + (av ? '<img decoding="async" src="' + escapeHtml(av) + '" alt="">' : escapeHtml(name.slice(0, 1))) + '</div>' +
           '<div class="ctp-pick-info">' +
             '<div class="ctp-pick-title">' + escapeHtml(name) + '</div>' +
             '<div class="ctp-pick-sub">' + escapeHtml(sub) + '</div>' +
@@ -1525,26 +1574,28 @@
       }, '[收藏] ' + txt);
     });
 
-    // 个人名片事件
+    // 个人名片事件（只存轻量 cardId，不塞 base64 进属性和 localStorage）
     document.getElementById('ctpBtnCard').addEventListener('click', openCardModal);
     document.getElementById('ctpCardClose').addEventListener('click', function () {
       document.getElementById('ctpCardMask').classList.remove('open');
     });
     document.getElementById('ctpCardMask').addEventListener('click', function (e) {
-      if (e.target === this) this.classList.remove('open');
+      if (e.target === this) {
+        this.classList.remove('open');
+        return;
+      }
       var row = e.target.closest('[data-card-id]');
       if (row) {
-        var name = row.getAttribute('data-card-name') || '联系人';
-        var sub = row.getAttribute('data-card-sub') || '';
-        var av = row.getAttribute('data-card-av') || '';
+        var cid = row.getAttribute('data-card-id') || '';
+        var info = cardPickerMap[cid] || { id: cid, name: '联系人', sub: cid };
         document.getElementById('ctpCardMask').classList.remove('open');
         appendCustomMessage({
           type: 'contact_card',
-          cardName: name,
-          cardSub: sub,
-          cardAvatar: av,
-          text: '[个人名片] ' + name
-        }, '[个人名片] ' + name);
+          cardId: info.id,
+          cardName: info.name,
+          cardSub: info.sub,
+          text: '[个人名片] ' + info.name
+        }, '[个人名片] ' + info.name);
       }
     });
 
