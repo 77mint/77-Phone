@@ -2,7 +2,7 @@
    Chat 输入扩展面板、发照片、转账、礼物 & 问小九模块 (apps/chat-panels.js)
    - 第 1 页固定 8 格：照片、转账、礼物、问小九、位置、收藏、个人名片、一起听
    - 第 2 页：文件
-   - 「一起听」防误吞快速轻点直达 window.PhoneChatListen.openSongModal()
+   - 「一起听」window 捕获级坐标命中直达 window.PhoneChatListen.openSongModal()
    ========================================================= */
 (function () {
   var STORAGE_THREADS_KEY = 'chat_threads_v1';
@@ -1328,44 +1328,78 @@
       observer.observe(msgBox, { childList: true });
     }
 
-    // 一起听：防 iOS 边角滑动误吞 + 绕开旧捕获点击冲突，一按即开
+    // 一起听：window 捕获级坐标命中检测（无视透明遮挡 / iOS 边角滑动误吞），一按即开
     (function bindListenFastTap() {
       var listenBtn = document.getElementById('ctpBtnListen');
       if (!listenBtn) return;
-      var sx = 0, sy = 0, moved = false, lastFire = 0;
+      var sx = 0, sy = 0, hit = false, moved = false, lastFire = 0;
+
+      function isDrawerPage1Open() {
+        var drawer = document.getElementById('ctpDrawer');
+        if (!drawer || !drawer.classList.contains('open')) return false;
+        var trk = document.getElementById('ctpDrawerTrack');
+        if (trk && trk.scrollLeft > (trk.clientWidth || 300) * 0.4) return false;
+        return true;
+      }
+
+      function isPointInListen(x, y) {
+        var r = listenBtn.getBoundingClientRect();
+        if (!r || r.width < 10 || r.height < 10) return false;
+        return x >= r.left - 8 && x <= r.right + 8 && y >= r.top - 8 && y <= r.bottom + 8;
+      }
 
       function triggerListen() {
         var now = Date.now();
-        if (now - lastFire < 380) return;
+        if (now - lastFire < 400) return;
         lastFire = now;
+        listenBtn.classList.remove('is-pressed');
         setDrawerOpen(false);
         if (window.PhoneChatListen && typeof window.PhoneChatListen.openSongModal === 'function') {
           window.PhoneChatListen.openSongModal();
         }
       }
 
-      listenBtn.addEventListener('touchstart', function (e) {
-        var t = e.touches && e.touches[0];
-        if (!t) return;
-        sx = t.clientX;
-        sy = t.clientY;
+      window.addEventListener('touchstart', function (e) {
+        hit = false;
         moved = false;
-      }, { passive: true });
-
-      listenBtn.addEventListener('touchmove', function (e) {
+        if (!isDrawerPage1Open()) return;
         var t = e.touches && e.touches[0];
         if (!t) return;
-        if (Math.abs(t.clientX - sx) > 14 || Math.abs(t.clientY - sy) > 14) {
-          moved = true;
+        if (isPointInListen(t.clientX, t.clientY)) {
+          hit = true;
+          sx = t.clientX;
+          sy = t.clientY;
+          listenBtn.classList.add('is-pressed');
         }
-      }, { passive: true });
+      }, { capture: true, passive: true });
 
-      listenBtn.addEventListener('touchend', function (e) {
-        if (moved) return;
+      window.addEventListener('touchmove', function (e) {
+        if (!hit) return;
+        var t = e.touches && e.touches[0];
+        if (!t) return;
+        if (Math.abs(t.clientX - sx) > 16 || Math.abs(t.clientY - sy) > 16) {
+          moved = true;
+          listenBtn.classList.remove('is-pressed');
+        }
+      }, { capture: true, passive: true });
+
+      window.addEventListener('touchend', function (e) {
+        if (!hit) return;
+        var wasMoved = moved;
+        hit = false;
+        moved = false;
+        listenBtn.classList.remove('is-pressed');
+        if (wasMoved) return;
         e.preventDefault();
         e.stopPropagation();
         triggerListen();
-      });
+      }, { capture: true, passive: false });
+
+      window.addEventListener('touchcancel', function () {
+        hit = false;
+        moved = false;
+        listenBtn.classList.remove('is-pressed');
+      }, { capture: true, passive: true });
 
       listenBtn.addEventListener('click', function (e) {
         e.preventDefault();
