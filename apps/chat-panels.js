@@ -20,6 +20,17 @@
   var SVG_LISTEN_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>';
   var SVG_FILE_TILE = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/></svg>';
 
+  var SVG_CLOSE_X = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+  var SVG_CROSSHAIR = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>';
+  var SVG_CHEVRON_R = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
+  var SVG_PIN_SM = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+  var SVG_PIN_MD = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+  var SVG_USER_SM = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.6-3.4 4.5-5 8-5s6.4 1.6 8 5"/></svg>';
+  var SVG_BOOKMARK_SM = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
+  var SVG_DOC_SM = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+  var SVG_DOC_MD = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+  var SVG_ASK9_SM = '<svg width="13" height="10" viewBox="0 0 24 18" fill="currentColor"><ellipse cx="7" cy="9" rx="3" ry="3.8"/><ellipse cx="17" cy="9" rx="3" ry="3.8"/></svg>';
+
   var SVG_GIFT_BOW = '<svg width="34" height="34" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 19C17 12.5 12.2 10.5 9.2 12.5C6.5 14.3 7.2 18.8 11.2 19.6C14.2 20.2 17.5 19.6 20 19Z"/><path d="M20 19C23 12.5 27.8 10.5 30.8 12.5C33.5 14.3 32.8 18.8 28.8 19.6C25.8 20.2 22.5 19.6 20 19Z"/><path d="M20 19L10.5 30.5"/><path d="M20 19L29.5 30.5"/></svg>';
   var SVG_TR_ARROWS = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9h12l-3.5-3.5"/><path d="M18 15H6l3.5 3.5"/></svg>';
   var SVG_TR_CHECK = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 12.5 10 17.5 19 7.5"/></svg>';
@@ -53,16 +64,7 @@
     var st = document.createElement('style');
     st.id = 'ctpGiftExtraStyle';
     st.textContent =
-      '.ctp-drawer { display: flex !important; flex-direction: column !important; }' +
-      '.ctp-drawer.open { height: calc(242px + env(safe-area-inset-bottom)) !important; }' +
-      '.ctp-drawer-track { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; overflow-x: auto !important; overflow-y: hidden !important; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; flex: 1; min-height: 0; scrollbar-width: none; }' +
-      '.ctp-drawer-track::-webkit-scrollbar { display: none; }' +
-      '.ctp-drawer-page { flex: 0 0 100% !important; width: 100% !important; min-width: 100% !important; height: 100%; overflow: hidden; scroll-snap-align: start; scroll-snap-stop: always; }' +
-      '.ctp-grid-fixed, .ctp-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px 12px; padding: 20px 20px 6px; }' +
-      '.ctp-drawer-dots { display: flex; justify-content: center; align-items: center; gap: 6px; padding: 6px 0 calc(12px + env(safe-area-inset-bottom)); flex-shrink: 0; }' +
-      '.ctp-drawer-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(128,128,128,0.35); transition: background 0.2s ease, transform 0.2s ease; }' +
-      '.ctp-drawer-dot.active { background: rgba(128,128,128,0.9); transform: scale(1.15); }' +
-      '.ctp-gift-mask { position: absolute; inset: 0; z-index: 66; background: rgba(0, 0, 0, 0.36); display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.24s cubic-bezier(0.32, 0.72, 0, 1); }' +
+      '.ctp-gift-mask { position: absolute; inset: 0; z-index: 66; background: rgba(0, 0, 0, 0.42); display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.24s cubic-bezier(0.32, 0.72, 0, 1); }' +
       '.ctp-gift-mask.open { opacity: 1; pointer-events: auto; }' +
       '.ctp-gift-modal { width: 100%; max-width: 312px; border-radius: 24px; overflow: hidden; background: #ffffff; color: #111111; box-shadow: 0 22px 48px rgba(0, 0, 0, 0.24); font-family: var(--app-font, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif); transform: translateY(14px) scale(0.92); transition: transform 0.3s cubic-bezier(0.34, 1.38, 0.64, 1); }' +
       '.ctp-gift-mask.open .ctp-gift-modal { transform: translateY(0) scale(1); }' +
@@ -72,24 +74,24 @@
       '.ctp-gift-banner-sub { font-size: calc(var(--app-font-size, 15px) - 3px); color: rgba(255,255,255,0.76); }' +
       '.ctp-gift-form { padding: 16px; display: flex; flex-direction: column; gap: 11px; }' +
       '.ctp-gift-field-label { font-size: calc(var(--app-font-size, 15px) - 2px); font-weight: 600; color: #8e8e93; margin-bottom: 4px; }' +
-      '.ctp-gift-inp { width: 100%; box-sizing: border-box; border: none; outline: none; background: #f2f2f7; color: #111111; border-radius: 14px; padding: 10px 12px; font-family: inherit; font-size: max(16px, var(--app-font-size, 15px)); }' +
+      '.ctp-gift-inp { width: 100%; box-sizing: border-box; border: none; outline: none; background: #f2f2f7; color: #111111; border-radius: 14px; padding: 11px 13px; font-family: inherit; font-size: max(16px, var(--app-font-size, 15px)); }' +
       '.ctp-gift-actions { display: flex; gap: 10px; padding: 4px 16px 16px; }' +
-      '.ctp-gift-btn { flex: 1; height: 42px; border-radius: 14px; border: none; font-family: inherit; font-size: var(--app-font-size, 15px); font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.16s ease; }' +
+      '.ctp-gift-btn { flex: 1; min-height: 44px; border-radius: 14px; border: none; font-family: inherit; font-size: var(--app-font-size, 15px); font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.16s ease; }' +
       '.ctp-gift-btn.is-pressed { transform: scale(0.93); opacity: 0.86; }' +
       '.ctp-gift-btn.is-cancel { background: #f2f2f7; color: #111111; }' +
       '.ctp-gift-btn.is-send { background: linear-gradient(160deg, #1b4f99 0%, #123b78 100%); color: #f4dfb4; }' +
       '.ctp-gift-detail-body { padding: 18px 18px 8px; text-align: center; display: flex; flex-direction: column; gap: 6px; }' +
       '.ctp-gift-detail-item { font-size: calc(var(--app-font-size, 15px) + 1px); font-weight: 600; color: #111111; word-break: break-word; }' +
       '.ctp-gift-detail-meta { font-size: calc(var(--app-font-size, 15px) - 3px); color: #8e8e93; }' +
-      'html[data-theme="dark"] .ctp-gift-modal { background: #1c1c1e; color: #f2f2f7; }' +
-      'html[data-theme="dark"] .ctp-gift-inp { background: #2c2c2e; color: #f2f2f7; }' +
-      'html[data-theme="dark"] .ctp-gift-btn.is-cancel { background: #2c2c2e; color: #f2f2f7; }' +
-      'html[data-theme="dark"] .ctp-gift-detail-item { color: #f2f2f7; }' +
+      'html[data-theme="dark"] .ctp-gift-modal { background: #18181b; color: #f5f5f7; }' +
+      'html[data-theme="dark"] .ctp-gift-inp { background: #242429; color: #f5f5f7; }' +
+      'html[data-theme="dark"] .ctp-gift-btn.is-cancel { background: #25252b; color: #f5f5f7; }' +
+      'html[data-theme="dark"] .ctp-gift-detail-item { color: #f5f5f7; }' +
       '@media (prefers-color-scheme: dark) {' +
-        'html:not([data-theme="light"]) .ctp-gift-modal { background: #1c1c1e; color: #f2f2f7; }' +
-        'html:not([data-theme="light"]) .ctp-gift-inp { background: #2c2c2e; color: #f2f2f7; }' +
-        'html:not([data-theme="light"]) .ctp-gift-btn.is-cancel { background: #2c2c2e; color: #f2f2f7; }' +
-        'html:not([data-theme="light"]) .ctp-gift-detail-item { color: #f2f2f7; }' +
+        'html:not([data-theme="light"]) .ctp-gift-modal { background: #18181b; color: #f5f5f7; }' +
+        'html:not([data-theme="light"]) .ctp-gift-inp { background: #242429; color: #f5f5f7; }' +
+        'html:not([data-theme="light"]) .ctp-gift-btn.is-cancel { background: #25252b; color: #f5f5f7; }' +
+        'html:not([data-theme="light"]) .ctp-gift-detail-item { color: #f5f5f7; }' +
       '}';
     document.head.appendChild(st);
   }
@@ -188,6 +190,13 @@
     return (n / (1024 * 1024)).toFixed(1) + ' MB';
   }
 
+  function getFileExt(name) {
+    var s = String(name || '').trim();
+    var idx = s.lastIndexOf('.');
+    if (idx <= 0 || idx === s.length - 1) return 'FILE';
+    return s.slice(idx + 1).slice(0, 4).toUpperCase();
+  }
+
   function bindPressFeedback(container, selector) {
     if (!container) return;
     var activeEl = null;
@@ -205,6 +214,7 @@
         el.classList.add('is-pressed');
       }
     }, { passive: true });
+    container.addEventListener('touchmove', clear, { passive: true });
     container.addEventListener('touchend', clear, { passive: true });
     container.addEventListener('touchcancel', clear, { passive: true });
     container.addEventListener('mousedown', function (e) {
@@ -370,14 +380,19 @@
       bubble.classList.add('ctp-rich-card');
       bubble.dataset.ctpRendered = '1';
       bubble.innerHTML =
-        '<div class="ctp-rc-head">' +
-          '<div class="ctp-rc-icon is-green">' + SVG_LOC_TILE + '</div>' +
+        '<div class="ctp-rc-main">' +
           '<div class="ctp-rc-meta">' +
             '<div class="ctp-rc-title">' + escapeHtml(msg.locTitle || '位置') + '</div>' +
-            '<div class="ctp-rc-sub">' + escapeHtml(msg.locAddr || '') + '</div>' +
+            '<div class="ctp-rc-sub">' + escapeHtml(msg.locAddr || '当前分享位置') + '</div>' +
           '</div>' +
         '</div>' +
-        '<div class="ctp-rc-foot">位置信息</div>';
+        '<div class="ctp-rc-map">' +
+          '<div class="ctp-rc-pin">' + SVG_PIN_MD + '</div>' +
+        '</div>' +
+        '<div class="ctp-rc-foot">' +
+          '<span class="ctp-rc-foot-tag">' + SVG_PIN_SM + '<span>位置</span></span>' +
+          '<span class="ctp-rc-foot-chevron">' + SVG_CHEVRON_R + '</span>' +
+        '</div>';
       return;
     }
 
@@ -389,14 +404,35 @@
         ? '<img src="' + escapeHtml(msg.cardAvatar) + '" alt="">'
         : escapeHtml((msg.cardName || '友').slice(0, 1));
       bubble.innerHTML =
-        '<div class="ctp-rc-head">' +
-          '<div class="ctp-rc-icon">' + avHtml + '</div>' +
-          '<div class="ctp-rc-meta">' +
-            '<div class="ctp-rc-title">' + escapeHtml(msg.cardName || '联系人') + '</div>' +
-            '<div class="ctp-rc-sub">' + escapeHtml(msg.cardSub || '') + '</div>' +
+        '<div class="ctp-rc-main">' +
+          '<div class="ctp-rc-head">' +
+            '<div class="ctp-rc-icon' + (msg.cardAvatar ? '' : ' is-dark') + '">' + avHtml + '</div>' +
+            '<div class="ctp-rc-meta">' +
+              '<div class="ctp-rc-title">' + escapeHtml(msg.cardName || '联系人') + '</div>' +
+              '<div class="ctp-rc-sub">' + escapeHtml(msg.cardSub || '') + '</div>' +
+            '</div>' +
           '</div>' +
         '</div>' +
-        '<div class="ctp-rc-foot">个人名片</div>';
+        '<div class="ctp-rc-foot">' +
+          '<span class="ctp-rc-foot-tag">' + SVG_USER_SM + '<span>个人名片</span></span>' +
+          '<span class="ctp-rc-foot-chevron">' + SVG_CHEVRON_R + '</span>' +
+        '</div>';
+      return;
+    }
+
+    if (msg.type === 'favorite') {
+      bubble.classList.remove('ctp-img-bubble', 'ctp-transfer-bubble', 'is-faded', 'ctp-gift-bubble', 'is-claimed');
+      bubble.classList.add('ctp-rich-card');
+      bubble.dataset.ctpRendered = '1';
+      bubble.innerHTML =
+        '<div class="ctp-rc-main">' +
+          '<div class="ctp-rc-title">收藏笔记</div>' +
+          '<div class="ctp-rc-body">' + escapeHtml(msg.favText || msg.text || '') + '</div>' +
+        '</div>' +
+        '<div class="ctp-rc-foot">' +
+          '<span class="ctp-rc-foot-tag">' + SVG_BOOKMARK_SM + '<span>我的收藏</span></span>' +
+          '<span class="ctp-rc-foot-chevron">' + SVG_CHEVRON_R + '</span>' +
+        '</div>';
       return;
     }
 
@@ -404,15 +440,24 @@
       bubble.classList.remove('ctp-img-bubble', 'ctp-transfer-bubble', 'is-faded', 'ctp-gift-bubble', 'is-claimed');
       bubble.classList.add('ctp-rich-card');
       bubble.dataset.ctpRendered = '1';
+      var ext = getFileExt(msg.fileName);
       bubble.innerHTML =
-        '<div class="ctp-rc-head">' +
-          '<div class="ctp-rc-meta">' +
-            '<div class="ctp-rc-title">' + escapeHtml(msg.fileName || '未命名文件') + '</div>' +
-            '<div class="ctp-rc-sub">' + escapeHtml(msg.fileSize || '') + '</div>' +
+        '<div class="ctp-rc-main">' +
+          '<div class="ctp-rc-head">' +
+            '<div class="ctp-rc-meta">' +
+              '<div class="ctp-rc-title">' + escapeHtml(msg.fileName || '未命名文件') + '</div>' +
+              '<div class="ctp-rc-sub">' + escapeHtml(msg.fileSize || '') + '</div>' +
+            '</div>' +
+            '<div class="ctp-rc-file-badge">' +
+              SVG_DOC_MD +
+              '<span class="ctp-rc-file-ext">' + escapeHtml(ext) + '</span>' +
+            '</div>' +
           '</div>' +
-          '<div class="ctp-rc-icon">' + SVG_FILE_TILE + '</div>' +
         '</div>' +
-        '<div class="ctp-rc-foot">文件</div>';
+        '<div class="ctp-rc-foot">' +
+          '<span class="ctp-rc-foot-tag">' + SVG_DOC_SM + '<span>文件</span></span>' +
+          '<span class="ctp-rc-foot-chevron">' + SVG_CHEVRON_R + '</span>' +
+        '</div>';
       return;
     }
 
@@ -421,15 +466,20 @@
       bubble.classList.add('ctp-rich-card');
       bubble.dataset.ctpRendered = '1';
       bubble.innerHTML =
-        '<div class="ctp-rc-head">' +
-          '<div class="ctp-rc-icon is-dark">' + SVG_ASK9_TILE + '</div>' +
-          '<div class="ctp-rc-meta">' +
-            '<div class="ctp-rc-title">' + escapeHtml(msg.question || '问小九') + '</div>' +
-            '<div class="ctp-rc-sub">水小九回答</div>' +
+        '<div class="ctp-rc-main">' +
+          '<div class="ctp-rc-head">' +
+            '<div class="ctp-rc-icon is-dark">' + SVG_ASK9_TILE + '</div>' +
+            '<div class="ctp-rc-meta">' +
+              '<div class="ctp-rc-title is-wrap">' + escapeHtml(msg.question || '问小九') + '</div>' +
+              '<div class="ctp-rc-sub">水小九回答</div>' +
+            '</div>' +
           '</div>' +
+          '<div class="ctp-rc-body">' + escapeHtml(msg.answer || '') + '</div>' +
         '</div>' +
-        '<div class="ctp-rc-body">' + escapeHtml(msg.answer || '') + '</div>' +
-        '<div class="ctp-rc-foot">问小九</div>';
+        '<div class="ctp-rc-foot">' +
+          '<span class="ctp-rc-foot-tag">' + SVG_ASK9_SM + '<span>问小九</span></span>' +
+          '<span class="ctp-rc-foot-chevron">' + SVG_CHEVRON_R + '</span>' +
+        '</div>';
       return;
     }
 
@@ -546,7 +596,7 @@
     var map = {};
     msgs.forEach(function (m) { map[m.id] = m; });
 
-    var richTypes = ['image', 'image_bundle', 'transfer', 'transfer_tip', 'gift', 'gift_tip', 'location', 'contact_card', 'file', 'ask9'];
+    var richTypes = ['image', 'image_bundle', 'transfer', 'transfer_tip', 'gift', 'gift_tip', 'location', 'contact_card', 'favorite', 'file', 'ask9'];
     box.querySelectorAll('.ct-msg-group[data-msg-id]').forEach(function (group) {
       var mid = group.getAttribute('data-msg-id');
       var m = map[mid];
@@ -673,6 +723,7 @@
     setDrawerOpen(false);
     document.getElementById('ctpLocTitleInp').value = '';
     document.getElementById('ctpLocAddrInp').value = '';
+    document.getElementById('ctpLocGeoBtn').innerHTML = SVG_CROSSHAIR + '<span>获取当前真实定位</span>';
     document.getElementById('ctpLocMask').classList.add('open');
   }
 
@@ -686,7 +737,7 @@
     var list = loadJSON(STORAGE_FAVS_KEY, []);
     var box = document.getElementById('ctpFavList');
     if (!list.length) {
-      box.innerHTML = '<div class="ctp-sys-tip">暂无收藏内容，可以在下方直接新增一条并发送</div>';
+      box.innerHTML = '<div class="ctp-empty-card">暂无收藏内容，可以在下方直接新增一条并发送</div>';
       return;
     }
     box.innerHTML = list.map(function (item, idx) {
@@ -695,6 +746,7 @@
           '<div class="ctp-pick-title">' + escapeHtml(item.text || '') + '</div>' +
           '<div class="ctp-pick-sub">' + escapeHtml(item.time || '') + '</div>' +
         '</div>' +
+        '<span class="ctp-pick-pill">发送</span>' +
       '</div>';
     }).join('');
   }
@@ -706,7 +758,7 @@
       : [];
     var box = document.getElementById('ctpCardList');
     if (!chars.length) {
-      box.innerHTML = '<div class="ctp-sys-tip">暂无联系人，先去「档案」新建角色即可发送名片</div>';
+      box.innerHTML = '<div class="ctp-empty-card">暂无联系人，先去「档案」新建角色即可发送名片</div>';
     } else {
       box.innerHTML = chars.map(function (c) {
         var av = (window.PhoneArchive && window.PhoneArchive.getCharAvatar) ? (window.PhoneArchive.getCharAvatar(c.id) || '') : '';
@@ -718,6 +770,7 @@
             '<div class="ctp-pick-title">' + escapeHtml(name) + '</div>' +
             '<div class="ctp-pick-sub">' + escapeHtml(sub) + '</div>' +
           '</div>' +
+          '<span class="ctp-pick-pill">发送</span>' +
         '</div>';
       }).join('');
     }
@@ -1047,9 +1100,10 @@
 
       '<div class="ctp-sheet-mask" id="ctpAsk9Mask">' +
         '<div class="ctp-sheet-panel">' +
+          '<div class="ctp-sheet-grabber"></div>' +
           '<div class="ctp-sheet-head">' +
-            '<div class="ctp-sheet-title">' + SVG_ASK9_TILE + '<span>问小九</span></div>' +
-            '<button class="ctp-sheet-close" id="ctpAsk9Close" type="button">×</button>' +
+            '<div class="ctp-sheet-title">' + SVG_ASK9_TILE + '<span>问小九</span><span class="ctp-sheet-badge">仅自己可见</span></div>' +
+            '<button class="ctp-sheet-close" id="ctpAsk9Close" type="button" aria-label="关闭">' + SVG_CLOSE_X + '</button>' +
           '</div>' +
           '<div class="ctp-sheet-body">' +
             '<div class="ctp-chip-row">' +
@@ -1062,7 +1116,7 @@
             '<div class="ctp-ask9-ans" id="ctpAsk9AnsBox" style="display:none;"></div>' +
             '<div class="ctp-sheet-actions" id="ctpAsk9AfterBtns" style="display:none;">' +
               '<button class="ctp-sheet-btn" id="ctpAsk9FillBtn" type="button">填入输入框</button>' +
-              '<button class="ctp-sheet-btn is-green" id="ctpAsk9SendBtn" type="button">发到聊天里</button>' +
+              '<button class="ctp-sheet-btn is-primary" id="ctpAsk9SendBtn" type="button">发卡片到聊天</button>' +
             '</div>' +
           '</div>' +
         '</div>' +
@@ -1070,24 +1124,26 @@
 
       '<div class="ctp-sheet-mask" id="ctpLocMask">' +
         '<div class="ctp-sheet-panel">' +
+          '<div class="ctp-sheet-grabber"></div>' +
           '<div class="ctp-sheet-head">' +
             '<div class="ctp-sheet-title">发送位置</div>' +
-            '<button class="ctp-sheet-close" id="ctpLocClose" type="button">×</button>' +
+            '<button class="ctp-sheet-close" id="ctpLocClose" type="button" aria-label="关闭">' + SVG_CLOSE_X + '</button>' +
           '</div>' +
           '<div class="ctp-sheet-body">' +
-            '<button class="ctp-sheet-btn" id="ctpLocGeoBtn" type="button">获取当前真实定位</button>' +
+            '<button class="ctp-sheet-btn" id="ctpLocGeoBtn" type="button">' + SVG_CROSSHAIR + '<span>获取当前真实定位</span></button>' +
             '<input class="ctp-sheet-inp" id="ctpLocTitleInp" placeholder="地点名称（如：三里屯太古里）">' +
             '<input class="ctp-sheet-inp" id="ctpLocAddrInp" placeholder="详细地址（选填）">' +
-            '<button class="ctp-sheet-btn is-green" id="ctpLocSendBtn" type="button">发送位置</button>' +
+            '<button class="ctp-sheet-btn is-primary" id="ctpLocSendBtn" type="button">发送位置</button>' +
           '</div>' +
         '</div>' +
       '</div>' +
 
       '<div class="ctp-sheet-mask" id="ctpFavMask">' +
         '<div class="ctp-sheet-panel">' +
+          '<div class="ctp-sheet-grabber"></div>' +
           '<div class="ctp-sheet-head">' +
             '<div class="ctp-sheet-title">我的收藏</div>' +
-            '<button class="ctp-sheet-close" id="ctpFavClose" type="button">×</button>' +
+            '<button class="ctp-sheet-close" id="ctpFavClose" type="button" aria-label="关闭">' + SVG_CLOSE_X + '</button>' +
           '</div>' +
           '<div class="ctp-sheet-body">' +
             '<div id="ctpFavList" style="display:flex;flex-direction:column;gap:8px;"></div>' +
@@ -1099,9 +1155,10 @@
 
       '<div class="ctp-sheet-mask" id="ctpCardMask">' +
         '<div class="ctp-sheet-panel">' +
+          '<div class="ctp-sheet-grabber"></div>' +
           '<div class="ctp-sheet-head">' +
-            '<div class="ctp-sheet-title">选择联系人名片</div>' +
-            '<button class="ctp-sheet-close" id="ctpCardClose" type="button">×</button>' +
+            '<div class="ctp-sheet-title">发送个人名片</div>' +
+            '<button class="ctp-sheet-close" id="ctpCardClose" type="button" aria-label="关闭">' + SVG_CLOSE_X + '</button>' +
           '</div>' +
           '<div class="ctp-sheet-body" id="ctpCardList"></div>' +
         '</div>' +
@@ -1181,7 +1238,7 @@
     bindPressFeedback(document.getElementById('ctpWxPaySheet'), '.ctp-wxpay-card, .ctp-wxpay-face-btn');
     bindPressFeedback(document.getElementById('ctpGiftSendMask'), '.ctp-gift-btn');
     bindPressFeedback(document.getElementById('ctpGiftDetailMask'), '.ctp-gift-btn');
-    bindPressFeedback(room, '.ctp-chip-btn, .ctp-sheet-btn, .ctp-pick-row');
+    bindPressFeedback(room, '.ctp-chip-btn, .ctp-sheet-btn, .ctp-sheet-close, .ctp-pick-row');
     bindPressFeedback(msgBox, '.ctp-transfer-bubble, .ctp-gift-bubble, .ctp-rich-card, .ctp-expand-pill');
 
     if (track) {
@@ -1333,9 +1390,9 @@
     });
     document.getElementById('ctpLocGeoBtn').addEventListener('click', function () {
       var btn = this;
-      btn.textContent = '定位中...';
+      btn.innerHTML = SVG_CROSSHAIR + '<span>定位中...</span>';
       if (!navigator.geolocation) {
-        btn.textContent = '当前环境不支持定位，请手动输入';
+        btn.innerHTML = SVG_CROSSHAIR + '<span>当前环境不支持定位，请手动输入</span>';
         return;
       }
       navigator.geolocation.getCurrentPosition(function (pos) {
@@ -1344,15 +1401,15 @@
           .then(function (g) {
             document.getElementById('ctpLocTitleInp').value = g.locality || g.city || '当前位置';
             document.getElementById('ctpLocAddrInp').value = [g.principalSubdivision, g.city, g.locality].filter(Boolean).join(' · ');
-            btn.textContent = '已填入当前定位';
+            btn.innerHTML = SVG_CROSSHAIR + '<span>已填入当前定位</span>';
           })
           .catch(function () {
             document.getElementById('ctpLocTitleInp').value = '当前位置';
             document.getElementById('ctpLocAddrInp').value = pos.coords.latitude.toFixed(4) + ', ' + pos.coords.longitude.toFixed(4);
-            btn.textContent = '已填入经纬度';
+            btn.innerHTML = SVG_CROSSHAIR + '<span>已填入经纬度</span>';
           });
       }, function () {
-        btn.textContent = '定位失败，请手动输入';
+        btn.innerHTML = SVG_CROSSHAIR + '<span>定位失败，请手动输入</span>';
       }, { timeout: 6000 });
     });
     document.getElementById('ctpLocSendBtn').addEventListener('click', function () {
@@ -1380,7 +1437,11 @@
         var item = list[Number(row.getAttribute('data-fav-idx'))];
         if (item && item.text) {
           document.getElementById('ctpFavMask').classList.remove('open');
-          appendCustomMessage({ type: 'text', text: item.text }, item.text);
+          appendCustomMessage({
+            type: 'favorite',
+            favText: item.text,
+            text: '[收藏] ' + item.text
+          }, '[收藏] ' + item.text);
         }
       }
     });
@@ -1393,7 +1454,11 @@
       saveJSON(STORAGE_FAVS_KEY, list.slice(0, 50));
       inp.value = '';
       document.getElementById('ctpFavMask').classList.remove('open');
-      appendCustomMessage({ type: 'text', text: txt }, txt);
+      appendCustomMessage({
+        type: 'favorite',
+        favText: txt,
+        text: '[收藏] ' + txt
+      }, '[收藏] ' + txt);
     });
 
     // 个人名片事件
