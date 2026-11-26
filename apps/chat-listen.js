@@ -31,6 +31,7 @@
     invitedInSession: false,
     roomOpen: false,
     modalOpen: false,
+    modalOpenedAt: 0,
     orbMode: false,
     orbHidden: false,
     showLyrics: false,
@@ -134,12 +135,13 @@
   function bindPressFeedback(el) {
     if (!el || el._pressBound) return;
     el._pressBound = true;
-    el.addEventListener('touchstart', function () {
-      el.classList.add('is-pressed');
-    }, { passive: true });
     var clear = function () {
       el.classList.remove('is-pressed');
     };
+    el.addEventListener('touchstart', function () {
+      el.classList.add('is-pressed');
+    }, { passive: true });
+    el.addEventListener('touchmove', clear, { passive: true });
     el.addEventListener('touchend', clear, { passive: true });
     el.addEventListener('touchcancel', clear, { passive: true });
     el.addEventListener('mousedown', function () {
@@ -214,60 +216,6 @@
       contactName: name,
       contactAvatar: avatar
     };
-  }
-
-  function ensureListenTile() {
-    var grid = document.querySelector('#ctpDrawer .ctp-grid');
-    if (!grid) return;
-    var existing = grid.querySelector('[data-ctl-listen="1"]');
-    if (existing) return;
-
-    var children = grid.children;
-    for (var i = 0; i < children.length; i++) {
-      if ((children[i].textContent || '').trim().indexOf('一起听') !== -1) {
-        children[i].setAttribute('data-ctl-listen', '1');
-        return;
-      }
-    }
-
-    var tile;
-    if (children.length > 0) {
-      tile = children[0].cloneNode(true);
-      tile.removeAttribute('id');
-      tile.removeAttribute('data-action');
-      tile.setAttribute('data-ctl-listen', '1');
-      var oldSvg = tile.querySelector('svg');
-      if (oldSvg && oldSvg.parentNode) {
-        var oldClass = oldSvg.getAttribute('class') || '';
-        oldSvg.parentNode.innerHTML = HEADPHONE_SVG;
-        var newSvg = tile.querySelector('svg');
-        if (newSvg && oldClass) newSvg.setAttribute('class', oldClass);
-      }
-      var labelNodes = tile.querySelectorAll('span, div, p');
-      var replacedLabel = false;
-      for (var k = labelNodes.length - 1; k >= 0; k--) {
-        if (!labelNodes[k].querySelector('svg') && (labelNodes[k].textContent || '').trim()) {
-          labelNodes[k].textContent = '一起听';
-          replacedLabel = true;
-          break;
-        }
-      }
-      if (!replacedLabel) {
-        var lbl = document.createElement('div');
-        lbl.textContent = '一起听';
-        tile.appendChild(lbl);
-      }
-    } else {
-      tile = document.createElement('div');
-      tile.className = 'ctp-item';
-      tile.setAttribute('data-ctl-listen', '1');
-      tile.innerHTML =
-        '<div class="ctp-item-ico">' + HEADPHONE_SVG + '</div>' +
-        '<div class="ctp-item-txt">一起听</div>';
-    }
-
-    bindPressFeedback(tile);
-    grid.appendChild(tile);
   }
 
   function buildListenCardHtml(song, info) {
@@ -489,6 +437,7 @@
     var pill = document.createElement('div');
     pill.id = 'ctlFloatPill';
     pill.className = 'ctl-float-pill';
+    pill.style.pointerEvents = 'none';
     pill.innerHTML =
       '<div class="ctl-float-cover" id="ctlFloatCover"></div>' +
       '<div class="ctl-float-txt"><span class="ctl-float-txt-inner" id="ctlFloatTxtInner">一起听</span></div>' +
@@ -505,6 +454,7 @@
     var orb = document.createElement('div');
     orb.id = 'ctlMiniOrb';
     orb.className = 'ctl-mini-orb';
+    orb.style.pointerEvents = 'none';
     orb.innerHTML =
       '<div class="ctl-mini-orb-disc" id="ctlOrbDisc">' +
         '<div class="ctl-mini-orb-art" id="ctlOrbArt"></div>' +
@@ -571,6 +521,7 @@
     var modal = document.createElement('div');
     modal.id = 'ctlSongModal';
     modal.className = 'ctl-modal';
+    modal.style.zIndex = '9999';
     modal.innerHTML =
       '<div class="ctl-sheet" id="ctlSheet">' +
         '<div class="ctl-sheet-head">' +
@@ -710,17 +661,23 @@
     if (!els.pill || !els.orb) return;
     if (!state.active || state.roomOpen || state.orbHidden) {
       els.pill.classList.remove('show');
+      els.pill.style.pointerEvents = 'none';
       els.orb.classList.remove('show');
       els.orb.classList.remove('confirm-hide');
+      els.orb.style.pointerEvents = 'none';
       return;
     }
     if (state.orbMode) {
       els.pill.classList.remove('show');
+      els.pill.style.pointerEvents = 'none';
       els.orb.classList.add('show');
+      els.orb.style.pointerEvents = 'auto';
     } else {
       els.orb.classList.remove('show');
       els.orb.classList.remove('confirm-hide');
+      els.orb.style.pointerEvents = 'none';
       els.pill.classList.add('show');
+      els.pill.style.pointerEvents = 'auto';
     }
   }
 
@@ -1126,6 +1083,7 @@
       state.contactAvatar = info.contactAvatar;
     }
     state.modalOpen = true;
+    state.modalOpenedAt = Date.now();
     document.body.classList.add('ctl-modal-open');
     if (els.sheet) {
       els.sheet.classList.remove('kb-up');
@@ -1259,7 +1217,8 @@
       els.modeBtn,
       els.prevBtn,
       els.playBtn,
-      els.nextBtn
+      els.nextBtn,
+      els.modalClose
     ].forEach(bindPressFeedback);
 
     els.collapseBtn.addEventListener('click', closeRoomToFloat);
@@ -1304,6 +1263,7 @@
     els.changeBtn.addEventListener('click', openSongModal);
     els.modalClose.addEventListener('click', closeSongModal);
     els.modal.addEventListener('click', function (e) {
+      if (Date.now() - state.modalOpenedAt < 400) return;
       if (e.target === els.modal) closeSongModal();
     });
 
@@ -1381,35 +1341,13 @@
     }
   }
 
-  function hookDrawerListenTile() {
-    ensureListenTile();
+  function observeListenMessages() {
     upgradePlainListenBubbles();
-
-    var appChat = document.getElementById('app-chat') || document.body;
-    if (window.MutationObserver) {
-      var mo = new MutationObserver(function () {
-        ensureListenTile();
-        upgradePlainListenBubbles();
-      });
-      mo.observe(appChat, { childList: true, subtree: true });
+    var msgBox = document.getElementById('ctRoomMessages');
+    if (msgBox && window.MutationObserver) {
+      var mo = new MutationObserver(upgradePlainListenBubbles);
+      mo.observe(msgBox, { childList: true });
     }
-
-    document.addEventListener('click', function (e) {
-      if (e.target.closest('#ctRoomPlusBtn')) {
-        setTimeout(ensureListenTile, 0);
-        return;
-      }
-      var tile = e.target.closest('[data-ctl-listen="1"]') || e.target.closest('.ctp-item, .ctp-tile');
-      if (!tile) return;
-      var txt = (tile.textContent || '').trim();
-      if (tile.getAttribute('data-ctl-listen') === '1' || txt.indexOf('一起听') !== -1) {
-        e.stopPropagation();
-        e.preventDefault();
-        var drawer = document.getElementById('ctpDrawer');
-        if (drawer) drawer.classList.remove('open');
-        openSongModal();
-      }
-    }, true);
   }
 
   window.PhoneChatListen = {
@@ -1421,10 +1359,10 @@
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
       buildGlobalDOM();
-      hookDrawerListenTile();
+      observeListenMessages();
     });
   } else {
     buildGlobalDOM();
-    hookDrawerListenTile();
+    observeListenMessages();
   }
 })();
