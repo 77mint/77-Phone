@@ -1,5 +1,6 @@
 /* =========================================================
    Chat 一起听（全局常驻：切歌歌词自动刷新归位 + 持续动态红线 + 黑胶小球）
+   - 接入 window.PhoneChatMe.getActiveAvatarDataUrl() 实时同步用户头像到卡片和房间
    ========================================================= */
 (function () {
   var DEFAULT_API = 'https://api-enhanced-ashen-one-33.vercel.app';
@@ -9,12 +10,6 @@
 
   var RED_LOVE_PATH =
     'M 2,26 C 14,25 22,19 25,11 C 27,5 22,2 19,6 C 15,12 14,23 19,27 C 24,30 33,24 38,18 C 41,15 47,15 48,19 C 49,24 43,28 39,26 C 36,24 38,17 44,17 C 49,17 53,22 57,24 C 60,25 63,21 65,16 C 67,22 70,25 74,23 C 77,21 79,16 83,16 C 87,16 88,21 84,23 C 80,25 79,20 84,18 C 91,15 103,20 116,22';
-
-  var HEADPHONE_SVG =
-    '<svg viewBox="0 0 24 24" width="26" height="26" style="width:26px;height:26px;display:block;flex-shrink:0;" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M3 18v-6a9 9 0 0 1 18 0v6"/>' +
-      '<path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>' +
-    '</svg>';
 
   var TONEARM_SVG =
     '<svg viewBox="0 0 68 98" width="68" height="98" fill="none">' +
@@ -39,6 +34,7 @@
     contactId: '',
     contactName: '',
     contactAvatar: '',
+    myAvatar: '',
     playlist: [],
     defaultSongs: [],
     currentIndex: -1,
@@ -97,6 +93,42 @@
     var m = Math.floor(s / 60);
     var r = s % 60;
     return (m < 10 ? '0' : '') + m + ':' + (r < 10 ? '0' : '') + r;
+  }
+
+  function applyMyAvatarToDOM(url) {
+    if (!url) return;
+    state.myAvatar = url;
+    if (els.myAv) {
+      els.myAv.style.backgroundImage = 'url("' + url + '")';
+      els.myAv.textContent = '';
+    }
+    document.querySelectorAll('.ctl-msg-card .ctl-msg-av-me').forEach(function (el) {
+      el.style.backgroundImage = 'url("' + url + '")';
+      el.textContent = '';
+    });
+  }
+
+  function resolveMyAvatarAsync(cb) {
+    if (window.PhoneChatMe && typeof window.PhoneChatMe.getActiveAvatarDataUrl === 'function') {
+      Promise.resolve(window.PhoneChatMe.getActiveAvatarDataUrl()).then(function (url) {
+        if (url) {
+          applyMyAvatarToDOM(url);
+          if (cb) cb(url);
+          return;
+        }
+        var domImg = document.querySelector('#ctRoomMessages .ct-msg-row.me .ct-msg-avatar img');
+        var fb = (domImg && domImg.getAttribute('src')) || '';
+        if (fb) applyMyAvatarToDOM(fb);
+        if (cb) cb(fb);
+      }).catch(function () {
+        if (cb) cb(state.myAvatar || '');
+      });
+      return;
+    }
+    var domImg = document.querySelector('#ctRoomMessages .ct-msg-row.me .ct-msg-avatar img');
+    var fb = (domImg && domImg.getAttribute('src')) || state.myAvatar || '';
+    if (fb) applyMyAvatarToDOM(fb);
+    if (cb) cb(fb);
   }
 
   function saveSongCache(song) {
@@ -219,6 +251,9 @@
   }
 
   function buildListenCardHtml(song, info) {
+    var myAv = state.myAvatar || '';
+    var myStyle = myAv ? 'style="background-image:url(\'' + escHtml(myAv) + '\')"' : '';
+    var myTxt = myAv ? '' : '我';
     var peerStyle = info && info.contactAvatar
       ? 'style="background-image:url(\'' + escHtml(info.contactAvatar) + '\')"'
       : '';
@@ -237,7 +272,7 @@
         '<div class="ctl-msg-foot">' +
           '<span class="ctl-msg-tag">一起听</span>' +
           '<div class="ctl-msg-avatars">' +
-            '<div class="ctl-msg-av">我</div>' +
+            '<div class="ctl-msg-av ctl-msg-av-me" ' + myStyle + '>' + myTxt + '</div>' +
             '<div class="ctl-msg-av" ' + peerStyle + '>' + peerTxt + '</div>' +
           '</div>' +
         '</div>' +
@@ -374,9 +409,13 @@
     var bubbles = box.querySelectorAll('.ct-msg-bubble');
     if (!bubbles.length) return;
     var info = getContactInfoFromRoom();
+    var hasCard = false;
+
     bubbles.forEach(function (bubble) {
-      if (bubble.querySelector('.ctl-msg-card')) {
+      var existCard = bubble.querySelector('.ctl-msg-card');
+      if (existCard) {
         bubble.classList.add('ctl-listen-bubble');
+        hasCard = true;
         return;
       }
       var txt = (bubble.textContent || '').trim();
@@ -388,10 +427,15 @@
       bubble.innerHTML = buildListenCardHtml(cached, info);
       var card = bubble.querySelector('.ctl-msg-card');
       bindListenCardClick(card, cached);
+      hasCard = true;
       if (!cached.id || !cached.cover) {
         hydrateMissingSongMeta(songName);
       }
     });
+
+    if (hasCard) {
+      resolveMyAvatarAsync();
+    }
   }
 
   function sendListenCardViaNativeChat(song) {
@@ -415,16 +459,18 @@
     var box = document.getElementById('ctRoomMessages');
     if (!box) return;
     var info = getContactInfoFromRoom();
+    var myAvInner = state.myAvatar ? ('<img src="' + escHtml(state.myAvatar) + '" alt="">') : '我';
     var row = document.createElement('div');
     row.className = 'ct-msg-row me';
     row.innerHTML =
-      '<div class="ct-msg-avatar">我</div>' +
+      '<div class="ct-msg-avatar">' + myAvInner + '</div>' +
       '<div class="ct-msg-bubble ctl-listen-bubble">' +
         buildListenCardHtml(song, info) +
       '</div>';
     bindListenCardClick(row.querySelector('.ctl-msg-card'), song);
     box.appendChild(row);
     box.scrollTop = box.scrollHeight;
+    resolveMyAvatarAsync();
   }
 
   function buildGlobalDOM() {
@@ -587,6 +633,7 @@
     setupModalKeyboardFollow();
     renderPlayButtons();
     renderModeUI();
+    resolveMyAvatarAsync();
   }
 
   function setupModalKeyboardFollow() {
@@ -719,6 +766,7 @@
     if (!state.active) return;
     state.roomOpen = true;
     state.orbHidden = false;
+    resolveMyAvatarAsync();
     els.room.classList.add('open');
     updateFloatingVisibility();
   }
@@ -875,6 +923,8 @@
     if (els.progFill) els.progFill.style.width = '0%';
     if (els.curTime) els.curTime.textContent = '00:00';
     if (els.durTime) els.durTime.textContent = '00:00';
+
+    resolveMyAvatarAsync();
 
     if (els.peerAv) {
       if (state.contactAvatar) {
@@ -1082,6 +1132,7 @@
       state.contactName = info.contactName;
       state.contactAvatar = info.contactAvatar;
     }
+    resolveMyAvatarAsync();
     state.modalOpen = true;
     state.modalOpenedAt = Date.now();
     document.body.classList.add('ctl-modal-open');
@@ -1220,6 +1271,15 @@
       els.nextBtn,
       els.modalClose
     ].forEach(bindPressFeedback);
+
+    window.addEventListener('phone:chat-account-changed', function () {
+      state.myAvatar = '';
+      resolveMyAvatarAsync();
+    });
+    window.addEventListener('phone-mask-updated', function () {
+      state.myAvatar = '';
+      resolveMyAvatarAsync();
+    });
 
     els.collapseBtn.addEventListener('click', closeRoomToFloat);
     els.quitBtn.addEventListener('click', quitListenSession);
