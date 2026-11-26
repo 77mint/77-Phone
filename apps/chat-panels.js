@@ -2,7 +2,7 @@
    Chat 输入扩展面板、发照片、转账、礼物 & 问小九模块 (apps/chat-panels.js)
    - 第 1 页固定 8 格：照片、转账、礼物、问小九、位置、收藏、个人名片、一起听
    - 第 2 页：文件
-   - 「一起听」直接调用 window.PhoneChatListen.openSongModal()，不依赖克隆注入
+   - 「一起听」防误吞快速轻点直达 window.PhoneChatListen.openSongModal()
    ========================================================= */
 (function () {
   var STORAGE_THREADS_KEY = 'chat_threads_v1';
@@ -23,9 +23,9 @@
   var SVG_CLOSE_X = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
   var SVG_CROSSHAIR = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>';
   var SVG_CHEVRON_R = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
+  var SVG_CHEVRON_MD = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
   var SVG_PIN_SM = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
   var SVG_PIN_MD = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
-  var SVG_USER_SM = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.6-3.4 4.5-5 8-5s6.4 1.6 8 5"/></svg>';
   var SVG_BOOKMARK_SM = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
   var SVG_DOC_SM = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
   var SVG_DOC_MD = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
@@ -376,7 +376,7 @@
     }
 
     if (msg.type === 'location') {
-      bubble.classList.remove('ctp-img-bubble', 'ctp-transfer-bubble', 'is-faded', 'ctp-gift-bubble', 'is-claimed');
+      bubble.classList.remove('ctp-img-bubble', 'ctp-transfer-bubble', 'is-faded', 'ctp-gift-bubble', 'is-claimed', 'ctp-contact-pill');
       bubble.classList.add('ctp-rich-card');
       bubble.dataset.ctpRendered = '1';
       bubble.innerHTML =
@@ -398,30 +398,23 @@
 
     if (msg.type === 'contact_card') {
       bubble.classList.remove('ctp-img-bubble', 'ctp-transfer-bubble', 'is-faded', 'ctp-gift-bubble', 'is-claimed');
-      bubble.classList.add('ctp-rich-card');
+      bubble.classList.add('ctp-rich-card', 'ctp-contact-pill');
       bubble.dataset.ctpRendered = '1';
       var avHtml = msg.cardAvatar
         ? '<img src="' + escapeHtml(msg.cardAvatar) + '" alt="">'
         : escapeHtml((msg.cardName || '友').slice(0, 1));
       bubble.innerHTML =
-        '<div class="ctp-rc-main">' +
-          '<div class="ctp-rc-head">' +
-            '<div class="ctp-rc-icon' + (msg.cardAvatar ? '' : ' is-dark') + '">' + avHtml + '</div>' +
-            '<div class="ctp-rc-meta">' +
-              '<div class="ctp-rc-title">' + escapeHtml(msg.cardName || '联系人') + '</div>' +
-              '<div class="ctp-rc-sub">' + escapeHtml(msg.cardSub || '') + '</div>' +
-            '</div>' +
-          '</div>' +
+        '<div class="ctp-cp-av">' + avHtml + '</div>' +
+        '<div class="ctp-cp-meta">' +
+          '<div class="ctp-cp-name">' + escapeHtml(msg.cardName || '联系人') + '</div>' +
+          '<div class="ctp-cp-sub">' + escapeHtml(msg.cardSub || '') + '</div>' +
         '</div>' +
-        '<div class="ctp-rc-foot">' +
-          '<span class="ctp-rc-foot-tag">' + SVG_USER_SM + '<span>个人名片</span></span>' +
-          '<span class="ctp-rc-foot-chevron">' + SVG_CHEVRON_R + '</span>' +
-        '</div>';
+        '<div class="ctp-cp-arrow">' + SVG_CHEVRON_MD + '</div>';
       return;
     }
 
     if (msg.type === 'favorite') {
-      bubble.classList.remove('ctp-img-bubble', 'ctp-transfer-bubble', 'is-faded', 'ctp-gift-bubble', 'is-claimed');
+      bubble.classList.remove('ctp-img-bubble', 'ctp-transfer-bubble', 'is-faded', 'ctp-gift-bubble', 'is-claimed', 'ctp-contact-pill');
       bubble.classList.add('ctp-rich-card');
       bubble.dataset.ctpRendered = '1';
       bubble.innerHTML =
@@ -437,7 +430,7 @@
     }
 
     if (msg.type === 'file') {
-      bubble.classList.remove('ctp-img-bubble', 'ctp-transfer-bubble', 'is-faded', 'ctp-gift-bubble', 'is-claimed');
+      bubble.classList.remove('ctp-img-bubble', 'ctp-transfer-bubble', 'is-faded', 'ctp-gift-bubble', 'is-claimed', 'ctp-contact-pill');
       bubble.classList.add('ctp-rich-card');
       bubble.dataset.ctpRendered = '1';
       var ext = getFileExt(msg.fileName);
@@ -462,7 +455,7 @@
     }
 
     if (msg.type === 'ask9') {
-      bubble.classList.remove('ctp-img-bubble', 'ctp-transfer-bubble', 'is-faded', 'ctp-gift-bubble', 'is-claimed');
+      bubble.classList.remove('ctp-img-bubble', 'ctp-transfer-bubble', 'is-faded', 'ctp-gift-bubble', 'is-claimed', 'ctp-contact-pill');
       bubble.classList.add('ctp-rich-card');
       bubble.dataset.ctpRendered = '1';
       bubble.innerHTML =
@@ -488,7 +481,7 @@
       var giftTitle = msg.title || '送你一份心意';
       var giftFoot = isClaimed ? '礼物 · 已领取' : '礼物';
 
-      bubble.classList.remove('ctp-img-bubble', 'ctp-transfer-bubble', 'is-faded', 'ctp-rich-card');
+      bubble.classList.remove('ctp-img-bubble', 'ctp-transfer-bubble', 'is-faded', 'ctp-rich-card', 'ctp-contact-pill');
       bubble.classList.add('ctp-gift-bubble');
       bubble.classList.toggle('is-claimed', isClaimed);
       bubble.dataset.ctpRendered = '1';
@@ -526,7 +519,7 @@
         iconSvg = SVG_TR_ARROWS;
       }
 
-      bubble.classList.remove('ctp-img-bubble', 'ctp-gift-bubble', 'is-claimed', 'ctp-rich-card');
+      bubble.classList.remove('ctp-img-bubble', 'ctp-gift-bubble', 'is-claimed', 'ctp-rich-card', 'ctp-contact-pill');
       bubble.classList.add('ctp-transfer-bubble');
       bubble.classList.toggle('is-faded', isFaded);
       bubble.dataset.ctpRendered = '1';
@@ -547,7 +540,7 @@
     var imgs = Array.isArray(msg.images) ? msg.images : [];
     if (!imgs.length) return;
 
-    bubble.classList.remove('ctp-transfer-bubble', 'is-faded', 'ctp-gift-bubble', 'is-claimed', 'ctp-rich-card');
+    bubble.classList.remove('ctp-transfer-bubble', 'is-faded', 'ctp-gift-bubble', 'is-claimed', 'ctp-rich-card', 'ctp-contact-pill');
     bubble.classList.add('ctp-img-bubble');
     bubble.dataset.ctpRendered = '1';
 
@@ -1335,14 +1328,51 @@
       observer.observe(msgBox, { childList: true });
     }
 
-    // 一起听：直接同步收起抽屉并打开选歌弹窗
-    document.getElementById('ctpBtnListen').addEventListener('click', function (e) {
-      e.stopPropagation();
-      setDrawerOpen(false);
-      if (window.PhoneChatListen && typeof window.PhoneChatListen.openSongModal === 'function') {
-        window.PhoneChatListen.openSongModal();
+    // 一起听：防 iOS 边角滑动误吞 + 绕开旧捕获点击冲突，一按即开
+    (function bindListenFastTap() {
+      var listenBtn = document.getElementById('ctpBtnListen');
+      if (!listenBtn) return;
+      var sx = 0, sy = 0, moved = false, lastFire = 0;
+
+      function triggerListen() {
+        var now = Date.now();
+        if (now - lastFire < 380) return;
+        lastFire = now;
+        setDrawerOpen(false);
+        if (window.PhoneChatListen && typeof window.PhoneChatListen.openSongModal === 'function') {
+          window.PhoneChatListen.openSongModal();
+        }
       }
-    });
+
+      listenBtn.addEventListener('touchstart', function (e) {
+        var t = e.touches && e.touches[0];
+        if (!t) return;
+        sx = t.clientX;
+        sy = t.clientY;
+        moved = false;
+      }, { passive: true });
+
+      listenBtn.addEventListener('touchmove', function (e) {
+        var t = e.touches && e.touches[0];
+        if (!t) return;
+        if (Math.abs(t.clientX - sx) > 14 || Math.abs(t.clientY - sy) > 14) {
+          moved = true;
+        }
+      }, { passive: true });
+
+      listenBtn.addEventListener('touchend', function (e) {
+        if (moved) return;
+        e.preventDefault();
+        e.stopPropagation();
+        triggerListen();
+      });
+
+      listenBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        triggerListen();
+      });
+    })();
 
     // 问小九事件
     document.getElementById('ctpBtnAsk9').addEventListener('click', openAsk9Modal);
