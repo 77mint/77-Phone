@@ -3,7 +3,8 @@
    - 第 1 页固定 8 格：照片、转账、礼物、问小九、位置、收藏、个人名片、一起听
    - 第 2 页：文件
    - 「一起听」window 捕获级坐标命中直达 window.PhoneChatListen.openSongModal()
-   - 「发送个人名片」独立挂载外层容器 + window 捕获级坐标命中，彻底防 iOS Safari 卡死
+   - 「发送个人名片」独立挂载外层容器 + 自包含完整日夜样式 + window 捕获级坐标命中
+   - 「位置」卡片内置极简 Apple Maps 风格矢量地图（自动适配日夜模式）
    - 接入 window.PhoneChatMe.getActiveAvatarDataUrl() 实时同步用户头像
    ========================================================= */
 (function () {
@@ -27,11 +28,36 @@
   var SVG_CHEVRON_R = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
   var SVG_CHEVRON_MD = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
   var SVG_PIN_SM = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
-  var SVG_PIN_MD = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
   var SVG_BOOKMARK_SM = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
   var SVG_DOC_SM = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
   var SVG_DOC_MD = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
   var SVG_ASK9_SM = '<svg width="13" height="10" viewBox="0 0 24 18" fill="currentColor"><ellipse cx="7" cy="9" rx="3" ry="3.8"/><ellipse cx="17" cy="9" rx="3" ry="3.8"/></svg>';
+
+  var SVG_MINI_MAP =
+    '<svg class="ctp-map-svg" viewBox="0 0 260 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' +
+      '<rect class="ctp-map-ground" width="260" height="120"/>' +
+      '<path class="ctp-map-water" d="M 192 -8 C 186 24 216 42 206 76 C 198 100 220 112 246 128 L 268 128 L 268 -8 Z"/>' +
+      '<path class="ctp-map-park" d="M -8 66 L 66 56 L 86 92 L 34 126 L -8 126 Z"/>' +
+      '<path class="ctp-map-park" d="M 94 -6 L 154 -6 L 146 32 L 102 28 Z"/>' +
+      '<rect class="ctp-map-block" x="18" y="14" width="38" height="24" rx="4"/>' +
+      '<rect class="ctp-map-block" x="116" y="48" width="44" height="26" rx="4"/>' +
+      '<rect class="ctp-map-block" x="108" y="88" width="52" height="22" rx="4"/>' +
+      '<path class="ctp-map-road-sm" d="M -10 22 L 270 38 M 68 -10 L 58 130 M 164 -10 L 142 130 M -10 92 L 270 76"/>' +
+      '<path class="ctp-map-road-lg" d="M -10 54 C 58 46 124 62 192 52 C 224 47 248 40 270 34"/>' +
+      '<path class="ctp-map-road-lg" d="M 104 -10 C 98 36 112 72 96 130"/>' +
+      '<path class="ctp-map-road-main" d="M -10 54 C 58 46 124 62 192 52 C 224 47 248 40 270 34"/>' +
+      '<path class="ctp-map-road-main" d="M 104 -10 C 98 36 112 72 96 130"/>' +
+    '</svg>' +
+    '<div class="ctp-map-marker">' +
+      '<span class="ctp-map-halo"></span>' +
+      '<span class="ctp-map-shadow"></span>' +
+      '<span class="ctp-map-pin-drop">' +
+        '<svg width="26" height="32" viewBox="0 0 26 32" fill="none">' +
+          '<path d="M13 1C6.925 1 2 5.925 2 12c0 7.4 9.5 17.6 10.35 18.48a.9.9 0 0 0 1.3 0C14.5 29.6 24 19.4 24 12 24 5.925 19.075 1 13 1Z" fill="#ff3b30"/>' +
+          '<circle cx="13" cy="11.5" r="4.2" fill="#ffffff"/>' +
+        '</svg>' +
+      '</span>' +
+    '</div>';
 
   var SVG_GIFT_BOW = '<svg width="34" height="34" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 19C17 12.5 12.2 10.5 9.2 12.5C6.5 14.3 7.2 18.8 11.2 19.6C14.2 20.2 17.5 19.6 20 19Z"/><path d="M20 19C23 12.5 27.8 10.5 30.8 12.5C33.5 14.3 32.8 18.8 28.8 19.6C25.8 20.2 22.5 19.6 20 19Z"/><path d="M20 19L10.5 30.5"/><path d="M20 19L29.5 30.5"/></svg>';
   var SVG_TR_ARROWS = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9h12l-3.5-3.5"/><path d="M18 15H6l3.5 3.5"/></svg>';
@@ -109,11 +135,115 @@
     var st = document.createElement('style');
     st.id = 'ctpGiftExtraStyle';
     st.textContent =
+      /* 通用弹窗层级保障 */
       '.ctp-sheet-mask { cursor: pointer; }' +
       '.ctp-sheet-mask.open { z-index: 9990 !important; pointer-events: auto !important; }' +
-      '#ctpCardMask { display: none; position: absolute; inset: 0; z-index: 9998 !important; }' +
-      '#ctpCardMask.open { display: flex !important; opacity: 1 !important; pointer-events: auto !important; }' +
       '.ctp-pick-row { width: 100%; text-align: left; font-family: inherit; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }' +
+
+      /* 独立挂载的「发送个人名片」完整自包含样式（浅色默认） */
+      '#ctpCardMask {' +
+        'display: none; position: absolute; inset: 0; z-index: 9998 !important;' +
+        'background: rgba(0, 0, 0, 0.44); align-items: flex-end; justify-content: center;' +
+        'font-family: var(--app-font, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif);' +
+        'box-sizing: border-box;' +
+      '}' +
+      '#ctpCardMask.open { display: flex !important; opacity: 1 !important; pointer-events: auto !important; }' +
+      '#ctpCardMask .ctp-sheet-panel {' +
+        'width: 100%; max-height: 76%; display: flex; flex-direction: column;' +
+        'background: #ffffff; color: #111111;' +
+        'border-radius: 26px 26px 0 0;' +
+        'box-shadow: 0 -10px 36px rgba(0, 0, 0, 0.16);' +
+        'padding: 10px 16px calc(22px + env(safe-area-inset-bottom, 0px));' +
+        'box-sizing: border-box; transform: none !important;' +
+      '}' +
+      '#ctpCardMask .ctp-sheet-grabber {' +
+        'width: 36px; height: 4px; border-radius: 999px; background: rgba(0, 0, 0, 0.14);' +
+        'margin: 0 auto 12px; flex-shrink: 0;' +
+      '}' +
+      '#ctpCardMask .ctp-sheet-head {' +
+        'display: flex; align-items: center; justify-content: space-between;' +
+        'margin-bottom: 14px; padding: 0 2px; flex-shrink: 0;' +
+      '}' +
+      '#ctpCardMask .ctp-sheet-title {' +
+        'font-size: calc(var(--app-font-size, 15px) + 2px); font-weight: 700;' +
+        'color: #111111; letter-spacing: -0.01em;' +
+      '}' +
+      '#ctpCardMask .ctp-sheet-close {' +
+        'width: 32px; height: 32px; border-radius: 50%; border: none; padding: 0;' +
+        'background: #f2f2f7; color: #3a3a3c;' +
+        'display: flex; align-items: center; justify-content: center; cursor: pointer;' +
+        '-webkit-tap-highlight-color: transparent;' +
+        'transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.16s ease;' +
+      '}' +
+      '#ctpCardMask .ctp-sheet-close.is-pressed { transform: scale(0.88); opacity: 0.75; }' +
+      '#ctpCardMask .ctp-sheet-body {' +
+        'display: flex; flex-direction: column; gap: 10px; overflow-y: auto;' +
+        '-webkit-overflow-scrolling: touch; padding: 0 2px 4px;' +
+      '}' +
+      '#ctpCardMask .ctp-pick-row {' +
+        'display: flex; align-items: center; gap: 12px; padding: 11px 13px;' +
+        'border-radius: 18px; border: 1px solid rgba(0, 0, 0, 0.05);' +
+        'background: #f5f5f7; color: #111111; box-sizing: border-box;' +
+        'transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.16s ease;' +
+      '}' +
+      '#ctpCardMask .ctp-pick-row.is-pressed { transform: scale(0.97); opacity: 0.84; }' +
+      '#ctpCardMask .ctp-pick-av {' +
+        'width: 44px; height: 44px; border-radius: 13px; overflow: hidden; flex-shrink: 0;' +
+        'background: #e5e5ea; color: #111111;' +
+        'display: flex; align-items: center; justify-content: center;' +
+        'font-size: calc(var(--app-font-size, 15px) + 1px); font-weight: 700;' +
+      '}' +
+      '#ctpCardMask .ctp-pick-av img { width: 100%; height: 100%; object-fit: cover; display: block; }' +
+      '#ctpCardMask .ctp-pick-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }' +
+      '#ctpCardMask .ctp-pick-title {' +
+        'font-size: var(--app-font-size, 15px); font-weight: 600; color: #111111;' +
+        'white-space: nowrap; overflow: hidden; text-overflow: ellipsis;' +
+      '}' +
+      '#ctpCardMask .ctp-pick-sub {' +
+        'font-size: calc(var(--app-font-size, 15px) - 2.5px); color: #8e8e93;' +
+        'white-space: nowrap; overflow: hidden; text-overflow: ellipsis;' +
+      '}' +
+      '#ctpCardMask .ctp-pick-pill {' +
+        'flex-shrink: 0; padding: 7px 14px; border-radius: 999px;' +
+        'background: #111111; color: #ffffff;' +
+        'font-size: calc(var(--app-font-size, 15px) - 2px); font-weight: 600;' +
+      '}' +
+      '#ctpCardMask .ctp-empty-card {' +
+        'padding: 24px 16px; border-radius: 16px; background: #f5f5f7;' +
+        'color: #8e8e93; text-align: center; font-size: calc(var(--app-font-size, 15px) - 1px);' +
+      '}' +
+
+      /* 极简 Apple Maps 风格位置卡片地图 */
+      '.ctp-rc-map {' +
+        'position: relative !important; height: 112px !important; margin: 0 12px 10px !important;' +
+        'border-radius: 13px !important; overflow: hidden !important;' +
+        'background: #eef1f5 !important; background-image: none !important;' +
+        'border: 1px solid rgba(0, 0, 0, 0.06) !important; box-sizing: border-box !important;' +
+      '}' +
+      '.ctp-rc-map::before, .ctp-rc-map::after { display: none !important; content: none !important; }' +
+      '.ctp-map-svg { width: 100%; height: 100%; display: block; }' +
+      '.ctp-map-ground { fill: #f1f3f6; }' +
+      '.ctp-map-water { fill: #d6e9f8; }' +
+      '.ctp-map-park { fill: #dceee0; }' +
+      '.ctp-map-block { fill: #e6e9ef; }' +
+      '.ctp-map-road-sm { fill: none; stroke: #ffffff; stroke-width: 3.5; stroke-linecap: round; opacity: 0.85; }' +
+      '.ctp-map-road-lg { fill: none; stroke: #dde2ea; stroke-width: 9.5; stroke-linecap: round; }' +
+      '.ctp-map-road-main { fill: none; stroke: #ffffff; stroke-width: 7; stroke-linecap: round; }' +
+      '.ctp-map-marker {' +
+        'position: absolute; left: 50%; top: 50%; transform: translate(-50%, -62%);' +
+        'display: flex; align-items: center; justify-content: center; pointer-events: none;' +
+      '}' +
+      '.ctp-map-halo {' +
+        'position: absolute; bottom: -5px; width: 34px; height: 16px; border-radius: 50%;' +
+        'background: rgba(255, 59, 48, 0.22);' +
+      '}' +
+      '.ctp-map-shadow {' +
+        'position: absolute; bottom: -1px; width: 12px; height: 5px; border-radius: 50%;' +
+        'background: rgba(0, 0, 0, 0.24); filter: blur(1.5px);' +
+      '}' +
+      '.ctp-map-pin-drop { position: relative; z-index: 2; display: flex; filter: drop-shadow(0 3px 6px rgba(255, 59, 48, 0.34)); }' +
+
+      /* 礼物弹窗样式 */
       '.ctp-gift-mask { position: absolute; inset: 0; z-index: 66; background: rgba(0, 0, 0, 0.42); display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.24s cubic-bezier(0.32, 0.72, 0, 1); }' +
       '.ctp-gift-mask.open { opacity: 1; pointer-events: auto; }' +
       '.ctp-gift-modal { width: 100%; max-width: 312px; border-radius: 24px; overflow: hidden; background: #ffffff; color: #111111; box-shadow: 0 22px 48px rgba(0, 0, 0, 0.24); font-family: var(--app-font, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif); transform: translateY(14px) scale(0.92); transition: transform 0.3s cubic-bezier(0.34, 1.38, 0.64, 1); }' +
@@ -133,11 +263,55 @@
       '.ctp-gift-detail-body { padding: 18px 18px 8px; text-align: center; display: flex; flex-direction: column; gap: 6px; }' +
       '.ctp-gift-detail-item { font-size: calc(var(--app-font-size, 15px) + 1px); font-weight: 600; color: #111111; word-break: break-word; }' +
       '.ctp-gift-detail-meta { font-size: calc(var(--app-font-size, 15px) - 3px); color: #8e8e93; }' +
+
+      /* 深色模式（手动深色） */
+      'html[data-theme="dark"] #ctpCardMask { background: rgba(0, 0, 0, 0.62); }' +
+      'html[data-theme="dark"] #ctpCardMask .ctp-sheet-panel { background: #1c1c1e; color: #f5f5f7; box-shadow: 0 -10px 36px rgba(0, 0, 0, 0.5); border-top: 0.5px solid rgba(255, 255, 255, 0.1); }' +
+      'html[data-theme="dark"] #ctpCardMask .ctp-sheet-grabber { background: rgba(255, 255, 255, 0.24); }' +
+      'html[data-theme="dark"] #ctpCardMask .ctp-sheet-title { color: #f5f5f7; }' +
+      'html[data-theme="dark"] #ctpCardMask .ctp-sheet-close { background: #2c2c2e; color: #e5e5ea; }' +
+      'html[data-theme="dark"] #ctpCardMask .ctp-pick-row { background: #262629; color: #f5f5f7; border-color: rgba(255, 255, 255, 0.06); }' +
+      'html[data-theme="dark"] #ctpCardMask .ctp-pick-av { background: #3a3a3c; color: #f5f5f7; }' +
+      'html[data-theme="dark"] #ctpCardMask .ctp-pick-title { color: #f5f5f7; }' +
+      'html[data-theme="dark"] #ctpCardMask .ctp-pick-sub { color: #98989d; }' +
+      'html[data-theme="dark"] #ctpCardMask .ctp-pick-pill { background: #f5f5f7; color: #111111; }' +
+      'html[data-theme="dark"] #ctpCardMask .ctp-empty-card { background: #262629; color: #98989d; }' +
+      'html[data-theme="dark"] .ctp-rc-map { background: #1a1c22 !important; border-color: rgba(255, 255, 255, 0.08) !important; }' +
+      'html[data-theme="dark"] .ctp-map-ground { fill: #1b1d23; }' +
+      'html[data-theme="dark"] .ctp-map-water { fill: #18293a; }' +
+      'html[data-theme="dark"] .ctp-map-park { fill: #1d2e26; }' +
+      'html[data-theme="dark"] .ctp-map-block { fill: #23262f; }' +
+      'html[data-theme="dark"] .ctp-map-road-sm { stroke: #2b2f3a; }' +
+      'html[data-theme="dark"] .ctp-map-road-lg { stroke: #14161b; }' +
+      'html[data-theme="dark"] .ctp-map-road-main { stroke: #393e4c; }' +
+      'html[data-theme="dark"] .ctp-map-halo { background: rgba(255, 69, 58, 0.28); }' +
       'html[data-theme="dark"] .ctp-gift-modal { background: #18181b; color: #f5f5f7; }' +
       'html[data-theme="dark"] .ctp-gift-inp { background: #242429; color: #f5f5f7; }' +
       'html[data-theme="dark"] .ctp-gift-btn.is-cancel { background: #25252b; color: #f5f5f7; }' +
       'html[data-theme="dark"] .ctp-gift-detail-item { color: #f5f5f7; }' +
+
+      /* 深色模式（跟随系统） */
       '@media (prefers-color-scheme: dark) {' +
+        'html:not([data-theme="light"]) #ctpCardMask { background: rgba(0, 0, 0, 0.62); }' +
+        'html:not([data-theme="light"]) #ctpCardMask .ctp-sheet-panel { background: #1c1c1e; color: #f5f5f7; box-shadow: 0 -10px 36px rgba(0, 0, 0, 0.5); border-top: 0.5px solid rgba(255, 255, 255, 0.1); }' +
+        'html:not([data-theme="light"]) #ctpCardMask .ctp-sheet-grabber { background: rgba(255, 255, 255, 0.24); }' +
+        'html:not([data-theme="light"]) #ctpCardMask .ctp-sheet-title { color: #f5f5f7; }' +
+        'html:not([data-theme="light"]) #ctpCardMask .ctp-sheet-close { background: #2c2c2e; color: #e5e5ea; }' +
+        'html:not([data-theme="light"]) #ctpCardMask .ctp-pick-row { background: #262629; color: #f5f5f7; border-color: rgba(255, 255, 255, 0.06); }' +
+        'html:not([data-theme="light"]) #ctpCardMask .ctp-pick-av { background: #3a3a3c; color: #f5f5f7; }' +
+        'html:not([data-theme="light"]) #ctpCardMask .ctp-pick-title { color: #f5f5f7; }' +
+        'html:not([data-theme="light"]) #ctpCardMask .ctp-pick-sub { color: #98989d; }' +
+        'html:not([data-theme="light"]) #ctpCardMask .ctp-pick-pill { background: #f5f5f7; color: #111111; }' +
+        'html:not([data-theme="light"]) #ctpCardMask .ctp-empty-card { background: #262629; color: #98989d; }' +
+        'html:not([data-theme="light"]) .ctp-rc-map { background: #1a1c22 !important; border-color: rgba(255, 255, 255, 0.08) !important; }' +
+        'html:not([data-theme="light"]) .ctp-map-ground { fill: #1b1d23; }' +
+        'html:not([data-theme="light"]) .ctp-map-water { fill: #18293a; }' +
+        'html:not([data-theme="light"]) .ctp-map-park { fill: #1d2e26; }' +
+        'html:not([data-theme="light"]) .ctp-map-block { fill: #23262f; }' +
+        'html:not([data-theme="light"]) .ctp-map-road-sm { stroke: #2b2f3a; }' +
+        'html:not([data-theme="light"]) .ctp-map-road-lg { stroke: #14161b; }' +
+        'html:not([data-theme="light"]) .ctp-map-road-main { stroke: #393e4c; }' +
+        'html:not([data-theme="light"]) .ctp-map-halo { background: rgba(255, 69, 58, 0.28); }' +
         'html:not([data-theme="light"]) .ctp-gift-modal { background: #18181b; color: #f5f5f7; }' +
         'html:not([data-theme="light"]) .ctp-gift-inp { background: #242429; color: #f5f5f7; }' +
         'html:not([data-theme="light"]) .ctp-gift-btn.is-cancel { background: #25252b; color: #f5f5f7; }' +
@@ -483,9 +657,7 @@
             '<div class="ctp-rc-sub">' + escapeHtml(msg.locAddr || '当前分享位置') + '</div>' +
           '</div>' +
         '</div>' +
-        '<div class="ctp-rc-map">' +
-          '<div class="ctp-rc-pin">' + SVG_PIN_MD + '</div>' +
-        '</div>' +
+        '<div class="ctp-rc-map">' + SVG_MINI_MAP + '</div>' +
         '<div class="ctp-rc-foot">' +
           '<span class="ctp-rc-foot-tag">' + SVG_PIN_SM + '<span>位置</span></span>' +
           '<span class="ctp-rc-foot-chevron">' + SVG_CHEVRON_R + '</span>' +
